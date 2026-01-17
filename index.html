@@ -529,7 +529,7 @@
             );
         };
 
-        // --- BLOCK: PACIENTES (ACTUALIZADO: LOGICA INTELIGENTE EXCEL) ---
+        // --- BLOCK: PACIENTES (ACTUALIZADO - IMPRESIÓN, VISUALIZACIÓN Y GPS) ---
         const PatientManagementBlock = ({ patients, kits, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
@@ -537,6 +537,14 @@
             const [editingPatientId, setEditingPatientId] = useState(null);
             const [confirmData, setConfirmData] = useState(null);
             
+            // Estados para Impresión
+            const [printKitData, setPrintKitData] = useState(null);
+            const [printMode, setPrintMode] = useState(null); // 'ventanilla', 'ruta', 'refri'
+            const [showPrintModal, setShowPrintModal] = useState(false);
+
+            // Estados para visualización
+            const [isViewMode, setIsViewMode] = useState(false);
+
             // Kit Form State
             const initialKit = { 
                 fechaArmado: new Date().toISOString().split('T')[0], 
@@ -554,6 +562,7 @@
                 otherPhone: '',
                 addressConfirmed: true, 
                 secondaryAddress: '',
+                gpsStatus: 'SIN GPS', // NUEVO CAMPO
                 observationsEnabled: false,
                 observations: '',
                 isRefrigerated: false, 
@@ -580,7 +589,7 @@
             const filteredPatients = patients.filter(p => (p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || p.dni?.includes(searchTerm)));
             const patientKits = selectedPatient ? kits.filter(k => k.patientId === selectedPatient.id) : [];
 
-            // Excel Upload Handler (LÓGICA ACTUALIZADA DE DUPLICADOS Y RELLENO)
+            // Excel Upload Handler
             const handleExcelUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -596,7 +605,6 @@
                     let skipped = 0;
                     let updated = 0;
 
-                    // Iterar sobre cada fila del Excel
                     for (const row of data) {
                         const pData = {
                             dni: String(row['DNI'] || row['dni'] || '').trim(),
@@ -612,51 +620,33 @@
 
                         if (!pData.dni) continue;
 
-                        // Verificar si el paciente ya existe en la BD
                         const existingPatient = patients.find(p => p.dni === pData.dni);
 
                         if (existingPatient) {
-                            // El paciente existe: Verificamos si podemos rellenar datos faltantes
                             let needsUpdate = false;
                             const updates = {};
-
-                            // Función para chequear si un campo está vacío en DB y tiene dato en Excel
                             const checkAndFill = (field) => {
                                 const dbValue = existingPatient[field];
                                 const excelValue = pData[field];
-                                // Si en la DB no hay dato (null, undefined o vacío) Y en el Excel SÍ hay dato
                                 if ((!dbValue || dbValue.trim() === '') && (excelValue && excelValue.trim() !== '')) {
                                     updates[field] = excelValue;
                                     needsUpdate = true;
                                 }
                             };
-
-                            checkAndFill('nombre');
-                            checkAndFill('telefono');
-                            checkAndFill('direccion');
-                            checkAndFill('familiar');
-                            checkAndFill('telefonoFamiliar');
-                            checkAndFill('descripcionMunicipio');
+                            checkAndFill('nombre'); checkAndFill('telefono'); checkAndFill('direccion');
+                            checkAndFill('familiar'); checkAndFill('telefonoFamiliar'); checkAndFill('descripcionMunicipio');
                             
-                            // Lógica especial para tipo afiliado (si era el default y viene uno específico)
                             if ((!existingPatient.tipoAfiliado || existingPatient.tipoAfiliado === 'AFILIADO DIRECTO') && pData.tipoAfiliado && pData.tipoAfiliado !== 'AFILIADO DIRECTO') {
-                                 updates.tipoAfiliado = pData.tipoAfiliado;
-                                 needsUpdate = true;
+                                 updates.tipoAfiliado = pData.tipoAfiliado; needsUpdate = true;
                             }
 
-                            if (needsUpdate) {
-                                await onUpdatePatient(existingPatient.id, updates);
-                                updated++;
-                            } else {
-                                skipped++; // Ya existía y tenía datos completos (o el Excel no traía nada nuevo)
-                            }
+                            if (needsUpdate) { await onUpdatePatient(existingPatient.id, updates); updated++; } 
+                            else { skipped++; }
                         } else {
-                            // No existe: Lo agregamos como nuevo
-                            await onAddPatient(pData);
-                            added++;
+                            await onAddPatient(pData); added++;
                         }
                     }
-                    alert(`Resumen de Carga:\n\n✅ Pacientes Agregados: ${added}\n🔄 Pacientes Modificados (Datos completados): ${updated}\n⏭️ Pacientes Omitidos (Duplicados): ${skipped}`);
+                    alert(`Resumen de Carga:\n\n✅ Pacientes Agregados: ${added}\n🔄 Pacientes Modificados: ${updated}\n⏭️ Pacientes Omitidos: ${skipped}`);
                 };
                 reader.readAsBinaryString(file);
                 e.target.value = null; 
@@ -674,6 +664,7 @@
 
             const handleKitSubmit = (e) => {
                 e.preventDefault();
+                if (isViewMode) { closeKitForm(); return; } // Si es solo lectura, cierra
                 const finalData = { ...kitData, digitador: currentUser.name, dni: selectedPatient.dni, nombre: selectedPatient.nombre }; 
                 if (!editingKitId && !finalData.horaOperaciones) {
                     finalData.horaOperaciones = new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', hour12:true});
@@ -683,12 +674,34 @@
                 else onSaveKit(null, finalData, selectedPatient.id, false);
                 closeKitForm();
             };
-            const closeKitForm = () => { setKitData(initialKit); setEditingKitId(null); setShowKitForm(false); };
+            const closeKitForm = () => { setKitData(initialKit); setEditingKitId(null); setShowKitForm(false); setIsViewMode(false); };
             const openNewKit = () => {
                 setKitData({ ...initialKit, fechaArmado: new Date().toISOString().split('T')[0] });
+                setIsViewMode(false);
                 setShowKitForm(true);
             };
-            const openEditKit = (k) => { setKitData({...k, otherPhoneEnabled: !!k.otherPhone}); setEditingKitId(k.id); setShowKitForm(true); };
+            const openEditKit = (k, viewOnly = false) => { 
+                setKitData({...k, otherPhoneEnabled: !!k.otherPhone}); 
+                setEditingKitId(k.id); 
+                setIsViewMode(viewOnly);
+                setShowKitForm(true); 
+            };
+
+            // Print Logic
+            const openPrintModal = (kit) => {
+                setPrintKitData(kit);
+                setShowPrintModal(true);
+            };
+
+            const triggerPrint = (mode) => {
+                setPrintMode(mode);
+                // Esperar un momento a que el estado se actualice y renderice la plantilla oculta
+                setTimeout(() => {
+                    window.print();
+                    setShowPrintModal(false);
+                    setPrintMode(null);
+                }, 100);
+            };
 
             const handleMedChange = (idx, field, val) => {
                 const newMeds = [...kitData.medicamentos];
@@ -718,7 +731,130 @@
             if (selectedPatient) {
                 return (
                     <div className="glass-panel rounded-3xl shadow-soft h-full flex flex-col animate-in border-0 bg-white">
+                        
+                        {/* ESTILOS DE IMPRESIÓN ESPECÍFICOS */}
+                        <style>{`
+                            @media print {
+                                body * { visibility: hidden; }
+                                #print-section, #print-section * { visibility: visible; }
+                                #print-section { 
+                                    position: fixed; 
+                                    left: 0; 
+                                    top: 0; 
+                                    width: 7.2cm; 
+                                    min-height: 21cm;
+                                    background: white;
+                                    color: black;
+                                    font-family: 'Courier New', Courier, monospace; /* Tipografía tipo ticket */
+                                    font-size: 12px;
+                                    padding: 2mm;
+                                }
+                                @page { size: 72mm 210mm; margin: 0; }
+                            }
+                        `}</style>
+
+                        {/* PLANTILLA DE IMPRESIÓN OCULTA */}
+                        {printKitData && printMode && (
+                            <div id="print-section" className="hidden print:block">
+                                <div className="flex flex-col items-center text-center border-b border-black pb-2 mb-2">
+                                    <h1 className="text-xl font-bold uppercase">{printMode === 'refri' ? 'REFRIGERADO' : (printMode === 'ruta' ? 'RUTA' : 'VENTANILLA')}</h1>
+                                    <div className="text-xs">Operaciones - LEQ</div>
+                                </div>
+                                
+                                <div className="text-left space-y-2">
+                                    <div><strong>Paciente:</strong> {printKitData.nombre}</div>
+                                    <div><strong>DNI:</strong> {printKitData.dni}</div>
+                                    <div><strong>Fecha Entrega:</strong> {printKitData.fechaEntregaKit}</div>
+
+                                    {printMode !== 'refri' && (
+                                        <>
+                                            <div><strong># Medicamentos:</strong> {printKitData.triggerMeds}</div>
+                                            
+                                            {/* Teléfonos seleccionados */}
+                                            {(printKitData.selectedPhones?.length > 0 || printKitData.otherPhone) && (
+                                                <div className="mt-1">
+                                                    <strong>Teléfonos:</strong><br/>
+                                                    {printKitData.selectedPhones?.map(p => <div key={p}>- {p}</div>)}
+                                                    {printKitData.otherPhone && <div>- {printKitData.otherPhone} (Otro)</div>}
+                                                </div>
+                                            )}
+
+                                            <div><strong>Contact Center:</strong> {printKitData.contactCenter || 'N/A'}</div>
+                                            
+                                            {/* GPS */}
+                                            <div className="mt-1 border-t border-black pt-1">
+                                                <strong>GPS:</strong> {printKitData.gpsStatus || 'SIN GPS'}
+                                            </div>
+
+                                            {/* Datos específicos de Ruta */}
+                                            {printMode === 'ruta' && (
+                                                <div className="mt-2 pt-2 border-t border-dashed border-black">
+                                                    <div><strong>Dirección Entrega:</strong></div>
+                                                    <div className="text-xs leading-tight mb-2">
+                                                        {printKitData.addressConfirmed 
+                                                            ? selectedPatient.direccion 
+                                                            : printKitData.secondaryAddress}
+                                                    </div>
+                                                    {printKitData.observations && (
+                                                        <div>
+                                                            <strong>Obs:</strong> {printKitData.observations}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* Refrigerado en ticket normal o solo */}
+                                    {(printKitData.isRefrigerated || printMode === 'refri') && (
+                                        <div className="mt-2 border border-black p-1 text-center font-bold">
+                                            REFRIGERADO: {printKitData.cantRefriGlobal}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="mt-4 pt-2 border-t border-black text-center text-xs">
+                                    Creado por: {printKitData.digitador}<br/>
+                                    {new Date().toLocaleString()}
+                                </div>
+                            </div>
+                        )}
+
                         <ConfirmModal isOpen={!!confirmData} onClose={()=>setConfirmData(null)} onConfirm={confirmData?.action} title={confirmData?.title} message={confirmData?.msg} />
+                        
+                        {/* MODAL DE SELECCIÓN DE IMPRESIÓN */}
+                        {showPrintModal && (
+                            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in">
+                                <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xs text-center">
+                                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center justify-center gap-2"><Icons.Printer/> Imprimir Kit</h3>
+                                    <div className="space-y-3">
+                                        <button 
+                                            onClick={() => triggerPrint('ventanilla')} 
+                                            disabled={printKitData.deliveryMode !== 'ventanilla'}
+                                            className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 ${printKitData.deliveryMode === 'ventanilla' ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                                        >
+                                            Ventanilla
+                                        </button>
+                                        <button 
+                                            onClick={() => triggerPrint('ruta')} 
+                                            disabled={printKitData.deliveryMode !== 'ruta'}
+                                            className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 ${printKitData.deliveryMode === 'ruta' ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                                        >
+                                            Ruta
+                                        </button>
+                                        <button 
+                                            onClick={() => triggerPrint('refri')} 
+                                            disabled={!printKitData.isRefrigerated}
+                                            className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 ${printKitData.isRefrigerated ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                                        >
+                                            Refrigerado
+                                        </button>
+                                    </div>
+                                    <button onClick={() => setShowPrintModal(false)} className="mt-6 text-sm text-slate-500 hover:text-slate-800 underline">Cancelar</button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-20">
                             <div className="flex items-center gap-3">
                                 <button onClick={() => setSelectedPatient(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors btn-hover-effect"><Icons.ArrowLeft size={20} /></button>
@@ -727,120 +863,139 @@
                             <button onClick={openNewKit} className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs shadow-md transition-all btn-hover-effect bg-turquoise-600 hover:bg-turquoise-700 text-white"><Icons.FolderPlus size={16}/> Nuevo Kit</button>
                         </div>
 
-                        <Modal isOpen={showKitForm} onClose={closeKitForm} title={editingKitId ? "Editar Kit" : "Nuevo Kit de Producción"} maxWidth="max-w-4xl">
+                        <Modal isOpen={showKitForm} onClose={closeKitForm} title={isViewMode ? "Detalle del Kit" : (editingKitId ? "Editar Kit" : "Nuevo Kit de Producción")} maxWidth="max-w-4xl">
+                            {/* FORMULARIO KIT */}
                             <form onSubmit={handleKitSubmit} className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 border-b border-slate-100 pb-4 bg-slate-50 p-4 rounded-xl">
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI del Paciente</label>
-                                        <input type="text" value={selectedPatient.dni} disabled className="w-full p-2.5 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 font-bold" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nombre del Paciente</label>
-                                        <input type="text" value={selectedPatient.nombre} disabled className="w-full p-2.5 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 font-bold" />
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-4 justify-center pb-4 border-b border-slate-100">
-                                    <button type="button" onClick={()=>setKitData({...kitData, deliveryMode: 'ventanilla'})} className={`px-6 py-2 rounded-lg font-bold transition-all ${kitData.deliveryMode === 'ventanilla' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Ventanilla</button>
-                                    <button type="button" onClick={()=>setKitData({...kitData, deliveryMode: 'ruta'})} className={`px-6 py-2 rounded-lg font-bold transition-all ${kitData.deliveryMode === 'ruta' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Ruta</button>
-                                </div>
-
-                                <div className={`transition-all duration-300 ${kitData.deliveryMode === 'ventanilla' ? 'opacity-40 pointer-events-none grayscale' : ''}`}>
-                                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
-                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Confirmar Datos de Contacto</h5>
-                                        <div className="space-y-2 mb-4">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase block">Seleccionar Teléfonos a Llamar:</label>
-                                            {selectedPatient.telefono && (
-                                                <label className="flex items-center gap-2 p-2 bg-white rounded border border-slate-200 cursor-pointer">
-                                                    <input type="checkbox" checked={kitData.selectedPhones?.includes(selectedPatient.telefono)} onChange={()=>togglePhoneSelection(selectedPatient.telefono)} />
-                                                    <span className="text-sm">{selectedPatient.telefono} (Personal)</span>
-                                                </label>
-                                            )}
-                                            {selectedPatient.telefonoFamiliar && (
-                                                <label className="flex items-center gap-2 p-2 bg-white rounded border border-slate-200 cursor-pointer">
-                                                    <input type="checkbox" checked={kitData.selectedPhones?.includes(selectedPatient.telefonoFamiliar)} onChange={()=>togglePhoneSelection(selectedPatient.telefonoFamiliar)} />
-                                                    <span className="text-sm">{selectedPatient.telefonoFamiliar} (Familiar)</span>
-                                                </label>
-                                            )}
-                                            <div className="flex items-center gap-2 p-2 bg-white rounded border border-slate-200">
-                                                <input type="checkbox" checked={kitData.otherPhoneEnabled} onChange={(e) => setKitData({...kitData, otherPhoneEnabled: e.target.checked, otherPhone: e.target.checked ? kitData.otherPhone : ''})} />
-                                                <span className="text-sm whitespace-nowrap">Otro:</span>
-                                                <input type="text" className={`w-full p-1 border-b border-slate-300 outline-none text-sm ${!kitData.otherPhoneEnabled ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`} placeholder="Ingresar otro número" value={kitData.otherPhone} onChange={e=>setKitData({...kitData, otherPhone:e.target.value})} disabled={!kitData.otherPhoneEnabled} />
-                                            </div>
-                                        </div>
-                                        <div className="mb-4">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Confirmar Ubicación (Primaria: {selectedPatient.direccion})</label>
-                                            <div className="flex items-center gap-4 mb-2">
-                                                <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="addrConf" checked={kitData.addressConfirmed === true} onChange={()=>setKitData({...kitData, addressConfirmed: true})} /> <span className="text-sm font-bold text-green-600">Sí, es correcta</span></label>
-                                                <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="addrConf" checked={kitData.addressConfirmed === false} onChange={()=>setKitData({...kitData, addressConfirmed: false})} /> <span className="text-sm font-bold text-red-500">No, nueva dirección</span></label>
-                                            </div>
-                                            {!kitData.addressConfirmed && (
-                                                <div className="animate-in">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Dirección Secundaria (Ruta)</label>
-                                                    <textarea className="w-full p-2 border rounded text-sm bg-white" rows="2" value={kitData.secondaryAddress} onChange={e=>setKitData({...kitData, secondaryAddress:e.target.value})} placeholder="Ingrese la nueva dirección de entrega..."></textarea>
-                                                </div>
-                                            )}
+                                {/* Disabled overlay for View Mode */}
+                                <fieldset disabled={isViewMode} className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 border-b border-slate-100 pb-4 bg-slate-50 p-4 rounded-xl">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI del Paciente</label>
+                                            <input type="text" value={selectedPatient.dni} disabled className="w-full p-2.5 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 font-bold" />
                                         </div>
                                         <div>
-                                            <label className="flex items-center gap-2 cursor-pointer mb-2">
-                                                <input type="checkbox" checked={kitData.observationsEnabled} onChange={e=>setKitData({...kitData, observationsEnabled:e.target.checked})} />
-                                                <span className="text-xs font-bold text-slate-500 uppercase">Agregar Observaciones de Entrega</span>
-                                            </label>
-                                            {kitData.observationsEnabled && (
-                                                <textarea className="w-full p-2 border rounded text-sm bg-amber-50 border-amber-200" rows="2" value={kitData.observations} onChange={e=>setKitData({...kitData, observations:e.target.value})} placeholder="Ej: Casa de color verde, portón negro..."></textarea>
-                                            )}
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nombre del Paciente</label>
+                                            <input type="text" value={selectedPatient.nombre} disabled className="w-full p-2.5 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 font-bold" />
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
-                                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Logística</h5>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Fecha Armado</label><input type="date" className="w-full p-2 border rounded text-sm bg-white" value={kitData.fechaArmado} onChange={e=>setKitData({...kitData, fechaArmado:e.target.value})} required /></div>
-                                        <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Entrega a Logística</label><input type="date" className="w-full p-2 border rounded text-sm bg-white" value={kitData.fechaEntregaLogistica} onChange={e=>setKitData({...kitData, fechaEntregaLogistica:e.target.value})} /></div>
-                                        <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Entrega de Kit (Paciente)</label><input type="date" className="w-full p-2 border rounded text-sm bg-white" value={kitData.fechaEntregaKit} onChange={e=>setKitData({...kitData, fechaEntregaKit:e.target.value})} /></div>
-                                        <div className="md:col-span-3">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Contact Center</label>
-                                            <select className="w-full p-2 border rounded text-sm bg-white" value={kitData.contactCenter} onChange={e=>setKitData({...kitData, contactCenter:e.target.value})}>
-                                                <option value="">Seleccione...</option>
-                                                {contacts && contacts.map(c => (
-                                                    <option key={c.id} value={`${c.name} --- ${c.phone}`}>{c.name} --- {c.phone}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="md:col-span-3"><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Digitador</label><input type="text" className="w-full p-2 border rounded text-sm bg-slate-200 text-slate-500" value={currentUser.name} disabled /></div>
+                                    <div className="flex gap-4 justify-center pb-4 border-b border-slate-100">
+                                        <button type="button" onClick={()=>setKitData({...kitData, deliveryMode: 'ventanilla'})} className={`px-6 py-2 rounded-lg font-bold transition-all ${kitData.deliveryMode === 'ventanilla' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Ventanilla</button>
+                                        <button type="button" onClick={()=>setKitData({...kitData, deliveryMode: 'ruta'})} className={`px-6 py-2 rounded-lg font-bold transition-all ${kitData.deliveryMode === 'ruta' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Ruta</button>
                                     </div>
-                                </div>
 
-                                <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
-                                    <div className="flex justify-between items-center mb-4 border-b border-slate-200 pb-1">
-                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Medicamentos</h5>
-                                        <div className="flex items-center gap-4">
-                                            <label className="flex items-center gap-1 cursor-pointer">
-                                                <input type="checkbox" checked={kitData.isRefrigerated} onChange={e=>setKitData({...kitData, isRefrigerated: e.target.checked})} className="rounded border-slate-300 text-turquoise-600 focus:ring-turquoise-500" />
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase">Refrigerado</span>
-                                            </label>
-                                            {kitData.isRefrigerated && (
-                                                <input type="number" placeholder="Cant." className="w-16 p-1 border rounded text-center text-xs bg-blue-50 border-blue-200 text-blue-700 font-bold outline-none" value={kitData.cantRefriGlobal} onChange={e=>setKitData({...kitData, cantRefriGlobal: e.target.value})} />
-                                            )}
-                                            <div className="flex items-center gap-2">
-                                                <label className="text-xs font-bold text-slate-500">% Medicamentos:</label>
-                                                <input type="text" className="w-20 p-1 border rounded text-center font-bold bg-white" value={kitData.triggerMeds} onChange={e=>handleTriggerMeds(e.target.value)} placeholder="Ej: 6/9" />
+                                    <div className={`transition-all duration-300 ${kitData.deliveryMode === 'ventanilla' ? 'opacity-40 pointer-events-none grayscale' : ''}`}>
+                                        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
+                                            <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Confirmar Datos de Contacto</h5>
+                                            <div className="space-y-2 mb-4">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase block">Seleccionar Teléfonos a Llamar:</label>
+                                                {selectedPatient.telefono && (
+                                                    <label className="flex items-center gap-2 p-2 bg-white rounded border border-slate-200 cursor-pointer">
+                                                        <input type="checkbox" checked={kitData.selectedPhones?.includes(selectedPatient.telefono)} onChange={()=>togglePhoneSelection(selectedPatient.telefono)} />
+                                                        <span className="text-sm">{selectedPatient.telefono} (Personal)</span>
+                                                    </label>
+                                                )}
+                                                {selectedPatient.telefonoFamiliar && (
+                                                    <label className="flex items-center gap-2 p-2 bg-white rounded border border-slate-200 cursor-pointer">
+                                                        <input type="checkbox" checked={kitData.selectedPhones?.includes(selectedPatient.telefonoFamiliar)} onChange={()=>togglePhoneSelection(selectedPatient.telefonoFamiliar)} />
+                                                        <span className="text-sm">{selectedPatient.telefonoFamiliar} (Familiar)</span>
+                                                    </label>
+                                                )}
+                                                <div className="flex items-center gap-2 p-2 bg-white rounded border border-slate-200">
+                                                    <input type="checkbox" checked={kitData.otherPhoneEnabled} onChange={(e) => setKitData({...kitData, otherPhoneEnabled: e.target.checked, otherPhone: e.target.checked ? kitData.otherPhone : ''})} />
+                                                    <span className="text-sm whitespace-nowrap">Otro:</span>
+                                                    <input type="text" className={`w-full p-1 border-b border-slate-300 outline-none text-sm ${!kitData.otherPhoneEnabled ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`} placeholder="Ingresar otro número" value={kitData.otherPhone} onChange={e=>setKitData({...kitData, otherPhone:e.target.value})} disabled={!kitData.otherPhoneEnabled} />
+                                                </div>
+                                            </div>
+                                            <div className="mb-4">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Confirmar Ubicación (Primaria: {selectedPatient.direccion})</label>
+                                                <div className="flex items-center gap-4 mb-2">
+                                                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="addrConf" checked={kitData.addressConfirmed === true} onChange={()=>setKitData({...kitData, addressConfirmed: true})} /> <span className="text-sm font-bold text-green-600">Sí, es correcta</span></label>
+                                                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="addrConf" checked={kitData.addressConfirmed === false} onChange={()=>setKitData({...kitData, addressConfirmed: false})} /> <span className="text-sm font-bold text-red-500">No, nueva dirección</span></label>
+                                                </div>
+                                                {!kitData.addressConfirmed && (
+                                                    <div className="animate-in mb-3">
+                                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Dirección Secundaria (Ruta)</label>
+                                                        <textarea className="w-full p-2 border rounded text-sm bg-white" rows="2" value={kitData.secondaryAddress} onChange={e=>setKitData({...kitData, secondaryAddress:e.target.value})} placeholder="Ingrese la nueva dirección de entrega..."></textarea>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* NUEVO MENU DESPLEGABLE GPS */}
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Estado GPS</label>
+                                                    <select className="w-full p-2 border rounded text-sm bg-white font-bold text-slate-700" value={kitData.gpsStatus} onChange={e=>setKitData({...kitData, gpsStatus:e.target.value})}>
+                                                        <option value="TIENE GPS">TIENE GPS</option>
+                                                        <option value="GPS PENDIENTE">GPS PENDIENTE</option>
+                                                        <option value="SIN GPS">SIN GPS</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="flex items-center gap-2 cursor-pointer mb-2">
+                                                    <input type="checkbox" checked={kitData.observationsEnabled} onChange={e=>setKitData({...kitData, observationsEnabled:e.target.checked})} />
+                                                    <span className="text-xs font-bold text-slate-500 uppercase">Agregar Observaciones de Entrega</span>
+                                                </label>
+                                                {kitData.observationsEnabled && (
+                                                    <textarea className="w-full p-2 border rounded text-sm bg-amber-50 border-amber-200" rows="2" value={kitData.observations} onChange={e=>setKitData({...kitData, observations:e.target.value})} placeholder="Ej: Casa de color verde, portón negro..."></textarea>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-3">
-                                        {kitData.medicamentos.map((med, idx) => (
-                                            <div key={idx} className="bg-white p-3 rounded-lg border shadow-sm flex flex-col md:flex-row gap-2 items-end">
-                                                <div className="flex-1 w-full"><label className="text-[10px] font-bold text-slate-400 block">Medicamento</label><input list="medsList" className="w-full p-1.5 border rounded text-xs" value={med.nombre} onChange={e => handleMedChange(idx, 'nombre', e.target.value)} placeholder="Buscar..." /></div>
-                                                <div className="w-24"><label className="text-[10px] font-bold text-slate-400 block">ID Receta</label><input type="text" className="w-full p-1.5 border rounded text-xs" value={med.idReceta} onChange={e => handleMedChange(idx, 'idReceta', e.target.value)} /></div>
-                                                <div className="w-20"><label className="text-[10px] font-bold text-slate-400 block">Cant.</label><input type="number" className="w-full p-1.5 border rounded text-xs" value={med.cantidad} onChange={e => handleMedChange(idx, 'cantidad', e.target.value)} /></div>
+
+                                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
+                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Logística</h5>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Fecha Armado</label><input type="date" className="w-full p-2 border rounded text-sm bg-white" value={kitData.fechaArmado} onChange={e=>setKitData({...kitData, fechaArmado:e.target.value})} required /></div>
+                                            <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Entrega a Logística</label><input type="date" className="w-full p-2 border rounded text-sm bg-white" value={kitData.fechaEntregaLogistica} onChange={e=>setKitData({...kitData, fechaEntregaLogistica:e.target.value})} /></div>
+                                            <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Entrega de Kit (Paciente)</label><input type="date" className="w-full p-2 border rounded text-sm bg-white" value={kitData.fechaEntregaKit} onChange={e=>setKitData({...kitData, fechaEntregaKit:e.target.value})} /></div>
+                                            <div className="md:col-span-3">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Contact Center</label>
+                                                <select className="w-full p-2 border rounded text-sm bg-white" value={kitData.contactCenter} onChange={e=>setKitData({...kitData, contactCenter:e.target.value})}>
+                                                    <option value="">Seleccione...</option>
+                                                    {contacts && contacts.map(c => (
+                                                        <option key={c.id} value={`${c.name} --- ${c.phone}`}>{c.name} --- {c.phone}</option>
+                                                    ))}
+                                                </select>
                                             </div>
-                                        ))}
-                                        {kitData.medicamentos.length === 0 && <div className="text-center text-xs text-slate-400 italic py-4">Ingrese cantidad (ej: 6 o 6/9) para agregar líneas.</div>}
+                                            <div className="md:col-span-3"><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Digitador</label><input type="text" className="w-full p-2 border rounded text-sm bg-slate-200 text-slate-500" value={currentUser.name} disabled /></div>
+                                        </div>
                                     </div>
-                                </div>
-                                <button type="submit" className="w-full py-3 bg-turquoise-600 text-white font-bold rounded-xl shadow-lg hover:bg-turquoise-700 transition-colors btn-hover-effect">Guardar Kit</button>
+
+                                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
+                                        <div className="flex justify-between items-center mb-4 border-b border-slate-200 pb-1">
+                                            <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Medicamentos</h5>
+                                            <div className="flex items-center gap-4">
+                                                <label className="flex items-center gap-1 cursor-pointer">
+                                                    <input type="checkbox" checked={kitData.isRefrigerated} onChange={e=>setKitData({...kitData, isRefrigerated: e.target.checked})} className="rounded border-slate-300 text-turquoise-600 focus:ring-turquoise-500" />
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase">Refrigerado</span>
+                                                </label>
+                                                {kitData.isRefrigerated && (
+                                                    <input type="number" placeholder="Cant." className="w-16 p-1 border rounded text-center text-xs bg-blue-50 border-blue-200 text-blue-700 font-bold outline-none" value={kitData.cantRefriGlobal} onChange={e=>setKitData({...kitData, cantRefriGlobal: e.target.value})} />
+                                                )}
+                                                <div className="flex items-center gap-2">
+                                                    <label className="text-xs font-bold text-slate-500">% Medicamentos:</label>
+                                                    <input type="text" className="w-20 p-1 border rounded text-center font-bold bg-white" value={kitData.triggerMeds} onChange={e=>handleTriggerMeds(e.target.value)} placeholder="Ej: 6/9" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {kitData.medicamentos.map((med, idx) => (
+                                                <div key={idx} className="bg-white p-3 rounded-lg border shadow-sm flex flex-col md:flex-row gap-2 items-end">
+                                                    <div className="flex-1 w-full"><label className="text-[10px] font-bold text-slate-400 block">Medicamento</label><input list="medsList" className="w-full p-1.5 border rounded text-xs" value={med.nombre} onChange={e => handleMedChange(idx, 'nombre', e.target.value)} placeholder="Buscar..." /></div>
+                                                    <div className="w-24"><label className="text-[10px] font-bold text-slate-400 block">ID Receta</label><input type="text" className="w-full p-1.5 border rounded text-xs" value={med.idReceta} onChange={e => handleMedChange(idx, 'idReceta', e.target.value)} /></div>
+                                                    <div className="w-20"><label className="text-[10px] font-bold text-slate-400 block">Cant.</label><input type="number" className="w-full p-1.5 border rounded text-xs" value={med.cantidad} onChange={e => handleMedChange(idx, 'cantidad', e.target.value)} /></div>
+                                                </div>
+                                            ))}
+                                            {kitData.medicamentos.length === 0 && <div className="text-center text-xs text-slate-400 italic py-4">Ingrese cantidad (ej: 6 o 6/9) para agregar líneas.</div>}
+                                        </div>
+                                    </div>
+                                </fieldset>
+                                
+                                {!isViewMode ? (
+                                    <button type="submit" className="w-full py-3 bg-turquoise-600 text-white font-bold rounded-xl shadow-lg hover:bg-turquoise-700 transition-colors btn-hover-effect">Guardar Kit</button>
+                                ) : (
+                                    <button type="button" onClick={closeKitForm} className="w-full py-3 bg-slate-600 text-white font-bold rounded-xl shadow-lg hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar Visualización</button>
+                                )}
                             </form>
                             <datalist id="medsList">{medicines.map((m, i) => <option key={i} value={m.name} />)}</datalist>
                         </Modal>
@@ -855,7 +1010,7 @@
                             </div>
                             <div className="grid gap-3">
                                 {patientKits.map(kit => (
-                                    <div key={kit.id} className="p-4 rounded-xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-4">
+                                    <div key={kit.id} className="p-4 rounded-xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-4 relative group">
                                         <div className="flex-1">
                                             <div className="flex flex-wrap items-center gap-2 mb-2">
                                                 <span className="bg-turquoise-50 text-turquoise-700 px-2 py-1 rounded text-xs font-bold border border-turquoise-100"><Icons.Calendar size={12} className="inline mr-1"/> {kit.fechaArmado}</span>
@@ -868,7 +1023,10 @@
                                             </div>
                                         </div>
                                         <div className="flex gap-2 justify-end sm:justify-center items-start">
-                                            <button onClick={() => openEditKit(kit)} className="text-slate-300 hover:text-orange-500 p-2 btn-hover-effect"><Icons.Edit size={18}/></button>
+                                            {/* BOTONES NUEVOS DE ACCIÓN */}
+                                            <button onClick={() => openEditKit(kit, true)} className="text-slate-300 hover:text-blue-500 p-2 btn-hover-effect" title="Ver Detalle"><Icons.Search size={18}/></button>
+                                            <button onClick={() => openPrintModal(kit)} className="text-slate-300 hover:text-slate-700 p-2 btn-hover-effect" title="Imprimir"><Icons.Printer size={18}/></button>
+                                            <button onClick={() => openEditKit(kit, false)} className="text-slate-300 hover:text-orange-500 p-2 btn-hover-effect" title="Editar"><Icons.Edit size={18}/></button>
                                             {(userRole==='superadmin'||userRole==='admin') && <button onClick={() => {if(confirm("¿Eliminar Kit?")) onDeleteKit(kit.id);}} className="text-slate-300 hover:text-red-500 p-2 btn-hover-effect"><Icons.Trash size={18}/></button>}
                                         </div>
                                     </div>
@@ -1042,7 +1200,7 @@
             return (
                 <div className="flex h-screen bg-[#f0fdfa] font-sans overflow-hidden">
                     {/* Mobile Header */}
-                    {mobileMenuOpen && ( <div className="fixed inset-0 z-50 bg-turquoise-900/95 backdrop-blur-sm flex flex-col md:hidden animate-in"><div className="p-4 flex justify-between items-center border-b border-turquoise-800"><div className="font-bold text-white text-xl flex items-center gap-2 brand-font"><Icons.Activity/> BITACORA OPERARIVA Móvil</div><button onClick={() => setMobileMenuOpen(false)} className="text-white p-2 bg-turquoise-800 rounded-full btn-hover-effect"><Icons.X size={24}/></button></div><div className="p-6 space-y-4"><NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} /><NavItem id="reports" label="Reportes" icon={Icons.List} /><NavItem id="pacientes" label="Pacientes" icon={Icons.Users} />{(role === 'admin' || role === 'superadmin') && <NavItem id="config" label="Configuración" icon={Icons.Settings} />}{(role === 'admin' || role === 'superadmin') && <NavItem id="users" label="Usuarios" icon={Icons.UserCog} />}<div className="pt-8 border-t border-turquoise-800"><button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl bg-turquoise-800 text-white font-bold btn-hover-effect"><Icons.LogOut size={20}/> Desconectar</button></div></div></div> )}
+                    {mobileMenuOpen && ( <div className="fixed inset-0 z-50 bg-turquoise-900/95 backdrop-blur-sm flex flex-col md:hidden animate-in"><div className="p-4 flex justify-between items-center border-b border-turquoise-800"><div className="font-bold text-white text-xl flex items-center gap-2 brand-font"><Icons.Activity/> LEQ Móvil</div><button onClick={() => setMobileMenuOpen(false)} className="text-white p-2 bg-turquoise-800 rounded-full btn-hover-effect"><Icons.X size={24}/></button></div><div className="p-6 space-y-4"><NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} /><NavItem id="reports" label="Reportes" icon={Icons.List} /><NavItem id="pacientes" label="Pacientes" icon={Icons.Users} />{(role === 'admin' || role === 'superadmin') && <NavItem id="config" label="Configuración" icon={Icons.Settings} />}{(role === 'admin' || role === 'superadmin') && <NavItem id="users" label="Usuarios" icon={Icons.UserCog} />}<div className="pt-8 border-t border-turquoise-800"><button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl bg-turquoise-800 text-white font-bold btn-hover-effect"><Icons.LogOut size={20}/> Desconectar</button></div></div></div> )}
                     
                     {/* Sidebar */}
                     <aside className={`${sidebarCollapsed ? 'w-24' : 'w-72'} bg-turquoise-900 text-turquoise-100 flex-col shadow-2xl z-20 hidden md:flex relative transition-all duration-300 ease-in-out`}>
@@ -1063,7 +1221,7 @@
 
                     {/* Main Content */}
                     <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#f0fdfa] relative transition-all duration-300">
-                        <div className="md:hidden bg-white/80 backdrop-blur-md p-4 shadow-sm flex justify-between items-center z-20"><button onClick={() => setMobileMenuOpen(true)} className="text-slate-600 p-1 btn-hover-effect"><Icons.Menu size={24}/></button><div className="font-bold text-slate-800 flex items-center gap-2 brand-font"><Icons.Activity size={18} className="text-turquoise-600"/> BITACORA OPERARIVA Móvil</div><div className="w-8"></div></div>
+                        <div className="md:hidden bg-white/80 backdrop-blur-md p-4 shadow-sm flex justify-between items-center z-20"><button onClick={() => setMobileMenuOpen(true)} className="text-slate-600 p-1 btn-hover-effect"><Icons.Menu size={24}/></button><div className="font-bold text-slate-800 flex items-center gap-2 brand-font"><Icons.Activity size={18} className="text-turquoise-600"/> LEQ Móvil</div><div className="w-8"></div></div>
                         <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative z-10">
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} />}
                             {view === 'reports' && <ReportsBlock kits={kits} patients={patients} />}
