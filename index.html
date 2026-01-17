@@ -175,7 +175,7 @@
             );
         };
 
-        // --- BLOCK: LOGIN (MODIFICADO - CON INDICADOR DE CONEXIÓN) ---
+        // --- BLOCK: LOGIN (INTACTO) ---
         const LoginBlock = ({ onLogin }) => {
             const [username, setUsername] = useState(''); 
             const [password, setPassword] = useState(''); 
@@ -183,7 +183,6 @@
             const [error, setError] = useState('');
             const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-            // Listener de estado de conexión
             useEffect(() => {
                 const handleOnline = () => setIsOnline(true);
                 const handleOffline = () => setIsOnline(false);
@@ -225,7 +224,6 @@
             
             return (
                 <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-turquoise-50 to-clinical-50 p-6 relative">
-                    {/* Indicador de Conexión */}
                     <div className={`absolute top-6 right-6 px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 shadow-sm transition-all ${isOnline ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
                         {isOnline ? <Icons.Wifi size={16}/> : <Icons.WifiOff size={16}/>}
                         {isOnline ? 'Conectado' : 'Sin Conexión'}
@@ -250,13 +248,23 @@
             );
         };
 
-        // --- BLOCK: CONFIGURACION (INTACTO) ---
+        // --- BLOCK: CONFIGURACION (MODIFICADO - AGREGAR MANUAL) ---
         const ConfigBlock = ({ medicines, onAddList }) => {
             const [rawText, setRawText] = useState('');
+            const [newMed, setNewMed] = useState(''); // Estado para medicamento individual
+
             const processText = () => {
                 const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
-                const uniqueMeds = [...new Set(lines)];
+                const uniqueMeds = [...new Set(lines.map(l => l.trim().toUpperCase()))];
                 if(uniqueMeds.length > 0) { onAddList(uniqueMeds); setRawText(''); alert(`Se procesaron ${uniqueMeds.length} medicamentos.`); }
+            };
+
+            const addSingle = (e) => {
+                e.preventDefault();
+                if(newMed.trim()) {
+                    onAddList([newMed.trim().toUpperCase()]);
+                    setNewMed('');
+                }
             };
 
             return (
@@ -266,16 +274,28 @@
                         <div><h3 className="font-bold text-xl text-slate-800 brand-font">Configuración</h3><p className="text-xs font-semibold text-turquoise-600">Catálogo de Medicamentos</p></div>
                     </div>
                     <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto">
-                        <div>
-                            <h4 className="font-bold text-slate-700 mb-2">Carga Masiva</h4>
-                            <p className="text-xs text-slate-400 mb-4">Pegue la lista de medicamentos (uno por línea) desde Excel o CSV.</p>
-                            <textarea className="w-full h-64 p-4 border rounded-xl text-xs font-mono bg-slate-50 outline-none focus:border-turquoise-400" placeholder="AMOXICILINA 500MG&#10;PARACETAMOL&#10;..." value={rawText} onChange={e => setRawText(e.target.value)}></textarea>
-                            <button onClick={processText} className="mt-4 bg-turquoise-600 text-white px-6 py-2 rounded-xl text-sm font-bold shadow-md hover:bg-turquoise-700 w-full btn-hover-effect flex justify-center gap-2 items-center"><Icons.Upload size={16}/> Procesar Lista</button>
+                        <div className="space-y-6">
+                            {/* Formulario Individual */}
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <h4 className="font-bold text-slate-700 mb-2 text-xs uppercase tracking-wider">Agregar Individual</h4>
+                                <form onSubmit={addSingle} className="flex gap-2">
+                                    <input type="text" className="flex-1 p-2 rounded-lg border text-sm uppercase outline-none focus:border-turquoise-400" placeholder="Nombre del medicamento..." value={newMed} onChange={e=>setNewMed(e.target.value)} />
+                                    <button type="submit" className="bg-turquoise-600 text-white p-2 rounded-lg hover:bg-turquoise-700 btn-hover-effect"><Icons.Plus size={20}/></button>
+                                </form>
+                            </div>
+                            
+                            {/* Carga Masiva */}
+                            <div>
+                                <h4 className="font-bold text-slate-700 mb-2 text-xs uppercase tracking-wider">Carga Masiva</h4>
+                                <p className="text-xs text-slate-400 mb-2">Pegue la lista de medicamentos (uno por línea).</p>
+                                <textarea className="w-full h-48 p-4 border rounded-xl text-xs font-mono bg-slate-50 outline-none focus:border-turquoise-400" placeholder="AMOXICILINA 500MG&#10;PARACETAMOL&#10;..." value={rawText} onChange={e => setRawText(e.target.value)}></textarea>
+                                <button onClick={processText} className="mt-4 bg-slate-800 text-white px-6 py-2 rounded-xl text-sm font-bold shadow-md hover:bg-slate-900 w-full btn-hover-effect flex justify-center gap-2 items-center"><Icons.Upload size={16}/> Procesar Lista</button>
+                            </div>
                         </div>
                         <div>
-                            <h4 className="font-bold text-slate-700 mb-2">Catálogo Actual ({medicines.length})</h4>
-                            <div className="h-64 overflow-y-auto border rounded-xl bg-white p-2 space-y-1">
-                                {medicines.map((m, i) => <div key={i} className="text-xs p-2 hover:bg-slate-50 border-b border-slate-50 last:border-0">{m.name}</div>)}
+                            <h4 className="font-bold text-slate-700 mb-2 text-xs uppercase tracking-wider">Catálogo Actual ({medicines.length})</h4>
+                            <div className="h-full max-h-[500px] overflow-y-auto border rounded-xl bg-white p-2 space-y-1">
+                                {medicines.map((m, i) => <div key={i} className="text-xs p-2 hover:bg-slate-50 border-b border-slate-50 last:border-0 uppercase">{m.name}</div>)}
                             </div>
                         </div>
                     </div>
@@ -283,7 +303,7 @@
             );
         };
 
-        // --- BLOCK: USUARIOS (MODIFICADO - EDICIÓN Y MODAL) ---
+        // --- BLOCK: USUARIOS (INTACTO) ---
         const UserManagementBlock = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
             const [formData, setFormData] = useState({ username: '', password: '', role: 'digitador', nombre: '' });
             const [showModal, setShowModal] = useState(false);
@@ -347,15 +367,20 @@
             );
         };
 
-        // --- BLOCK: DASHBOARD (INTACTO) ---
-        const DashboardBlock = ({ setView, stats, userName }) => {
+        // --- BLOCK: DASHBOARD (MODIFICADO - ACCESOS POR ROL) ---
+        const DashboardBlock = ({ setView, stats, userName, role }) => { 
             const [time, setTime] = useState(new Date());
             useEffect(() => { const t = setInterval(()=>setTime(new Date()),1000); return ()=>clearInterval(t); }, []);
             
-            const cards = [
-                { id: 'reports', label: 'Reportes y Carpetas', icon: Icons.List, color: 'bg-amber-500', desc: 'Ver kits por fecha' },
-                { id: 'pacientes', label: 'Gestión de Pacientes', icon: Icons.Users, color: 'bg-turquoise-500', desc: 'Crear kits por DH' },
+            // Definición de tarjetas con permisos
+            const allCards = [
+                { id: 'reports', label: 'Reportes y Carpetas', icon: Icons.List, color: 'bg-amber-500', desc: 'Ver kits por fecha', allowed: ['admin', 'superadmin', 'digitador'] },
+                { id: 'pacientes', label: 'Gestión de Pacientes', icon: Icons.Users, color: 'bg-turquoise-500', desc: 'Crear kits por DH', allowed: ['admin', 'superadmin', 'digitador'] },
+                { id: 'config', label: 'Configuración', icon: Icons.Settings, color: 'bg-slate-500', desc: 'Catálogo de medicamentos', allowed: ['admin', 'superadmin'] },
+                { id: 'users', label: 'Gestión de Usuarios', icon: Icons.UserCog, color: 'bg-indigo-500', desc: 'Control de accesos', allowed: ['admin', 'superadmin'] },
             ];
+
+            const visibleCards = allCards.filter(c => c.allowed.includes(role));
 
             return (
                 <div className="w-full max-w-6xl mx-auto space-y-8 animate-in">
@@ -380,8 +405,8 @@
                         </div>
                     </div>
                     <h3 className="text-xl font-bold text-slate-700 brand-font mt-8">Accesos Directos</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        {cards.map(c => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {visibleCards.map(c => (
                             <button key={c.id} onClick={() => setView(c.id)} className="group relative bg-white p-6 rounded-3xl shadow-soft border border-slate-100 hover:shadow-xl transition-all duration-300 text-left hover:-translate-y-1 overflow-hidden">
                                 <div className={`absolute top-0 right-0 w-24 h-24 ${c.color} opacity-10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
                                 <div className={`w-12 h-12 rounded-2xl ${c.color} flex items-center justify-center text-white mb-4 shadow-md group-hover:scale-110 transition-transform`}><c.icon size={24} /></div>
@@ -709,7 +734,7 @@
                     <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#f0fdfa] relative transition-all duration-300">
                         <div className="md:hidden bg-white/80 backdrop-blur-md p-4 shadow-sm flex justify-between items-center z-20"><button onClick={() => setMobileMenuOpen(true)} className="text-slate-600 p-1 btn-hover-effect"><Icons.Menu size={24}/></button><div className="font-bold text-slate-800 flex items-center gap-2 brand-font"><Icons.Activity size={18} className="text-turquoise-600"/> LEQ Móvil</div><div className="w-8"></div></div>
                         <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative z-10">
-                            {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} />}
+                            {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} />}
                             {view === 'reports' && <ReportsBlock kits={kits} patients={patients} />}
                             {view === 'pacientes' && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={{name: userName, role: role}} userRole={role} />}
                             {view === 'config' && (role === 'admin' || role === 'superadmin') && <ConfigBlock medicines={medicines} onAddList={addMedsList} />}
