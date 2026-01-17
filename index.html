@@ -529,7 +529,7 @@
             );
         };
 
-        // --- BLOCK: PACIENTES (REESTRUCTURADO - COMPLETO) ---
+        // --- BLOCK: PACIENTES (REESTRUCTURADO - COMPLETO - CON REFRIGERADO INPUT) ---
         const PatientManagementBlock = ({ patients, kits, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
@@ -555,7 +555,8 @@
                 secondaryAddress: '',
                 observationsEnabled: false,
                 observations: '',
-                isRefrigerated: false // NEW GLOBAL CHECK
+                isRefrigerated: false, // NEW GLOBAL CHECK
+                cantRefriGlobal: '' // NEW GLOBAL QUANTITY
             };
             const [kitData, setKitData] = useState(initialKit);
             const [showKitForm, setShowKitForm] = useState(false);
@@ -796,6 +797,10 @@
                                     <input type="checkbox" checked={kitData.isRefrigerated} onChange={e=>setKitData({...kitData, isRefrigerated: e.target.checked})} className="rounded border-slate-300 text-turquoise-600 focus:ring-turquoise-500" />
                                     <span className="text-[10px] font-bold text-slate-500 uppercase">Refrigerado</span>
                                 </label>
+                                {/* INPUT CONDICIONAL REFRIGERADO (NUEVO) */}
+                                {kitData.isRefrigerated && (
+                                    <input type="number" placeholder="Cant." className="w-16 p-1 border rounded text-center text-xs bg-blue-50 border-blue-200 text-blue-700 font-bold outline-none" value={kitData.cantRefriGlobal} onChange={e=>setKitData({...kitData, cantRefriGlobal: e.target.value})} />
+                                )}
                                 <div className="flex items-center gap-2">
                                     <label className="text-xs font-bold text-slate-500">% Medicamentos:</label>
                                     <input type="text" className="w-20 p-1 border rounded text-center font-bold bg-white" value={kitData.triggerMeds} onChange={e=>handleTriggerMeds(e.target.value)} placeholder="Ej: 6/9" />
