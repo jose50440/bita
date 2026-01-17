@@ -529,7 +529,7 @@
             );
         };
 
-        // --- BLOCK: PACIENTES (ACTUALIZADO - PLANTILLAS EXACTAS SOLICITADAS) ---
+        // --- BLOCK: PACIENTES (ACTUALIZADO - PLANTILLAS CON LOGOS Y DISEÑO MODERNO) ---
         const PatientManagementBlock = ({ patients, kits, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
@@ -695,7 +695,6 @@
 
             const triggerPrint = (mode) => {
                 setPrintMode(mode);
-                // Esperar un momento a que el estado se actualice y renderice la plantilla oculta
                 setTimeout(() => {
                     window.print();
                     setShowPrintModal(false);
@@ -732,7 +731,7 @@
                 return (
                     <div className="glass-panel rounded-3xl shadow-soft h-full flex flex-col animate-in border-0 bg-white">
                         
-                        {/* ESTILOS DE IMPRESIÓN ESPECÍFICOS - ALTA CALIDAD TÉRMICA */}
+                        {/* ESTILOS DE IMPRESIÓN MODERNA Y LIMPIA */}
                         <style>{`
                             @media print {
                                 body * { visibility: hidden; }
@@ -743,27 +742,37 @@
                                     top: 0; 
                                     width: 72mm; /* 7.2cm exactos */
                                     margin: 0;
-                                    padding: 0;
+                                    padding: 2px;
                                     background: white;
                                     color: black;
                                     font-family: 'Arial', sans-serif; 
                                     font-size: 11px;
                                     line-height: 1.1;
                                 }
-                                .print-container { padding: 2mm; width: 100%; box-sizing: border-box; }
-                                .box-border { border: 2px solid black; padding: 2px 4px; margin-bottom: 4px; }
-                                .box-header { background: black; color: white; text-align: center; font-weight: bold; font-size: 14px; padding: 3px 0; -webkit-print-color-adjust: exact; margin-bottom: 4px; }
-                                .label { font-size: 9px; font-weight: 800; text-transform: uppercase; display: block; }
-                                .value { font-size: 11px; font-weight: bold; display: block; word-wrap: break-word; }
-                                .big-value { font-size: 14px; font-weight: 900; }
-                                .ventanilla-big { font-size: 28px; font-weight: 900; text-align: center; padding: 10px 0; line-height: 1; }
-                                .refri-horizontal { transform: rotate(-90deg); transform-origin: center; width: 200mm; position: absolute; top: 100mm; left: -60mm; text-align: center; border: 4px solid black; padding: 20px; }
-                                /* Ajuste para que la tabla o cajas ocupen el ancho completo */
-                                .w-full { width: 100%; }
-                                .flex-row { display: flex; gap: 4px; }
-                                .flex-1 { flex: 1; }
-                                .text-center { text-align: center; }
-                                .border-b { border-bottom: 1px solid black; }
+                                .header-logos { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid black; padding-bottom: 5px; margin-bottom: 5px; }
+                                .logo-img { height: 35px; width: auto; object-fit: contain; } /* CLASE PARA LOGOS */
+                                
+                                .box-modern { border: 2px solid black; border-radius: 6px; padding: 4px; margin-bottom: 6px; }
+                                .box-title { background: black; color: white; font-weight: 800; text-transform: uppercase; font-size: 14px; text-align: center; border-radius: 4px 4px 0 0; margin: -4px -4px 4px -4px; padding: 3px; -webkit-print-color-adjust: exact; }
+                                
+                                .label-modern { font-size: 9px; font-weight: 900; text-transform: uppercase; color: #000; letter-spacing: 0.5px; }
+                                .value-modern { font-size: 13px; font-weight: bold; color: #000; }
+                                .value-small { font-size: 11px; font-weight: 600; }
+                                
+                                .ventanilla-display { font-size: 26px; font-weight: 900; text-align: center; border: 3px dashed black; padding: 10px; border-radius: 8px; margin: 5px 0; }
+                                
+                                .info-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #444; padding: 2px 0; }
+                                .info-row:last-child { border-bottom: none; }
+                                
+                                .footer-modern { margin-top: 10px; border-top: 2px solid black; padding-top: 4px; display: flex; justify-content: space-between; align-items: flex-end; }
+                                .user-tag { font-size: 9px; font-weight: bold; background: black; color: white; padding: 2px 4px; border-radius: 4px; -webkit-print-color-adjust: exact; }
+                                
+                                /* Estilo Refri Horizontal */
+                                .refri-card { border: 4px solid black; border-radius: 8px; padding: 5px; }
+                                .refri-header { background: black; color: white; font-size: 18px; font-weight: 900; text-align: center; padding: 5px; border-radius: 4px; margin-bottom: 10px; -webkit-print-color-adjust: exact; }
+                                .refri-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+                                .refri-item { border: 2px solid black; border-radius: 4px; padding: 4px; text-align: center; }
+                                
                                 @page { size: 72mm auto; margin: 0mm; }
                             }
                         `}</style>
@@ -773,109 +782,148 @@
                             <div id="print-section" className="hidden print:block">
                                 <div className="print-container">
                                     
+                                    {/* LOGOS HEADER (COMÚN) */}
+                                    <div className="header-logos">
+                                        {/* LOGO IZQUIERDO */}
+                                        <img 
+                                            src="https://1024terabox.com/s/14n-TKxfY1GtrKPKdcf6Lxw" 
+                                            className="logo-img" 
+                                            alt="Logo IHSS" 
+                                            onerror="this.style.display='none'"
+                                        />
+                                        
+                                        <div style={{textAlign:'center', lineHeight:'1'}}>
+                                            <div style={{fontSize:'12px', fontWeight:'900'}}>IHSS</div>
+                                            <div style={{fontSize:'8px', fontWeight:'bold'}}>SUBROGADO</div>
+                                        </div>
+
+                                        {/* LOGO DERECHO */}
+                                        <img 
+                                            src="https://1024terabox.com/s/11kH7BHiKmA36X1jau7VOQA" 
+                                            className="logo-img" 
+                                            alt="Logo Logística" 
+                                            onerror="this.style.display='none'"
+                                        />
+                                    </div>
+
                                     {/* PLANTILLA 1: VENTANILLA O RUTA */}
                                     {(printMode === 'ventanilla' || printMode === 'ruta') && (
                                         <>
-                                            <div className="box-header">{printMode === 'ruta' ? 'RUTA DOMICILIARIA' : 'ENTREGA EN VENTANILLA'}</div>
-                                            
-                                            {/* DATOS PACIENTE */}
-                                            <div className="box-border">
-                                                <span className="label">DERECHOHABIENTE:</span>
-                                                <span className="value big-value">{printKitData.nombre}</span>
-                                                <div style={{display:'flex', justifyContent:'space-between', marginTop:'2px'}}>
+                                            <div className="box-modern">
+                                                <div className="box-title">
+                                                    {printMode === 'ruta' ? 'ENTREGA RUTA' : 'ENTREGA VENTANILLA'}
+                                                </div>
+                                                <div className="info-row">
                                                     <div>
-                                                        <span className="label">DNI:</span>
-                                                        <span className="value">{printKitData.dni}</span>
+                                                        <span className="label-modern">PACIENTE</span><br/>
+                                                        <span className="value-modern">{printKitData.nombre}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="info-row">
+                                                    <div style={{flex:1}}>
+                                                        <span className="label-modern">DNI / AFILIACIÓN</span><br/>
+                                                        <span className="value-modern">{printKitData.dni}</span>
+                                                    </div>
+                                                    <div style={{textAlign:'right'}}>
+                                                        <span className="label-modern">FECHA ENTREGA</span><br/>
+                                                        <span className="value-modern">{printKitData.fechaEntregaKit}</span>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {/* TELEFONOS & CONTACT CENTER */}
-                                            <div className="box-border">
-                                                <span className="label" style={{borderBottom:'1px solid black', display:'block', marginBottom:'2px'}}>CONTACTO</span>
-                                                {(printKitData.selectedPhones?.length > 0 || printKitData.otherPhone) ? (
+                                            <div className="box-modern">
+                                                <div className="info-row">
                                                     <div>
-                                                        {printKitData.selectedPhones?.map(p => <div key={p} className="value">📞 {p}</div>)}
-                                                        {printKitData.otherPhone && <div className="value">📞 {printKitData.otherPhone}</div>}
+                                                        <span className="label-modern">TELÉFONOS</span><br/>
+                                                        {(printKitData.selectedPhones?.length > 0 || printKitData.otherPhone) ? (
+                                                            <div className="value-small">
+                                                                {printKitData.selectedPhones?.map(p => <span key={p}>{p} / </span>)}
+                                                                {printKitData.otherPhone}
+                                                            </div>
+                                                        ) : <span>--</span>}
                                                     </div>
-                                                ) : <div className="value">-- Sin teléfonos --</div>}
-                                                
-                                                <div style={{marginTop:'4px', borderTop:'1px dashed black', paddingTop:'2px'}}>
-                                                    <span className="label">CONTACT CENTER:</span>
-                                                    <span className="value">{printKitData.contactCenter ? printKitData.contactCenter.split('---')[1] : 'N/A'}</span>
+                                                </div>
+                                                <div className="info-row">
+                                                    <div style={{flex:1}}>
+                                                        <span className="label-modern">CONTACT CENTER</span><br/>
+                                                        <span className="value-small">{printKitData.contactCenter ? printKitData.contactCenter.split('---')[1] : 'N/A'}</span>
+                                                    </div>
+                                                    <div style={{textAlign:'right'}}>
+                                                        <span className="label-modern">MEDICAMENTOS</span><br/>
+                                                        <span className="value-modern" style={{fontSize:'16px'}}>{printKitData.triggerMeds}</span>
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            {/* INFO LOGISTICA */}
-                                            <div className="flex-row">
-                                                <div className="box-border flex-1 text-center">
-                                                    <span className="label"># MEDS</span>
-                                                    <span className="big-value">{printKitData.triggerMeds}</span>
+                                            {/* CAJA DE UBICACIÓN */}
+                                            {printMode === 'ventanilla' ? (
+                                                <div className="ventanilla-display">
+                                                    <Icons.Box size={32} style={{display:'inline'}}/>
+                                                    <div>VENTANILLA</div>
                                                 </div>
-                                                <div className="box-border flex-1 text-center">
-                                                    <span className="label">ENTREGA</span>
-                                                    <span className="value">{printKitData.fechaEntregaKit}</span>
-                                                </div>
-                                            </div>
+                                            ) : (
+                                                <div className="box-modern" style={{minHeight:'3cm'}}>
+                                                    <div className="label-modern" style={{textAlign:'center', borderBottom:'1px solid black', marginBottom:'4px'}}>DIRECCIÓN DE ENTREGA</div>
+                                                    <div className="value-small" style={{textAlign:'justify', marginBottom:'5px'}}>
+                                                        {printKitData.addressConfirmed ? selectedPatient.direccion : printKitData.secondaryAddress}
+                                                    </div>
+                                                    
+                                                    {printKitData.observations && (
+                                                        <div style={{marginTop:'5px', borderTop:'1px dotted black', paddingTop:'2px'}}>
+                                                            <span className="label-modern">OBSERVACIONES:</span><br/>
+                                                            <span className="value-small" style={{fontStyle:'italic'}}>{printKitData.observations}</span>
+                                                        </div>
+                                                    )}
 
-                                            {/* REFRIGERADO SI APLICA */}
-                                            {printKitData.isRefrigerated && (
-                                                <div className="box-border text-center">
-                                                    <span className="label">REFRIGERADO</span>
-                                                    <span className="big-value">{printKitData.cantRefriGlobal || 'SI'}</span>
+                                                    <div style={{marginTop:'8px', borderTop:'2px solid black', paddingTop:'2px', textAlign:'center', background:'#eee'}}>
+                                                        <span className="label-modern">ESTADO GPS: </span>
+                                                        <span className="value-modern">{printKitData.gpsStatus || 'SIN GPS'}</span>
+                                                    </div>
                                                 </div>
                                             )}
 
-                                            {/* CUADRO DE UBICACIÓN VARIABLE */}
-                                            <div className="box-border" style={{minHeight:'3cm', display:'flex', flexDirection:'column', justifyContent:'center'}}>
-                                                {printMode === 'ventanilla' ? (
-                                                    <div className="ventanilla-big">VENTANILLA</div>
-                                                ) : (
-                                                    <>
-                                                        <div className="text-center border-b mb-1"><span className="label">DIRECCIÓN DE ENTREGA</span></div>
-                                                        <div className="value" style={{fontSize:'10px', textAlign:'justify', flex:1}}>
-                                                            {printKitData.addressConfirmed ? selectedPatient.direccion : printKitData.secondaryAddress}
-                                                        </div>
-                                                        {printKitData.observations && (
-                                                            <div style={{marginTop:'4px', borderTop:'1px solid black', paddingTop:'2px'}}>
-                                                                <span className="label">OBS:</span>
-                                                                <span className="value" style={{fontStyle:'italic'}}>{printKitData.observations}</span>
-                                                            </div>
-                                                        )}
-                                                        <div style={{marginTop:'4px', borderTop:'1px solid black', paddingTop:'2px', textAlign:'center'}}>
-                                                            <span className="label">GPS: {printKitData.gpsStatus || 'SIN GPS'}</span>
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </div>
+                                            {/* REFRIGERADO ALERT */}
+                                            {printKitData.isRefrigerated && (
+                                                <div className="box-modern" style={{borderStyle:'dashed', textAlign:'center'}}>
+                                                    <span className="label-modern">⚠️ CONTIENE REFRIGERADO ⚠️</span><br/>
+                                                    <span className="value-modern">CANTIDAD: {printKitData.cantRefriGlobal}</span>
+                                                </div>
+                                            )}
 
-                                            <div style={{marginTop:'10px', textAlign:'right', fontSize:'9px'}}>
-                                                <b>Digitado por:</b> {printKitData.digitador}
+                                            <div className="footer-modern">
+                                                <div className="user-tag">{printKitData.digitador}</div>
+                                                <div style={{fontSize:'8px'}}>{new Date().toLocaleString()}</div>
                                             </div>
                                         </>
                                     )}
 
-                                    {/* PLANTILLA 2: REFRIGERADO (HORIZONTAL/ETIQUETA) */}
+                                    {/* PLANTILLA 2: REFRIGERADO (HORIZONTAL) */}
                                     {printMode === 'refri' && (
-                                        <div style={{border:'4px solid black', padding:'5px', borderRadius:'5px'}}>
-                                            <div style={{background:'black', color:'white', textAlign:'center', fontWeight:'900', fontSize:'24px', marginBottom:'10px'}}>- REFRIGERADO -</div>
-                                            <div style={{marginBottom:'10px'}}>
-                                                <span className="label" style={{fontSize:'12px'}}>PACIENTE:</span>
-                                                <span className="value" style={{fontSize:'18px', lineHeight:'1'}}>{printKitData.nombre}</span>
+                                        <div className="refri-card">
+                                            <div className="refri-header">❄️ REFRIGERADO ❄️</div>
+                                            
+                                            <div style={{marginBottom:'8px'}}>
+                                                <span className="label-modern" style={{fontSize:'10px'}}>PACIENTE</span>
+                                                <div className="value-modern" style={{fontSize:'16px', lineHeight:'1.1'}}>{printKitData.nombre}</div>
                                             </div>
-                                            <div style={{marginBottom:'10px'}}>
-                                                <span className="label" style={{fontSize:'12px'}}>DNI:</span>
-                                                <span className="value" style={{fontSize:'18px'}}>{printKitData.dni}</span>
+                                            
+                                            <div style={{marginBottom:'10px', borderBottom:'2px solid black', paddingBottom:'5px'}}>
+                                                <span className="label-modern" style={{fontSize:'10px'}}>IDENTIFICACIÓN</span>
+                                                <div className="value-modern" style={{fontSize:'18px', fontFamily:'monospace'}}>{printKitData.dni}</div>
                                             </div>
-                                            <div className="flex-row" style={{borderTop:'2px solid black', paddingTop:'5px'}}>
-                                                <div className="flex-1">
-                                                    <span className="label">FECHA:</span>
-                                                    <span className="value" style={{fontSize:'14px'}}>{printKitData.fechaEntregaKit}</span>
+
+                                            <div className="refri-grid">
+                                                <div className="refri-item">
+                                                    <span className="label-modern">FECHA ENTREGA</span><br/>
+                                                    <span className="value-modern">{printKitData.fechaEntregaKit}</span>
                                                 </div>
-                                                <div className="flex-1 text-center" style={{borderLeft:'2px solid black'}}>
-                                                    <span className="label">CANTIDAD:</span>
-                                                    <span className="value" style={{fontSize:'24px'}}>{printKitData.cantRefriGlobal}</span>
+                                                <div className="refri-item" style={{background:'black', color:'white', borderColor:'black'}}>
+                                                    <span className="label-modern" style={{color:'white'}}>CANTIDAD</span><br/>
+                                                    <span className="value-modern" style={{fontSize:'22px', color:'white'}}>{printKitData.cantRefriGlobal}</span>
                                                 </div>
+                                            </div>
+                                            <div className="footer-modern" style={{marginTop:'15px'}}>
+                                                <div className="user-tag">{printKitData.digitador}</div>
                                             </div>
                                         </div>
                                     )}
