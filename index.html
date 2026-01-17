@@ -529,7 +529,7 @@
             );
         };
 
-        // --- BLOCK: PACIENTES (ACTUALIZADO - PLANTILLAS CON LOGOS Y DISEÑO MODERNO) ---
+        // --- BLOCK: PACIENTES (CORREGIDO Y COMPLETADO - CON PLANTILLAS) ---
         const PatientManagementBlock = ({ patients, kits, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
@@ -664,7 +664,7 @@
 
             const handleKitSubmit = (e) => {
                 e.preventDefault();
-                if (isViewMode) { closeKitForm(); return; } // Si es solo lectura, cierra
+                if (isViewMode) { closeKitForm(); return; } 
                 const finalData = { ...kitData, digitador: currentUser.name, dni: selectedPatient.dni, nombre: selectedPatient.nombre }; 
                 if (!editingKitId && !finalData.horaOperaciones) {
                     finalData.horaOperaciones = new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', hour12:true});
@@ -731,7 +731,7 @@
                 return (
                     <div className="glass-panel rounded-3xl shadow-soft h-full flex flex-col animate-in border-0 bg-white">
                         
-                        {/* ESTILOS DE IMPRESIÓN MODERNA Y LIMPIA */}
+                        {/* ESTILOS DE IMPRESIÓN */}
                         <style>{`
                             @media print {
                                 body * { visibility: hidden; }
@@ -740,37 +740,37 @@
                                     position: fixed; 
                                     left: 0; 
                                     top: 0; 
-                                    width: 72mm; /* 7.2cm exactos */
+                                    width: 72mm;
                                     margin: 0;
                                     padding: 2px;
                                     background: white;
                                     color: black;
-                                    font-family: 'Arial', sans-serif; 
+                                    font-family: 'Arial', 'Helvetica', sans-serif; 
                                     font-size: 11px;
-                                    line-height: 1.1;
+                                    line-height: 1.15;
                                 }
-                                .header-logos { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid black; padding-bottom: 5px; margin-bottom: 5px; }
-                                .logo-img { height: 35px; width: auto; object-fit: contain; } /* CLASE PARA LOGOS */
+                                .header-container { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid black; padding-bottom: 4px; margin-bottom: 4px; }
+                                .logo-box { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
+                                .logo-img { width: 100%; height: 100%; object-fit: contain; filter: grayscale(100%) contrast(150%); }
+                                .header-text { flex: 1; text-align: center; font-size: 8px; font-weight: 900; line-height: 1.1; padding: 0 4px; }
+                                
+                                .section-title { background: black; color: white; text-align: center; font-weight: bold; font-size: 14px; padding: 4px 0; -webkit-print-color-adjust: exact; margin: 6px 0; border-radius: 4px; text-transform: uppercase; }
+                                .info-header { text-align: center; font-size: 10px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid black; padding-bottom: 2px; margin-bottom: 4px; }
                                 
                                 .box-modern { border: 2px solid black; border-radius: 6px; padding: 4px; margin-bottom: 6px; }
-                                .box-title { background: black; color: white; font-weight: 800; text-transform: uppercase; font-size: 14px; text-align: center; border-radius: 4px 4px 0 0; margin: -4px -4px 4px -4px; padding: 3px; -webkit-print-color-adjust: exact; }
-                                
-                                .label-modern { font-size: 9px; font-weight: 900; text-transform: uppercase; color: #000; letter-spacing: 0.5px; }
-                                .value-modern { font-size: 13px; font-weight: bold; color: #000; }
+                                .label-modern { font-size: 9px; font-weight: 900; text-transform: uppercase; color: #000; }
+                                .value-modern { font-size: 12px; font-weight: bold; color: #000; word-break: break-word; }
                                 .value-small { font-size: 11px; font-weight: 600; }
+                                .big-value { font-size: 14px; font-weight: 900; }
                                 
-                                .ventanilla-display { font-size: 26px; font-weight: 900; text-align: center; border: 3px dashed black; padding: 10px; border-radius: 8px; margin: 5px 0; }
+                                .ventanilla-display { font-size: 26px; font-weight: 900; text-align: center; border: 3px dashed black; padding: 10px; border-radius: 8px; margin: 10px 0; }
                                 
-                                .info-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #444; padding: 2px 0; }
-                                .info-row:last-child { border-bottom: none; }
+                                .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+                                .footer-modern { margin-top: 10px; border-top: 2px solid black; padding-top: 4px; display: flex; justify-content: space-between; font-size: 8px; font-weight: bold; }
                                 
-                                .footer-modern { margin-top: 10px; border-top: 2px solid black; padding-top: 4px; display: flex; justify-content: space-between; align-items: flex-end; }
-                                .user-tag { font-size: 9px; font-weight: bold; background: black; color: white; padding: 2px 4px; border-radius: 4px; -webkit-print-color-adjust: exact; }
-                                
-                                /* Estilo Refri Horizontal */
+                                /* Estilo Refri */
                                 .refri-card { border: 4px solid black; border-radius: 8px; padding: 5px; }
                                 .refri-header { background: black; color: white; font-size: 18px; font-weight: 900; text-align: center; padding: 5px; border-radius: 4px; margin-bottom: 10px; -webkit-print-color-adjust: exact; }
-                                .refri-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
                                 .refri-item { border: 2px solid black; border-radius: 4px; padding: 4px; text-align: center; }
                                 
                                 @page { size: 72mm auto; margin: 0mm; }
@@ -782,80 +782,81 @@
                             <div id="print-section" className="hidden print:block">
                                 <div className="print-container">
                                     
-                                    {/* LOGOS HEADER (COMÚN) */}
-                                    <div className="header-logos">
-                                        {/* LOGO IZQUIERDO */}
-                                        <img 
-                                            src="https://1024terabox.com/s/14n-TKxfY1GtrKPKdcf6Lxw" 
-                                            className="logo-img" 
-                                            alt="Logo IHSS" 
-                                            onerror="this.style.display='none'"
-                                        />
-                                        
-                                        <div style={{textAlign:'center', lineHeight:'1'}}>
-                                            <div style={{fontSize:'12px', fontWeight:'900'}}>IHSS</div>
-                                            <div style={{fontSize:'8px', fontWeight:'bold'}}>SUBROGADO</div>
+                                    {/* HEADER CON LOGOS Y TEXTO INSTITUCIONAL */}
+                                    <div className="header-container">
+                                        <div className="logo-box">
+                                            <img 
+                                                src="https://i.pinimg.com/736x/b4/5a/93/b45a931f326800d4877d34bbe4800b86.jpg" 
+                                                className="logo-img" 
+                                                alt="Logo IHSS" 
+                                                onError={(e) => e.currentTarget.style.display = 'none'}
+                                            />
                                         </div>
-
-                                        {/* LOGO DERECHO */}
-                                        <img 
-                                            src="https://1024terabox.com/s/11kH7BHiKmA36X1jau7VOQA" 
-                                            className="logo-img" 
-                                            alt="Logo Logística" 
-                                            onerror="this.style.display='none'"
-                                        />
+                                        <div className="header-text">
+                                            DEPARTAMENTO DE DISPENSACIÓN<br/>
+                                            DE MEDICAMENTOS A DOMICILIO<br/>
+                                        </div>
+                                        <div className="logo-box">
+                                            <img 
+                                                src="https://i.pinimg.com/736x/52/b4/5a/52b45a0dff8a6caa82a514f971bc40cf.jpg" 
+                                                className="logo-img" 
+                                                alt="Logo Logística" 
+                                                onError={(e) => e.currentTarget.style.display = 'none'}
+                                            />
+                                        </div>
                                     </div>
 
                                     {/* PLANTILLA 1: VENTANILLA O RUTA */}
                                     {(printMode === 'ventanilla' || printMode === 'ruta') && (
                                         <>
+                                            <div className="section-title">
+                                                {printMode === 'ruta' ? 'ENTREGA EN RUTA' : 'ENTREGA VENTANILLA'}
+                                            </div>
+                                            
                                             <div className="box-modern">
-                                                <div className="box-title">
-                                                    {printMode === 'ruta' ? 'ENTREGA RUTA' : 'ENTREGA VENTANILLA'}
+                                                <div className="info-header">INFORMACIÓN DE DERECHOHABIENTE</div>
+                                                <div>
+                                                    <span className="label-modern">NOMBRE COMPLETO:</span><br/>
+                                                    <span className="value-modern big-value">{printKitData.nombre}</span>
                                                 </div>
-                                                <div className="info-row">
+                                                <div className="grid-2" style={{marginTop:'4px'}}>
                                                     <div>
-                                                        <span className="label-modern">PACIENTE</span><br/>
-                                                        <span className="value-modern">{printKitData.nombre}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="info-row">
-                                                    <div style={{flex:1}}>
-                                                        <span className="label-modern">DNI / AFILIACIÓN</span><br/>
+                                                        <span className="label-modern">DNI / AFILIACIÓN:</span><br/>
                                                         <span className="value-modern">{printKitData.dni}</span>
                                                     </div>
                                                     <div style={{textAlign:'right'}}>
-                                                        <span className="label-modern">FECHA ENTREGA</span><br/>
-                                                        <span className="value-modern">{printKitData.fechaEntregaKit}</span>
+                                                        <span className="label-modern">FECHA ENTREGA:</span><br/>
+                                                        <span className="value-modern">{printKitData.fechaEntregaKit || '---'}</span>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div className="box-modern">
-                                                <div className="info-row">
+                                                <div className="info-header">CONTACTO Y SEGUIMIENTO</div>
+                                                <div className="grid-2" style={{marginBottom:'4px'}}>
                                                     <div>
-                                                        <span className="label-modern">TELÉFONOS</span><br/>
-                                                        {(printKitData.selectedPhones?.length > 0 || printKitData.otherPhone) ? (
-                                                            <div className="value-small">
-                                                                {printKitData.selectedPhones?.map(p => <span key={p}>{p} / </span>)}
-                                                                {printKitData.otherPhone}
-                                                            </div>
-                                                        ) : <span>--</span>}
+                                                        <span className="label-modern">TELÉFONOS:</span><br/>
+                                                        <div className="value-small">
+                                                            {(printKitData.selectedPhones?.length > 0 || printKitData.otherPhone) ? (
+                                                                <>
+                                                                    {printKitData.selectedPhones?.map(p => <div key={p}>{p}</div>)}
+                                                                    {printKitData.otherPhone && <div>{printKitData.otherPhone}</div>}
+                                                                </>
+                                                            ) : '---'}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{textAlign:'center', borderLeft:'1px solid #ccc'}}>
+                                                        <span className="label-modern">MEDICAMENTOS</span><br/>
+                                                        <span className="big-value">{printKitData.triggerMeds}</span>
                                                     </div>
                                                 </div>
-                                                <div className="info-row">
-                                                    <div style={{flex:1}}>
-                                                        <span className="label-modern">CONTACT CENTER</span><br/>
-                                                        <span className="value-small">{printKitData.contactCenter ? printKitData.contactCenter.split('---')[1] : 'N/A'}</span>
-                                                    </div>
-                                                    <div style={{textAlign:'right'}}>
-                                                        <span className="label-modern">MEDICAMENTOS</span><br/>
-                                                        <span className="value-modern" style={{fontSize:'16px'}}>{printKitData.triggerMeds}</span>
-                                                    </div>
+                                                <div style={{borderTop:'1px dashed black', paddingTop:'2px'}}>
+                                                    <span className="label-modern">CONTACT CENTER ASIGNADO:</span><br/>
+                                                    <span className="value-modern">{printKitData.contactCenter ? printKitData.contactCenter.split('---')[1] : 'N/A'}</span>
                                                 </div>
                                             </div>
 
-                                            {/* CAJA DE UBICACIÓN */}
+                                            {/* ZONA DE UBICACIÓN */}
                                             {printMode === 'ventanilla' ? (
                                                 <div className="ventanilla-display">
                                                     <Icons.Box size={32} style={{display:'inline'}}/>
@@ -863,67 +864,67 @@
                                                 </div>
                                             ) : (
                                                 <div className="box-modern" style={{minHeight:'3cm'}}>
-                                                    <div className="label-modern" style={{textAlign:'center', borderBottom:'1px solid black', marginBottom:'4px'}}>DIRECCIÓN DE ENTREGA</div>
-                                                    <div className="value-small" style={{textAlign:'justify', marginBottom:'5px'}}>
+                                                    <div className="info-header">DIRECCIÓN DE ENTREGA</div>
+                                                    <div className="value-small" style={{textAlign:'justify', marginBottom:'6px'}}>
                                                         {printKitData.addressConfirmed ? selectedPatient.direccion : printKitData.secondaryAddress}
                                                     </div>
                                                     
                                                     {printKitData.observations && (
-                                                        <div style={{marginTop:'5px', borderTop:'1px dotted black', paddingTop:'2px'}}>
+                                                        <div style={{background:'#eee', padding:'2px', borderRadius:'2px', marginTop:'4px'}}>
                                                             <span className="label-modern">OBSERVACIONES:</span><br/>
-                                                            <span className="value-small" style={{fontStyle:'italic'}}>{printKitData.observations}</span>
+                                                            <span style={{fontSize:'10px', fontStyle:'italic'}}>{printKitData.observations}</span>
                                                         </div>
                                                     )}
 
-                                                    <div style={{marginTop:'8px', borderTop:'2px solid black', paddingTop:'2px', textAlign:'center', background:'#eee'}}>
-                                                        <span className="label-modern">ESTADO GPS: </span>
-                                                        <span className="value-modern">{printKitData.gpsStatus || 'SIN GPS'}</span>
+                                                    <div style={{marginTop:'8px', borderTop:'2px solid black', paddingTop:'4px', textAlign:'center'}}>
+                                                        <span className="label-modern" style={{marginRight:'5px'}}>ESTADO GPS:</span>
+                                                        <span className="big-value">{printKitData.gpsStatus || 'SIN GPS'}</span>
                                                     </div>
                                                 </div>
                                             )}
 
                                             {/* REFRIGERADO ALERT */}
                                             {printKitData.isRefrigerated && (
-                                                <div className="box-modern" style={{borderStyle:'dashed', textAlign:'center'}}>
-                                                    <span className="label-modern">⚠️ CONTIENE REFRIGERADO ⚠️</span><br/>
-                                                    <span className="value-modern">CANTIDAD: {printKitData.cantRefriGlobal}</span>
+                                                <div style={{border:'3px dashed black', padding:'4px', textAlign:'center', marginTop:'5px', borderRadius:'6px'}}>
+                                                    <div style={{fontSize:'12px', fontWeight:'900'}}>❄️ CONTIENE REFRIGERADO ❄️</div>
+                                                    <div style={{fontSize:'11px', fontWeight:'bold'}}>CANTIDAD: {printKitData.cantRefriGlobal}</div>
                                                 </div>
                                             )}
 
                                             <div className="footer-modern">
-                                                <div className="user-tag">{printKitData.digitador}</div>
-                                                <div style={{fontSize:'8px'}}>{new Date().toLocaleString()}</div>
+                                                <div>DIGITADOR: {printKitData.digitador}</div>
+                                                <div>{new Date().toLocaleString()}</div>
                                             </div>
                                         </>
                                     )}
 
-                                    {/* PLANTILLA 2: REFRIGERADO (HORIZONTAL) */}
+                                    {/* PLANTILLA 2: REFRIGERADO */}
                                     {printMode === 'refri' && (
                                         <div className="refri-card">
                                             <div className="refri-header">❄️ REFRIGERADO ❄️</div>
                                             
-                                            <div style={{marginBottom:'8px'}}>
-                                                <span className="label-modern" style={{fontSize:'10px'}}>PACIENTE</span>
-                                                <div className="value-modern" style={{fontSize:'16px', lineHeight:'1.1'}}>{printKitData.nombre}</div>
+                                            <div style={{marginBottom:'10px', borderBottom:'2px solid black', paddingBottom:'5px'}}>
+                                                <span className="label-modern">PACIENTE</span><br/>
+                                                <span className="big-value" style={{fontSize:'16px'}}>{printKitData.nombre}</span>
                                             </div>
                                             
-                                            <div style={{marginBottom:'10px', borderBottom:'2px solid black', paddingBottom:'5px'}}>
-                                                <span className="label-modern" style={{fontSize:'10px'}}>IDENTIFICACIÓN</span>
-                                                <div className="value-modern" style={{fontSize:'18px', fontFamily:'monospace'}}>{printKitData.dni}</div>
+                                            <div style={{marginBottom:'10px'}}>
+                                                <span className="label-modern">IDENTIFICACIÓN</span><br/>
+                                                <span className="big-value" style={{fontSize:'18px', fontFamily:'monospace'}}>{printKitData.dni}</span>
                                             </div>
 
-                                            <div className="refri-grid">
-                                                <div className="refri-item">
+                                            <div className="grid-2" style={{borderTop:'2px solid black', paddingTop:'8px'}}>
+                                                <div style={{textAlign:'left'}}>
                                                     <span className="label-modern">FECHA ENTREGA</span><br/>
                                                     <span className="value-modern">{printKitData.fechaEntregaKit}</span>
                                                 </div>
-                                                <div className="refri-item" style={{background:'black', color:'white', borderColor:'black'}}>
+                                                <div className="refri-item" style={{background:'black', color:'white'}}>
                                                     <span className="label-modern" style={{color:'white'}}>CANTIDAD</span><br/>
-                                                    <span className="value-modern" style={{fontSize:'22px', color:'white'}}>{printKitData.cantRefriGlobal}</span>
+                                                    <span style={{fontSize:'22px', fontWeight:'900'}}>{printKitData.cantRefriGlobal}</span>
                                                 </div>
                                             </div>
-                                            <div className="footer-modern" style={{marginTop:'15px'}}>
-                                                <div className="user-tag">{printKitData.digitador}</div>
+                                            <div className="footer-modern" style={{justifyContent:'center', marginTop:'15px'}}>
+                                                OP: {printKitData.digitador}
                                             </div>
                                         </div>
                                     )}
