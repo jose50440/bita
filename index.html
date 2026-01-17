@@ -529,7 +529,7 @@
             );
         };
 
-        // --- BLOCK: PACIENTES (CORREGIDO Y OPTIMIZADO) ---
+        // --- BLOCK: PACIENTES (ACTUALIZADO: LOGICA INTELIGENTE EXCEL) ---
         const PatientManagementBlock = ({ patients, kits, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
@@ -548,9 +548,9 @@
                 medicamentos: [],
                 digitador: '',
                 // Logic Fields
-                deliveryMode: '', // 'ventanilla' | 'ruta'
+                deliveryMode: '', 
                 selectedPhones: [], 
-                otherPhoneEnabled: false, // Nuevo estado para el checkbox
+                otherPhoneEnabled: false, 
                 otherPhone: '',
                 addressConfirmed: true, 
                 secondaryAddress: '',
@@ -580,37 +580,83 @@
             const filteredPatients = patients.filter(p => (p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || p.dni?.includes(searchTerm)));
             const patientKits = selectedPatient ? kits.filter(k => k.patientId === selectedPatient.id) : [];
 
-            // Excel Upload Handler
+            // Excel Upload Handler (LÓGICA ACTUALIZADA DE DUPLICADOS Y RELLENO)
             const handleExcelUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
-                reader.onload = (evt) => {
+                reader.onload = async (evt) => {
                     const bstr = evt.target.result;
                     const wb = XLSX.read(bstr, { type: 'binary' });
                     const wsname = wb.SheetNames[0];
                     const ws = wb.Sheets[wsname];
                     const data = XLSX.utils.sheet_to_json(ws);
                     
-                    let count = 0;
-                    data.forEach(row => {
+                    let added = 0;
+                    let skipped = 0;
+                    let updated = 0;
+
+                    // Iterar sobre cada fila del Excel
+                    for (const row of data) {
                         const pData = {
-                            dni: row['DNI'] || row['dni'] || '',
-                            nombre: row['NOMBRE'] || row['nombre'] || '',
-                            telefono: row['TELEFONO'] || row['telefono'] || '',
-                            direccion: row['DIRECCION'] || row['direccion'] || '',
-                            familiar: row['FAMILIAR'] || row['familiar'] || '',
-                            telefonoFamiliar: row['TELEFONOFAMILIAR'] || row['telefonofamiliar'] || '',
-                            descripcionMunicipio: row['DESCRIPCION_MUNICIPIO'] || row['descripcion_municipio'] || '',
-                            tipoAfiliado: row['TIPOAFILIADO'] || row['tipoafiliado'] || 'AFILIADO DIRECTO',
-                            nAfiliacion: row['DNI'] || row['dni'] || '' 
+                            dni: String(row['DNI'] || row['dni'] || '').trim(),
+                            nombre: String(row['NOMBRE'] || row['nombre'] || '').toUpperCase().trim(),
+                            telefono: String(row['TELEFONO'] || row['telefono'] || '').trim(),
+                            direccion: String(row['DIRECCION'] || row['direccion'] || '').toUpperCase().trim(),
+                            familiar: String(row['FAMILIAR'] || row['familiar'] || '').toUpperCase().trim(),
+                            telefonoFamiliar: String(row['TELEFONOFAMILIAR'] || row['telefonofamiliar'] || '').trim(),
+                            descripcionMunicipio: String(row['DESCRIPCION_MUNICIPIO'] || row['descripcion_municipio'] || '').toUpperCase().trim(),
+                            tipoAfiliado: String(row['TIPOAFILIADO'] || row['tipoafiliado'] || 'AFILIADO DIRECTO').toUpperCase().trim(),
+                            nAfiliacion: String(row['DNI'] || row['dni'] || '').trim() 
                         };
-                        if (pData.dni) {
-                            onAddPatient(pData);
-                            count++;
+
+                        if (!pData.dni) continue;
+
+                        // Verificar si el paciente ya existe en la BD
+                        const existingPatient = patients.find(p => p.dni === pData.dni);
+
+                        if (existingPatient) {
+                            // El paciente existe: Verificamos si podemos rellenar datos faltantes
+                            let needsUpdate = false;
+                            const updates = {};
+
+                            // Función para chequear si un campo está vacío en DB y tiene dato en Excel
+                            const checkAndFill = (field) => {
+                                const dbValue = existingPatient[field];
+                                const excelValue = pData[field];
+                                // Si en la DB no hay dato (null, undefined o vacío) Y en el Excel SÍ hay dato
+                                if ((!dbValue || dbValue.trim() === '') && (excelValue && excelValue.trim() !== '')) {
+                                    updates[field] = excelValue;
+                                    needsUpdate = true;
+                                }
+                            };
+
+                            checkAndFill('nombre');
+                            checkAndFill('telefono');
+                            checkAndFill('direccion');
+                            checkAndFill('familiar');
+                            checkAndFill('telefonoFamiliar');
+                            checkAndFill('descripcionMunicipio');
+                            
+                            // Lógica especial para tipo afiliado (si era el default y viene uno específico)
+                            if ((!existingPatient.tipoAfiliado || existingPatient.tipoAfiliado === 'AFILIADO DIRECTO') && pData.tipoAfiliado && pData.tipoAfiliado !== 'AFILIADO DIRECTO') {
+                                 updates.tipoAfiliado = pData.tipoAfiliado;
+                                 needsUpdate = true;
+                            }
+
+                            if (needsUpdate) {
+                                await onUpdatePatient(existingPatient.id, updates);
+                                updated++;
+                            } else {
+                                skipped++; // Ya existía y tenía datos completos (o el Excel no traía nada nuevo)
+                            }
+                        } else {
+                            // No existe: Lo agregamos como nuevo
+                            await onAddPatient(pData);
+                            added++;
                         }
-                    });
-                    alert(`Se cargaron ${count} pacientes exitosamente.`);
+                    }
+                    alert(`Resumen de Carga:\n\n✅ Pacientes Agregados: ${added}\n🔄 Pacientes Modificados (Datos completados): ${updated}\n⏭️ Pacientes Omitidos (Duplicados): ${skipped}`);
                 };
                 reader.readAsBinaryString(file);
                 e.target.value = null; 
@@ -628,7 +674,7 @@
 
             const handleKitSubmit = (e) => {
                 e.preventDefault();
-                const finalData = { ...kitData, digitador: currentUser.name, dni: selectedPatient.dni, nombre: selectedPatient.nombre }; // Aseguramos que nombre y dni vayan
+                const finalData = { ...kitData, digitador: currentUser.name, dni: selectedPatient.dni, nombre: selectedPatient.nombre }; 
                 if (!editingKitId && !finalData.horaOperaciones) {
                     finalData.horaOperaciones = new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', hour12:true});
                 }
@@ -669,9 +715,6 @@
                 else setKitData({...kitData, selectedPhones: [...current, phone]});
             };
 
-            // NOTA: ELIMINÉ LAS DEFINICIONES INTERNAS DE COMPONENTES PARA EVITAR EL ERROR DE FOCO (DIGITO POR DIGITO)
-            // EL HTML AHORA ESTÁ DIRECTAMENTE EN EL RETURN O EN LA MODAL
-
             if (selectedPatient) {
                 return (
                     <div className="glass-panel rounded-3xl shadow-soft h-full flex flex-col animate-in border-0 bg-white">
@@ -685,9 +728,7 @@
                         </div>
 
                         <Modal isOpen={showKitForm} onClose={closeKitForm} title={editingKitId ? "Editar Kit" : "Nuevo Kit de Producción"} maxWidth="max-w-4xl">
-                            {/* FORMULARIO KIT INLINE PARA EVITAR ERROR DE FOCO */}
                             <form onSubmit={handleKitSubmit} className="space-y-6">
-                                {/* DATOS PACIENTE (SOLO LECTURA) */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 border-b border-slate-100 pb-4 bg-slate-50 p-4 rounded-xl">
                                     <div>
                                         <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI del Paciente</label>
@@ -699,18 +740,14 @@
                                     </div>
                                 </div>
 
-                                {/* Botones Ventanilla / Ruta */}
                                 <div className="flex gap-4 justify-center pb-4 border-b border-slate-100">
                                     <button type="button" onClick={()=>setKitData({...kitData, deliveryMode: 'ventanilla'})} className={`px-6 py-2 rounded-lg font-bold transition-all ${kitData.deliveryMode === 'ventanilla' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Ventanilla</button>
                                     <button type="button" onClick={()=>setKitData({...kitData, deliveryMode: 'ruta'})} className={`px-6 py-2 rounded-lg font-bold transition-all ${kitData.deliveryMode === 'ruta' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Ruta</button>
                                 </div>
 
-                                {/* Datos de Confirmación (Solo si es Ruta) */}
                                 <div className={`transition-all duration-300 ${kitData.deliveryMode === 'ventanilla' ? 'opacity-40 pointer-events-none grayscale' : ''}`}>
                                     <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
                                         <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Confirmar Datos de Contacto</h5>
-                                        
-                                        {/* Checkbox Teléfonos */}
                                         <div className="space-y-2 mb-4">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block">Seleccionar Teléfonos a Llamar:</label>
                                             {selectedPatient.telefono && (
@@ -725,26 +762,12 @@
                                                     <span className="text-sm">{selectedPatient.telefonoFamiliar} (Familiar)</span>
                                                 </label>
                                             )}
-                                            {/* CHECKBOX OTRO CORREGIDO */}
                                             <div className="flex items-center gap-2 p-2 bg-white rounded border border-slate-200">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={kitData.otherPhoneEnabled} 
-                                                    onChange={(e) => setKitData({...kitData, otherPhoneEnabled: e.target.checked, otherPhone: e.target.checked ? kitData.otherPhone : ''})} 
-                                                />
+                                                <input type="checkbox" checked={kitData.otherPhoneEnabled} onChange={(e) => setKitData({...kitData, otherPhoneEnabled: e.target.checked, otherPhone: e.target.checked ? kitData.otherPhone : ''})} />
                                                 <span className="text-sm whitespace-nowrap">Otro:</span>
-                                                <input 
-                                                    type="text" 
-                                                    className={`w-full p-1 border-b border-slate-300 outline-none text-sm ${!kitData.otherPhoneEnabled ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}
-                                                    placeholder="Ingresar otro número" 
-                                                    value={kitData.otherPhone} 
-                                                    onChange={e=>setKitData({...kitData, otherPhone:e.target.value})}
-                                                    disabled={!kitData.otherPhoneEnabled}
-                                                />
+                                                <input type="text" className={`w-full p-1 border-b border-slate-300 outline-none text-sm ${!kitData.otherPhoneEnabled ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`} placeholder="Ingresar otro número" value={kitData.otherPhone} onChange={e=>setKitData({...kitData, otherPhone:e.target.value})} disabled={!kitData.otherPhoneEnabled} />
                                             </div>
                                         </div>
-
-                                        {/* Confirmar Ubicación */}
                                         <div className="mb-4">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Confirmar Ubicación (Primaria: {selectedPatient.direccion})</label>
                                             <div className="flex items-center gap-4 mb-2">
@@ -758,8 +781,6 @@
                                                 </div>
                                             )}
                                         </div>
-
-                                        {/* Observaciones */}
                                         <div>
                                             <label className="flex items-center gap-2 cursor-pointer mb-2">
                                                 <input type="checkbox" checked={kitData.observationsEnabled} onChange={e=>setKitData({...kitData, observationsEnabled:e.target.checked})} />
@@ -778,7 +799,6 @@
                                         <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Fecha Armado</label><input type="date" className="w-full p-2 border rounded text-sm bg-white" value={kitData.fechaArmado} onChange={e=>setKitData({...kitData, fechaArmado:e.target.value})} required /></div>
                                         <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Entrega a Logística</label><input type="date" className="w-full p-2 border rounded text-sm bg-white" value={kitData.fechaEntregaLogistica} onChange={e=>setKitData({...kitData, fechaEntregaLogistica:e.target.value})} /></div>
                                         <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Entrega de Kit (Paciente)</label><input type="date" className="w-full p-2 border rounded text-sm bg-white" value={kitData.fechaEntregaKit} onChange={e=>setKitData({...kitData, fechaEntregaKit:e.target.value})} /></div>
-                                        
                                         <div className="md:col-span-3">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Contact Center</label>
                                             <select className="w-full p-2 border rounded text-sm bg-white" value={kitData.contactCenter} onChange={e=>setKitData({...kitData, contactCenter:e.target.value})}>
