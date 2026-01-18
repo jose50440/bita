@@ -1042,7 +1042,7 @@
             const [currentPage, setCurrentPage] = useState(1);
             const [patientsPerPage] = useState(50); // 50 pacientes por página para mejor rendimiento
             
-            // Estados para Impresión (ACTUALIZADO con tamaño específico)
+            // Estados para Impresión (ACTUALIZADO con tamaño específico y orientación)
             const [printKitData, setPrintKitData] = useState(null);
             const [printMode, setPrintMode] = useState(null);
             const [printOrientation, setPrintOrientation] = useState('vertical');
@@ -1222,13 +1222,13 @@
                 setShowKitForm(true); 
             };
 
-            // Print Logic ACTUALIZADA con tamaño específico 71mm x 210mm
+            // Print Logic ACTUALIZADA con tamaño específico 71mm x 210mm y orientación
             const openPrintModal = (kit) => {
                 setPrintKitData(kit);
                 setShowPrintModal(true);
             };
 
-            const triggerPrint = (mode) => {
+            const triggerPrint = (mode, orientation) => {
                 setPrintMode(mode);
                 
                 // Crear iframe para impresión
@@ -1240,7 +1240,7 @@
                 
                 document.body.appendChild(printFrame);
                 
-                const isHorizontal = printOrientation === 'horizontal';
+                const isHorizontal = orientation === 'horizontal';
                 const width = isHorizontal ? '210mm' : '71mm';
                 const height = isHorizontal ? '71mm' : '210mm';
                 
@@ -1249,178 +1249,358 @@
                     <html>
                     <head>
                         <meta charset="UTF-8">
-                        <title>Impresión Kit</title>
+                        <title>Impresión Kit - ${mode === 'ventanilla' ? 'Ventanilla' : mode === 'ruta' ? 'Ruta' : 'Refrigerado'}</title>
                         <style>
                             @media print {
                                 @page {
                                     size: ${width} ${height};
-                                    margin: 0;
+                                    margin: 3mm 2mm;
                                 }
                                 body {
                                     font-family: 'Arial', sans-serif;
                                     margin: 0;
-                                    padding: 2mm;
-                                    width: ${width};
-                                    height: ${height};
+                                    padding: 0;
+                                    width: ${isHorizontal ? '206mm' : '67mm'};
+                                    height: ${isHorizontal ? '67mm' : '204mm'};
+                                    font-size: 9px;
+                                    color: #000;
+                                    background: white;
                                     box-sizing: border-box;
-                                    font-size: ${isHorizontal ? '9px' : '10px'};
                                 }
                                 .container {
                                     width: 100%;
                                     height: 100%;
-                                    display: flex;
-                                    flex-direction: ${isHorizontal ? 'row' : 'column'};
-                                    align-items: center;
-                                    justify-content: space-between;
+                                    padding: 1mm;
+                                    box-sizing: border-box;
+                                    position: relative;
                                 }
                                 .header {
                                     text-align: center;
-                                    border-bottom: 2px solid #000;
-                                    padding-bottom: 2mm;
-                                    margin-bottom: 3mm;
-                                    width: 100%;
+                                    border-bottom: 1px solid #000;
+                                    padding-bottom: 1.5mm;
+                                    margin-bottom: 2mm;
                                 }
-                                .header h1 {
-                                    font-size: ${isHorizontal ? '10px' : '12px'};
+                                .logo-section {
+                                    display: flex;
+                                    justify-content: space-between;
+                                    align-items: center;
+                                    margin-bottom: 1.5mm;
+                                }
+                                .logo {
+                                    width: 15mm;
+                                    height: 15mm;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                }
+                                .logo img {
+                                    max-width: 100%;
+                                    max-height: 100%;
+                                    object-fit: contain;
+                                }
+                                .header-title {
+                                    flex: 1;
+                                    text-align: center;
                                     font-weight: bold;
-                                    margin: 0;
-                                    text-transform: uppercase;
+                                    font-size: 8px;
+                                    line-height: 1.2;
+                                    padding: 0 2mm;
                                 }
-                                .patient-section {
-                                    border: 1px solid #000;
-                                    border-radius: 2px;
-                                    padding: 3mm;
-                                    margin-bottom: 3mm;
-                                    width: 100%;
-                                }
-                                .highlight-box {
-                                    background: #f0f0f0;
-                                    border: 1px solid #000;
-                                    padding: 2mm;
+                                .section-title {
+                                    background: #000;
+                                    color: white;
+                                    text-align: center;
+                                    font-weight: bold;
+                                    font-size: 8px;
+                                    padding: 1mm;
                                     margin: 2mm 0;
-                                    font-weight: bold;
+                                    border-radius: 1mm;
                                 }
-                                .patient-name {
-                                    font-size: ${isHorizontal ? '11px' : '14px'};
-                                    font-weight: bold;
-                                    text-align: center;
-                                    margin-bottom: 2mm;
-                                }
-                                .patient-dni {
-                                    font-size: ${isHorizontal ? '10px' : '12px'};
-                                    font-family: monospace;
-                                    text-align: center;
-                                    margin-bottom: 2mm;
-                                }
-                                ${printMode === 'ruta' ? `
-                                .patient-address {
-                                    font-size: ${isHorizontal ? '9px' : '10px'};
-                                    text-align: center;
-                                    font-weight: bold;
-                                    margin: 3mm 0;
-                                    border: 1px dashed #000;
+                                .patient-info {
+                                    border: 1px solid #000;
+                                    border-radius: 1.5mm;
                                     padding: 2mm;
+                                    margin-bottom: 2mm;
                                 }
-                                ` : ''}
-                                .details-section {
-                                    display: ${isHorizontal ? 'grid' : 'block'};
-                                    ${isHorizontal ? 'grid-template-columns: repeat(2, 1fr); gap: 2mm;' : ''}
-                                    margin-top: 3mm;
-                                }
-                                .detail-item {
-                                    margin-bottom: 1mm;
-                                }
-                                .detail-label {
+                                .info-label {
                                     font-weight: bold;
-                                    font-size: ${isHorizontal ? '8px' : '9px'};
+                                    font-size: 7px;
+                                    color: #666;
+                                    display: block;
+                                    margin-bottom: 0.5mm;
                                 }
-                                .detail-value {
-                                    font-size: ${isHorizontal ? '9px' : '10px'};
+                                .info-value {
+                                    font-size: 10px;
+                                    font-weight: bold;
+                                    color: #000;
+                                    margin-bottom: 1.5mm;
                                 }
-                                .delivery-mode {
+                                .highlight {
+                                    font-size: 11px;
+                                    font-weight: bold;
+                                    color: #000;
+                                    background: #f5f5f5;
+                                    padding: 1.5mm;
+                                    border-radius: 1mm;
+                                    margin: 1.5mm 0;
+                                }
+                                .contact-info {
+                                    border: 1px solid #000;
+                                    border-radius: 1.5mm;
+                                    padding: 2mm;
+                                    margin-bottom: 2mm;
+                                }
+                                .delivery-display {
+                                    font-size: 14px;
+                                    font-weight: bold;
                                     text-align: center;
-                                    font-size: ${isHorizontal ? '12px' : '16px'};
-                                    font-weight: bold;
-                                    border: 2px solid #000;
+                                    border: 2px dashed #000;
                                     padding: 3mm;
                                     margin: 3mm 0;
+                                    border-radius: 2mm;
                                 }
-                                .refrigerated-section {
-                                    border: 2px solid #0000ff;
+                                .refrigerado-alert {
+                                    border: 2px solid #0066cc;
                                     background: #e6f7ff;
+                                    border-radius: 2mm;
                                     padding: 2mm;
                                     text-align: center;
-                                    margin: 3mm 0;
+                                    margin: 2mm 0;
                                 }
                                 .footer {
-                                    margin-top: auto;
+                                    position: absolute;
+                                    bottom: 0;
+                                    left: 0;
+                                    right: 0;
                                     border-top: 1px solid #000;
                                     padding-top: 1mm;
-                                    font-size: ${isHorizontal ? '7px' : '8px'};
+                                    font-size: 7px;
                                     text-align: center;
-                                    width: 100%;
+                                    color: #666;
                                 }
                                 .grid-2 {
                                     display: grid;
                                     grid-template-columns: 1fr 1fr;
                                     gap: 2mm;
+                                    margin: 2mm 0;
+                                }
+                                .address-section {
+                                    background: #f9f9f9;
+                                    border: 1px solid #ccc;
+                                    border-radius: 1.5mm;
+                                    padding: 2mm;
+                                    margin: 2mm 0;
+                                }
+                                .address-title {
+                                    font-weight: bold;
+                                    font-size: 9px;
+                                    color: #333;
+                                    margin-bottom: 1mm;
+                                }
+                                .address-content {
+                                    font-size: 10px;
+                                    font-weight: bold;
+                                    color: #000;
+                                    line-height: 1.3;
+                                }
+                                .observations-section {
+                                    background: #fff8e1;
+                                    border: 1px solid #ffd54f;
+                                    border-radius: 1.5mm;
+                                    padding: 2mm;
+                                    margin: 2mm 0;
+                                    font-size: 8px;
+                                }
+                                .important-note {
+                                    font-weight: bold;
+                                    color: #d32f2f;
+                                    font-size: 8px;
+                                    text-align: center;
+                                    margin: 1.5mm 0;
+                                }
+                                .patient-name-large {
+                                    font-size: 12px;
+                                    font-weight: bold;
+                                    text-align: center;
+                                    margin-bottom: 1.5mm;
+                                    background: #e3f2fd;
+                                    padding: 1.5mm;
+                                    border-radius: 1mm;
+                                }
+                                .patient-dni-large {
+                                    font-size: 11px;
+                                    font-family: 'Courier New', monospace;
+                                    text-align: center;
+                                    margin-bottom: 2mm;
+                                    background: #f3e5f5;
+                                    padding: 1.5mm;
+                                    border-radius: 1mm;
+                                }
+                                .medicamentos-count {
+                                    font-size: 16px;
+                                    font-weight: bold;
+                                    text-align: center;
+                                    color: #1976d2;
+                                    margin: 2mm 0;
+                                }
+                                .contact-center {
+                                    background: #e8f5e9;
+                                    border: 1px solid #4caf50;
+                                    border-radius: 1.5mm;
+                                    padding: 1.5mm;
+                                    margin: 1.5mm 0;
+                                    font-size: 8px;
+                                    text-align: center;
+                                }
+                                .gps-status {
+                                    background: #fff3e0;
+                                    border: 1px solid #ff9800;
+                                    border-radius: 1.5mm;
+                                    padding: 1.5mm;
+                                    margin: 1.5mm 0;
+                                    font-size: 9px;
+                                    font-weight: bold;
+                                    text-align: center;
                                 }
                             }
                         </style>
                     </head>
                     <body>
                         <div class="container">
+                            <!-- HEADER CON LOGOS -->
                             <div class="header">
-                                <h1>BITÁCORA DE PRODUCCIÓN</h1>
-                                <div>${printMode === 'ventanilla' ? 'VENTANILLA' : printMode === 'ruta' ? 'ENTREGA EN RUTA' : 'REFRIGERADO'}</div>
-                            </div>
-                            
-                            <div class="patient-section">
-                                <div class="patient-name">${printKitData.nombre}</div>
-                                <div class="patient-dni">${printKitData.dni}</div>
-                                
-                                ${printMode === 'ruta' ? `
-                                <div class="patient-address">
-                                    ${patients.find(p => p.dni === printKitData.dni)?.direccion || 'DIRECCIÓN NO DISPONIBLE'}
-                                </div>
-                                ` : ''}
-                                
-                                <div class="details-section">
-                                    <div class="grid-2">
-                                        <div class="detail-item">
-                                            <div class="detail-label">FECHA ARMADO</div>
-                                            <div class="detail-value">${printKitData.fechaArmado}</div>
-                                        </div>
-                                        <div class="detail-item">
-                                            <div class="detail-label">MEDICAMENTOS</div>
-                                            <div class="detail-value">${printKitData.medicamentos?.length || 0}</div>
-                                        </div>
-                                        <div class="detail-item">
-                                            <div class="detail-label">DIGITADOR</div>
-                                            <div class="detail-value">${printKitData.digitador}</div>
-                                        </div>
-                                        <div class="detail-item">
-                                            <div class="detail-label">ENTREGA KIT</div>
-                                            <div class="detail-value">${printKitData.fechaEntregaKit || 'PENDIENTE'}</div>
-                                        </div>
+                                <div class="logo-section">
+                                    <div class="logo">
+                                        <img src="https://raw.githubusercontent.com/jose50440/bita/ae8b4188532504b6c4057505172b68be697b2851/img/logo1.png" 
+                                             alt="Logo IHSS">
+                                    </div>
+                                    <div class="header-title">
+                                        DEPARTAMENTO DE DISPENSACIÓN<br>
+                                        DE MEDICAMENTOS A DOMICILIO<br>
+                                        <strong>${mode === 'ventanilla' ? 'VENTANILLA' : mode === 'ruta' ? 'ENTREGA EN RUTA' : 'REFRIGERADO'}</strong>
+                                    </div>
+                                    <div class="logo">
+                                        <img src="https://raw.githubusercontent.com/jose50440/bita/ae8b4188532504b6c4057505172b68be697b2851/img/logo2.png" 
+                                             alt="Logo Logística">
                                     </div>
                                 </div>
                             </div>
-                            
-                            ${printMode === 'refri' ? `
-                            <div class="refrigerated-section">
-                                <div style="font-size: ${isHorizontal ? '12px' : '14px'}; font-weight: bold;">❄️ CONTIENE REFRIGERADO ❄️</div>
-                                <div style="font-size: ${isHorizontal ? '16px' : '20px'}; font-weight: bold; margin: 2mm 0;">CANTIDAD: ${printKitData.cantRefriGlobal || 1}</div>
-                                <div style="font-size: ${isHorizontal ? '9px' : '10px'};">MANTENER CADENA DE FRÍO</div>
-                            </div>
+
+                            <!-- CONTENIDO SEGÚN MODO -->
+                            ${mode === 'refri' ? `
+                                <!-- PLANTILLA REFRIGERADO -->
+                                <div class="section-title">❄️ REFRIGERADO ❄️</div>
+                                <div class="patient-info">
+                                    <div class="patient-name-large">${printKitData.nombre}</div>
+                                    <div class="patient-dni-large">${printKitData.dni}</div>
+                                    <div class="grid-2">
+                                        <div>
+                                            <div class="info-label">FECHA ARMADO</div>
+                                            <div class="info-value">${printKitData.fechaArmado}</div>
+                                        </div>
+                                        <div>
+                                            <div class="info-label">CANTIDAD</div>
+                                            <div class="medicamentos-count">${printKitData.cantRefriGlobal || '1'}</div>
+                                        </div>
+                                    </div>
+                                    <div class="important-note">MANTENER CADENA DE FRÍO</div>
+                                </div>
+                                <div class="refrigerado-alert">
+                                    <div style="font-size: 10px; font-weight: bold;">CONTENIDO REFRIGERADO</div>
+                                    <div style="font-size: 14px; font-weight: bold; margin: 2mm 0;">CANTIDAD: ${printKitData.cantRefriGlobal || '1'}</div>
+                                </div>
                             ` : `
-                            <div class="delivery-mode">
-                                ${printMode === 'ventanilla' ? 'VENTANILLA' : 'ENTREGA EN RUTA'}
-                            </div>
+                                <!-- PLANTILLA VENTANILLA/RUTA -->
+                                <div class="section-title">${mode === 'ventanilla' ? 'ENTREGA EN VENTANILLA' : 'ENTREGA EN RUTA'}</div>
+                                
+                                <!-- INFORMACIÓN DEL PACIENTE -->
+                                <div class="patient-info">
+                                    <div class="patient-name-large">${printKitData.nombre}</div>
+                                    <div class="patient-dni-large">${printKitData.dni}</div>
+                                    
+                                    ${mode === 'ruta' ? `
+                                    <div class="address-section">
+                                        <div class="address-title">DIRECCIÓN DE ENTREGA:</div>
+                                        <div class="address-content">${printKitData.addressConfirmed ? selectedPatient.direccion : printKitData.secondaryAddress}</div>
+                                    </div>
+                                    ` : ''}
+                                    
+                                    <div class="grid-2">
+                                        <div>
+                                            <div class="info-label">FECHA ARMADO</div>
+                                            <div class="info-value">${printKitData.fechaArmado}</div>
+                                        </div>
+                                        <div>
+                                            <div class="info-label">FECHA ENTREGA KIT</div>
+                                            <div class="info-value">${printKitData.fechaEntregaKit || 'PENDIENTE'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- CONTACTOS Y SEGUIMIENTO -->
+                                <div class="contact-info">
+                                    <div class="info-label">TELÉFONOS DE CONTACTO</div>
+                                    <div style="margin-bottom: 1.5mm;">
+                                        ${(printKitData.selectedPhones?.length > 0 || printKitData.otherPhone) ? 
+                                            [...(printKitData.selectedPhones || []), printKitData.otherPhone].filter(Boolean).map(phone => 
+                                                `<div style="margin: 0.5mm 0; font-size: 9px;">📞 ${phone}</div>`
+                                            ).join('') : '<div style="font-size: 8px; color: #666;">No hay teléfonos registrados</div>'}
+                                    </div>
+                                    
+                                    ${printKitData.contactCenter ? `
+                                    <div class="contact-center">
+                                        <div class="info-label">CONTACT CENTER</div>
+                                        <div style="font-weight: bold; font-size: 9px;">${printKitData.contactCenter.split('---')[0] || printKitData.contactCenter}</div>
+                                        <div style="font-size: 8px;">${printKitData.contactCenter.split('---')[1] || ''}</div>
+                                    </div>
+                                    ` : ''}
+                                </div>
+
+                                <!-- MODO DE ENTREGA -->
+                                <div class="delivery-display">
+                                    ${mode === 'ventanilla' ? '📦 VENTANILLA' : '🚚 ENTREGA EN RUTA'}
+                                </div>
+
+                                ${mode === 'ruta' ? `
+                                <!-- INFORMACIÓN ADICIONAL PARA RUTA -->
+                                <div class="gps-status">
+                                    <div class="info-label">ESTADO GPS</div>
+                                    <div style="font-size: 10px;">${printKitData.gpsStatus || 'SIN GPS'}</div>
+                                </div>
+                                
+                                ${printKitData.observations ? `
+                                <div class="observations-section">
+                                    <div class="info-label">OBSERVACIONES DE ENTREGA</div>
+                                    <div style="font-size: 9px; font-style: italic; line-height: 1.3;">${printKitData.observations}</div>
+                                </div>
+                                ` : ''}
+                                ` : ''}
+
+                                <!-- INFORMACIÓN DE MEDICAMENTOS -->
+                                <div style="border: 1px solid #ccc; border-radius: 1.5mm; padding: 2mm; margin: 2mm 0;">
+                                    <div class="info-label">MEDICAMENTOS</div>
+                                    <div class="medicamentos-count">${printKitData.triggerMeds || printKitData.medicamentos?.length || '0'}</div>
+                                    ${printKitData.medicamentos?.slice(0, 3).map(med => 
+                                        `<div style="font-size: 8px; margin: 0.5mm 0;">• ${med.nombre || 'Sin nombre'} (${med.cantidad || '0'})</div>`
+                                    ).join('')}
+                                    ${printKitData.medicamentos?.length > 3 ? 
+                                        `<div style="font-size: 7px; color: #666; margin-top: 1mm;">+ ${printKitData.medicamentos.length - 3} medicamentos más</div>` : ''}
+                                </div>
+
+                                ${printKitData.isRefrigerated ? `
+                                <div class="refrigerado-alert">
+                                    <div style="font-size: 9px; font-weight: bold;">❄️ CONTIENE REFRIGERADO ❄️</div>
+                                    <div style="font-size: 11px; font-weight: bold; margin: 1mm 0;">CANTIDAD: ${printKitData.cantRefriGlobal || '1'}</div>
+                                    <div style="font-size: 8px;">Mantener cadena de frío</div>
+                                </div>
+                                ` : ''}
                             `}
-                            
+
+                            <!-- FOOTER -->
                             <div class="footer">
-                                Generado: ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'})} | Bitácora Producción
+                                <div>DIGITADOR: ${printKitData.digitador}</div>
+                                <div>${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'})}</div>
+                                <div style="font-size: 6px; margin-top: 0.5mm;">Impreso desde Bitácora de Producción</div>
                             </div>
                         </div>
                     </body>
@@ -1503,25 +1683,28 @@
                                     
                                     <div className="space-y-3">
                                         <button 
-                                            onClick={() => triggerPrint('ventanilla')} 
+                                            onClick={() => triggerPrint('ventanilla', printOrientation)} 
                                             disabled={printKitData.deliveryMode !== 'ventanilla'}
                                             className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 ${printKitData.deliveryMode === 'ventanilla' ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
                                         >
-                                            Ventanilla
+                                            <div className="w-6 h-6 bg-white rounded flex items-center justify-center text-indigo-600">📦</div>
+                                            <span>Ventanilla</span>
                                         </button>
                                         <button 
-                                            onClick={() => triggerPrint('ruta')} 
+                                            onClick={() => triggerPrint('ruta', printOrientation)} 
                                             disabled={printKitData.deliveryMode !== 'ruta'}
                                             className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 ${printKitData.deliveryMode === 'ruta' ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
                                         >
-                                            Ruta
+                                            <div className="w-6 h-6 bg-white rounded flex items-center justify-center text-emerald-600">🚚</div>
+                                            <span>Ruta</span>
                                         </button>
                                         <button 
-                                            onClick={() => triggerPrint('refri')} 
+                                            onClick={() => triggerPrint('refri', printOrientation)} 
                                             disabled={!printKitData.isRefrigerated}
                                             className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 ${printKitData.isRefrigerated ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
                                         >
-                                            Refrigerado
+                                            <div className="w-6 h-6 bg-white rounded flex items-center justify-center text-blue-600">❄️</div>
+                                            <span>Refrigerado</span>
                                         </button>
                                     </div>
                                     <button onClick={() => setShowPrintModal(false)} className="mt-6 text-sm text-slate-500 hover:text-slate-800 underline">Cancelar</button>
@@ -1887,14 +2070,100 @@
             const handleLogout = () => { signOut(auth); sessionStorage.clear(); setRole(null); setUserName(null); };
             const handleLogin = (r, n) => { setRole(r); setUserName(n); sessionStorage.setItem('leq_role', r); sessionStorage.setItem('leq_username', n); };
 
+            // Función para cargar datos con caché de localStorage
+            const loadWithCache = async (collectionName, setState, cacheKey) => {
+                try {
+                    const now = Date.now();
+                    const oneDay = 24 * 60 * 60 * 1000; // 24 horas
+                    
+                    // Intentar cargar desde caché
+                    const cachedData = localStorage.getItem(`cache_${cacheKey}`);
+                    const cacheTime = localStorage.getItem(`cache_time_${cacheKey}`);
+                    
+                    if (cachedData && cacheTime && (now - parseInt(cacheTime)) < oneDay) {
+                        // Usar datos en caché (menos de 24 horas)
+                        setState(JSON.parse(cachedData));
+                        console.log(`✅ ${collectionName} cargado desde caché`);
+                    } else {
+                        // Cargar desde Firebase
+                        const querySnapshot = await getDocs(collection(db, collectionName));
+                        const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                        
+                        // Ordenar según la colección
+                        let sortedData = data;
+                        if (collectionName === 'prod_patients') {
+                            sortedData = data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                        } else if (collectionName === 'prod_kits') {
+                            sortedData = data.sort((a, b) => new Date(b.fechaArmado) - new Date(a.fechaArmado));
+                        } else if (collectionName === 'prod_medicines') {
+                            sortedData = data.sort((a, b) => a.name.localeCompare(b.name));
+                        } else if (collectionName === 'prod_contacts') {
+                            sortedData = data.sort((a, b) => a.name.localeCompare(b.name));
+                        }
+                        
+                        setState(sortedData);
+                        
+                        // Guardar en caché
+                        localStorage.setItem(`cache_${cacheKey}`, JSON.stringify(sortedData));
+                        localStorage.setItem(`cache_time_${cacheKey}`, now.toString());
+                        console.log(`🔥 ${collectionName} cargado desde Firebase y guardado en caché`);
+                    }
+                } catch (error) {
+                    console.error(`Error cargando ${collectionName}:`, error);
+                }
+            };
+
+            // Cargar datos con caché
             useEffect(() => {
                 if (!role || !db) return;
-                const unsubPatients = onSnapshot(collection(db, 'prod_patients'), s => setPatients(s.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0))));
-                const unsubKits = onSnapshot(collection(db, 'prod_kits'), s => setKits(s.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=> new Date(b.fechaArmado) - new Date(a.fechaArmado))));
-                const unsubMeds = onSnapshot(collection(db, 'prod_medicines'), s => setMedicines(s.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>a.name.localeCompare(b.name))));
-                const unsubContacts = onSnapshot(collection(db, 'prod_contacts'), s => setContacts(s.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>a.name.localeCompare(b.name))));
-                let unsubUsers = () => {}; if (role === 'admin' || role === 'superadmin') unsubUsers = onSnapshot(collection(db, 'prod_users'), s => setUsers(s.docs.map(d=>({id:d.id, ...d.data()}))));
-                return () => { unsubPatients(); unsubKits(); unsubMeds(); unsubContacts(); unsubUsers(); };
+                
+                // Cargar datos estáticos con caché (24 horas)
+                loadWithCache('prod_medicines', setMedicines, 'medicines');
+                loadWithCache('prod_contacts', setContacts, 'contacts');
+                
+                // Para usuarios (solo admin/superadmin) - también con caché
+                if (role === 'admin' || role === 'superadmin') {
+                    loadWithCache('prod_users', setUsers, 'users');
+                }
+                
+                // Escuchar cambios en tiempo real solo para datos críticos (pacientes y kits)
+                // Esto mantiene las lecturas bajas ya que solo pacientes y kits se actualizan en tiempo real
+                const unsubPatients = onSnapshot(collection(db, 'prod_patients'), s => {
+                    const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
+                        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                    setPatients(data);
+                    
+                    // Actualizar caché cada hora para pacientes
+                    const now = Date.now();
+                    const oneHour = 60 * 60 * 1000;
+                    const lastPatientCache = localStorage.getItem('cache_time_patients') || '0';
+                    
+                    if (now - parseInt(lastPatientCache) > oneHour) {
+                        localStorage.setItem('cache_patients', JSON.stringify(data));
+                        localStorage.setItem('cache_time_patients', now.toString());
+                    }
+                });
+                
+                const unsubKits = onSnapshot(collection(db, 'prod_kits'), s => {
+                    const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
+                        .sort((a, b) => new Date(b.fechaArmado) - new Date(a.fechaArmado));
+                    setKits(data);
+                    
+                    // Actualizar caché cada hora para kits
+                    const now = Date.now();
+                    const oneHour = 60 * 60 * 1000;
+                    const lastKitCache = localStorage.getItem('cache_time_kits') || '0';
+                    
+                    if (now - parseInt(lastKitCache) > oneHour) {
+                        localStorage.setItem('cache_kits', JSON.stringify(data));
+                        localStorage.setItem('cache_time_kits', now.toString());
+                    }
+                });
+                
+                return () => {
+                    unsubPatients();
+                    unsubKits();
+                };
             }, [role]);
 
             const addPatient = async (d) => await addDoc(collection(db, 'prod_patients'), {...d, createdAt:serverTimestamp()});
@@ -1906,10 +2175,25 @@
                 else await addDoc(collection(db, 'prod_kits'), {...data, patientId: pid, createdAt: serverTimestamp()});
             };
             const deleteKit = async (id) => await deleteDoc(doc(db, 'prod_kits', id));
-            const addMedsList = async (list) => { for(const name of list) await addDoc(collection(db, 'prod_medicines'), { name }); };
+            const addMedsList = async (list) => { 
+                for(const name of list) await addDoc(collection(db, 'prod_medicines'), { name }); 
+                // Invalidar caché de medicamentos después de agregar nuevos
+                localStorage.removeItem('cache_medicines');
+                localStorage.removeItem('cache_time_medicines');
+            };
             
-            const addContact = async (name, phone) => await addDoc(collection(db, 'prod_contacts'), { name, phone });
-            const deleteContact = async (id) => await deleteDoc(doc(db, 'prod_contacts', id));
+            const addContact = async (name, phone) => {
+                await addDoc(collection(db, 'prod_contacts'), { name, phone });
+                // Invalidar caché de contactos después de agregar nuevos
+                localStorage.removeItem('cache_contacts');
+                localStorage.removeItem('cache_time_contacts');
+            };
+            const deleteContact = async (id) => {
+                await deleteDoc(doc(db, 'prod_contacts', id));
+                // Invalidar caché de contactos después de eliminar
+                localStorage.removeItem('cache_contacts');
+                localStorage.removeItem('cache_time_contacts');
+            };
 
             const addUser = async (u) => await addDoc(collection(db, 'prod_users'), u);
             const updateUser = async (id, u) => await updateDoc(doc(db, 'prod_users', id), u);
