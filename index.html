@@ -63,6 +63,18 @@
         /* Animaciones */
         @keyframes ekgPulse { 0% { transform: scale(1); } 15% { transform: scale(1.15); } 30% { transform: scale(1); } 45% { transform: scale(1.15); } 60% { transform: scale(1); } 100% { transform: scale(1); } }
         .animate-ekg { animation: ekgPulse 2s infinite ease-in-out; }
+        
+        /* Impresión específica */
+        @media print {
+            body * { visibility: hidden; }
+            .print-area, .print-area * { visibility: visible; }
+            .print-area { position: absolute; left: 0; top: 0; width: 71mm; height: 210mm; padding: 0; margin: 0; }
+            @page { size: 71mm 210mm; margin: 0; }
+        }
+        
+        /* Estilos de impresión vertical y horizontal */
+        .print-vertical { width: 71mm; height: 210mm; }
+        .print-horizontal { width: 210mm; height: 71mm; }
     </style>
 </head>
 <body class="text-slate-600 h-screen overflow-hidden selection:bg-turquoise-200 selection:text-turquoise-900">
@@ -73,7 +85,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, where, getDocs, enableIndexedDbPersistence, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const { useState, useEffect, useMemo, useRef } = React;
+        const { useState, useEffect, useMemo, useRef, useCallback } = React;
         
         // --- ICONS ---
         const Icon = ({ path, className = "w-5 h-5", size = 20 }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>;
@@ -480,20 +492,16 @@
             );
         };
 
-        // --- BLOCK: REPORTES (ACTUALIZADO - SOLO UNA API KEY) ---
-        const ReportsBlock = ({ kits, patients, userRole, userName }) => {
+        // --- BLOCK: REPORTES (ACTUALIZADO - SIN IA, CON DESCARGAR EXCEL POR DÍA) ---
+        const ReportsBlock = ({ kits, patients, userRole, userName, setView }) => {
             const [selectedMonth, setSelectedMonth] = useState(null);
             const [selectedDay, setSelectedDay] = useState(null);
             const [selectedKit, setSelectedKit] = useState(null);
             const [showKitModal, setShowKitModal] = useState(false);
             
-            // Estados para IA y reportes
-            const [showAIModal, setShowAIModal] = useState(false);
-            const [prompt, setPrompt] = useState('');
-            const [generating, setGenerating] = useState(false);
-            const [savedReports, setSavedReports] = useState([]);
-            const [aiStatus, setAiStatus] = useState('');
-
+            // Estados para el kit que se quiere editar desde reportes
+            const [kitToEdit, setKitToEdit] = useState(null);
+            
             // Agrupar kits por mes y día
             const groupedByMonth = useMemo(() => {
                 const groups = {};
@@ -524,184 +532,195 @@
                 return groups;
             }, [kits]);
 
-            // Cargar reportes guardados (solo admin)
-            useEffect(() => {
-                if (userRole === 'admin' || userRole === 'superadmin') {
-                    const unsub = onSnapshot(collection(db, 'prod_reports'), snapshot => {
-                        setSavedReports(snapshot.docs.map(doc => ({ 
-                            id: doc.id, 
-                            ...doc.data(),
-                            createdAtFormatted: doc.data().createdAt?.toDate?.().toLocaleDateString('es-ES') 
-                        })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
-                    });
-                    return () => unsub();
-                }
-            }, [userRole]);
-
-            // Función para generar reporte con IA
-            const generateAIReport = async () => {
-                if (!prompt.trim()) {
-                    alert('Por favor ingresa un prompt para generar el reporte');
+            // Función para descargar Excel del día seleccionado (solo admin)
+            const downloadDayExcel = (dayKits) => {
+                if (!dayKits || dayKits.length === 0) {
+                    alert('No hay kits para este día');
                     return;
                 }
 
-                setGenerating(true);
-                setAiStatus('Procesando con IA...');
+                // Crear datos con las columnas especificadas
+                const excelData = dayKits.map(kit => ({
+                    'DNI/ID': kit.dni || '',
+                    'Nombre': kit.nombre || '',
+                    'Cantidad Medicamentos': kit.medicamentos?.length || 0,
+                    'Cantidad Refrigerados': kit.isRefrigerated ? (kit.cantRefriGlobal || 1) : 0,
+                    'Fecha Armado Kit': kit.fechaArmado || '',
+                    'Digitador': kit.digitador || '',
+                    'Fecha Entrega Kit': kit.fechaEntregaKit || '',
+                    'Modo Entrega': kit.deliveryMode === 'ruta' ? 'Ruta' : 'Ventanilla',
+                    'Contact Center': kit.contactCenter || '',
+                    'GPS': kit.gpsStatus || 'SIN GPS'
+                }));
 
-                // SOLO UNA API KEY
-                const apiKey = 'AIzaSyAdXwJ76Uttb_DGGe5PQ2bxEVcGoA6NiE4';
-
-                try {
-                    setAiStatus(`Generando reporte...`);
-                    
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-pro:generateContent?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [{
-                                    text: `Eres un asistente especializado en análisis de datos médicos y generación de reportes. 
-                                    El usuario quiere un reporte basado en: "${prompt}"
-                                    
-                                    Datos disponibles:
-                                    - Total kits: ${kits.length}
-                                    - Pacientes únicos: ${new Set(kits.map(k => k.dni)).size}
-                                    - Rango de fechas: ${kits.length > 0 ? `${kits[kits.length-1].fechaArmado} a ${kits[0].fechaArmado}` : 'Sin datos'}
-                                    
-                                    Campos disponibles en cada kit:
-                                    - fechaArmado, fechaEntregaLogistica, fechaEntregaKit
-                                    - horaOperaciones, contactCenter, triggerMeds
-                                    - medicamentos (array con nombre, idReceta, cantidad)
-                                    - digitador, deliveryMode (ventanilla/ruta)
-                                    - selectedPhones, otherPhone, addressConfirmed
-                                    - secondaryAddress, gpsStatus, observations
-                                    - isRefrigerated, cantRefriGlobal
-                                    - nombre (paciente), dni (paciente)
-                                    
-                                    Campos de pacientes asociados:
-                                    - nombre, dni, telefono, direccion, familiar, telefonoFamiliar
-                                    - descripcionMunicipio, tipoAfiliado, nAfiliacion
-                                    
-                                    Por favor genera un esquema de reporte que incluya:
-                                    1. Título del reporte
-                                    2. Columnas recomendadas (máximo 10 columnas relevantes)
-                                    3. Filtros sugeridos
-                                    4. Un análisis breve de lo que se podría extraer
-                                    
-                                    Formato de respuesta JSON:
-                                    {
-                                        "title": "Título del reporte",
-                                        "description": "Descripción breve",
-                                        "columns": ["Col1", "Col2", ...],
-                                        "filters": ["filtro1", "filtro2"],
-                                        "analysis": "Análisis de datos..."
-                                    }`
-                                }]
-                            }]
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`Error API: ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    const text = data.candidates[0].content.parts[0].text;
-                    
-                    // Extraer JSON de la respuesta
-                    const jsonMatch = text.match(/\{[\s\S]*\}/);
-                    if (jsonMatch) {
-                        const reportData = JSON.parse(jsonMatch[0]);
-                        
-                        // Generar datos del reporte basados en columnas sugeridas
-                        const selectedColumns = reportData.columns || ['nombre', 'dni', 'fechaArmado', 'digitador', 'triggerMeds'];
-                        const filteredKits = applyFilters(kits, reportData.filters || []);
-                        
-                        const excelData = filteredKits.map(kit => {
-                            const row = {};
-                            selectedColumns.forEach(col => {
-                                row[col] = getKitValue(kit, col);
-                            });
-                            return row;
-                        });
-
-                        // Crear archivo Excel
-                        const ws = XLSX.utils.json_to_sheet(excelData);
-                        const wb = XLSX.utils.book_new();
-                        XLSX.utils.book_append_sheet(wb, ws, "Reporte");
-                        
-                        // Guardar reporte en Firebase
-                        const reportDoc = {
-                            prompt: prompt,
-                            title: reportData.title || 'Reporte Generado',
-                            columns: selectedColumns,
-                            filters: reportData.filters || [],
-                            dataCount: excelData.length,
-                            generatedBy: userName,
-                            createdAt: serverTimestamp(),
-                            excelData: excelData.slice(0, 100) // Guardar solo primeros 100 registros para preview
-                        };
-                        
-                        const docRef = await addDoc(collection(db, 'prod_reports'), reportDoc);
-                        
-                        // Descargar archivo
-                        const fileName = `reporte_${new Date().toISOString().split('T')[0]}_${docRef.id.slice(0, 8)}.xlsx`;
-                        XLSX.writeFile(wb, fileName);
-                        
-                        setAiStatus('✅ Reporte generado exitosamente');
-                        setPrompt('');
-                        setTimeout(() => setShowAIModal(false), 2000);
-                    } else {
-                        throw new Error('No se pudo extraer el JSON de la respuesta');
-                    }
-                } catch (error) {
-                    console.error('Error generando reporte:', error);
-                    setAiStatus('❌ Error al generar el reporte. Intenta nuevamente.');
-                }
-
-                setGenerating(false);
-            };
-
-            // Función auxiliar para obtener valores del kit
-            const getKitValue = (kit, column) => {
-                const columnMap = {
-                    'nombre': kit.nombre,
-                    'dni': kit.dni,
-                    'fechaArmado': kit.fechaArmado,
-                    'digitador': kit.digitador,
-                    'triggerMeds': kit.triggerMeds,
-                    'deliveryMode': kit.deliveryMode === 'ruta' ? 'Ruta' : 'Ventanilla',
-                    'contactCenter': kit.contactCenter,
-                    'medicamentosCount': kit.medicamentos?.length || 0,
-                    'isRefrigerated': kit.isRefrigerated ? 'Sí' : 'No',
-                    'gpsStatus': kit.gpsStatus,
-                    'horaOperaciones': kit.horaOperaciones,
-                    'observations': kit.observations?.substring(0, 50) + (kit.observations?.length > 50 ? '...' : '')
-                };
-                return columnMap[column] || kit[column] || '';
-            };
-
-            // Aplicar filtros simples
-            const applyFilters = (kitsList, filters) => {
-                if (!filters || filters.length === 0) return kitsList;
-                
-                return kitsList.filter(kit => {
-                    return filters.every(filter => {
-                        if (filter.includes('refrigerado')) return kit.isRefrigerated;
-                        if (filter.includes('ventanilla')) return kit.deliveryMode === 'ventanilla';
-                        if (filter.includes('ruta')) return kit.deliveryMode === 'ruta';
-                        if (filter.includes('GPS')) return kit.gpsStatus === 'TIENE GPS';
-                        return true;
-                    });
-                });
-            };
-
-            // Descargar reporte guardado
-            const downloadSavedReport = (report) => {
-                const ws = XLSX.utils.json_to_sheet(report.excelData || []);
+                const ws = XLSX.utils.json_to_sheet(excelData);
                 const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, report.title || "Reporte");
-                XLSX.writeFile(wb, `${report.title}_${report.id.slice(0, 8)}.xlsx`);
+                XLSX.utils.book_append_sheet(wb, ws, "Kits del Día");
+                
+                const fileName = `kits_${selectedDay}_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+            };
+
+            // Función para imprimir desde reportes
+            const printKitFromReports = (kit, mode) => {
+                const printFrame = document.createElement('iframe');
+                printFrame.style.position = 'absolute';
+                printFrame.style.width = '0';
+                printFrame.style.height = '0';
+                printFrame.style.border = '0';
+                
+                document.body.appendChild(printFrame);
+                
+                const printContent = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            @media print {
+                                @page {
+                                    size: 71mm 210mm;
+                                    margin: 0;
+                                }
+                                body {
+                                    font-family: Arial, sans-serif;
+                                    margin: 0;
+                                    padding: 2mm;
+                                    width: 71mm;
+                                    height: 210mm;
+                                    font-size: 10px;
+                                }
+                                .header {
+                                    text-align: center;
+                                    border-bottom: 2px solid #000;
+                                    padding-bottom: 2mm;
+                                    margin-bottom: 3mm;
+                                }
+                                .header h1 {
+                                    font-size: 12px;
+                                    font-weight: bold;
+                                    margin: 0;
+                                }
+                                .section {
+                                    margin-bottom: 3mm;
+                                }
+                                .section-title {
+                                    background: #000;
+                                    color: #fff;
+                                    text-align: center;
+                                    font-weight: bold;
+                                    padding: 1mm;
+                                    margin-bottom: 2mm;
+                                    font-size: 10px;
+                                }
+                                .patient-info {
+                                    border: 1px solid #000;
+                                    padding: 2mm;
+                                    margin-bottom: 3mm;
+                                }
+                                .info-row {
+                                    display: flex;
+                                    margin-bottom: 1mm;
+                                }
+                                .info-label {
+                                    font-weight: bold;
+                                    width: 25mm;
+                                }
+                                .info-value {
+                                    flex: 1;
+                                }
+                                .highlight {
+                                    font-weight: bold;
+                                    font-size: 11px;
+                                    background: #f0f0f0;
+                                    padding: 1mm;
+                                    border: 1px solid #ccc;
+                                }
+                                .delivery-mode {
+                                    text-align: center;
+                                    font-size: 14px;
+                                    font-weight: bold;
+                                    border: 2px solid #000;
+                                    padding: 3mm;
+                                    margin: 3mm 0;
+                                }
+                                .footer {
+                                    margin-top: 5mm;
+                                    border-top: 1px solid #000;
+                                    padding-top: 1mm;
+                                    font-size: 8px;
+                                    text-align: center;
+                                }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <h1>BITÁCORA DE PRODUCCIÓN</h1>
+                            <div>${mode === 'ruta' ? 'ENTREGA EN RUTA' : 'VENTANILLA'}</div>
+                        </div>
+                        
+                        <div class="section">
+                            <div class="section-title">INFORMACIÓN DEL PACIENTE</div>
+                            <div class="patient-info">
+                                <div class="info-row">
+                                    <div class="info-label">NOMBRE:</div>
+                                    <div class="info-value highlight">${kit.nombre || ''}</div>
+                                </div>
+                                <div class="info-row">
+                                    <div class="info-label">DNI/ID:</div>
+                                    <div class="info-value highlight">${kit.dni || ''}</div>
+                                </div>
+                                ${kit.deliveryMode === 'ruta' ? `
+                                <div class="info-row">
+                                    <div class="info-label">DIRECCIÓN:</div>
+                                    <div class="info-value highlight">${patients.find(p => p.dni === kit.dni)?.direccion || ''}</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="section">
+                            <div class="section-title">DETALLES DEL KIT</div>
+                            <div class="info-row">
+                                <div class="info-label">FECHA ARMADO:</div>
+                                <div class="info-value">${kit.fechaArmado || ''}</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">MEDICAMENTOS:</div>
+                                <div class="info-value">${kit.medicamentos?.length || 0}</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">REFRIGERADOS:</div>
+                                <div class="info-value">${kit.isRefrigerated ? (kit.cantRefriGlobal || 1) : 0}</div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">DIGITADOR:</div>
+                                <div class="info-value">${kit.digitador || ''}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="delivery-mode">
+                            ${mode === 'ruta' ? 'ENTREGA EN RUTA' : 'VENTANILLA'}
+                        </div>
+                        
+                        <div class="footer">
+                            Generado el ${new Date().toLocaleDateString('es-ES')} | Bitácora Producción
+                        </div>
+                    </body>
+                    </html>
+                `;
+                
+                printFrame.contentDocument.write(printContent);
+                printFrame.contentDocument.close();
+                
+                setTimeout(() => {
+                    printFrame.contentWindow.focus();
+                    printFrame.contentWindow.print();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(printFrame);
+                    }, 100);
+                }, 500);
             };
 
             // Navegación
@@ -715,8 +734,24 @@
                 }
             };
 
-            // Obtener mes actual para selección por defecto
-            const currentMonth = `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`;
+            // Función para manejar edición de kit desde reportes
+            const handleEditKitFromReports = (kit) => {
+                setKitToEdit(kit);
+                // Buscar el paciente asociado al kit
+                const patient = patients.find(p => p.dni === kit.dni);
+                if (patient) {
+                    // Guardar en sessionStorage para que PatientManagementBlock lo pueda usar
+                    sessionStorage.setItem('editKitFromReports', JSON.stringify({
+                        kitId: kit.id,
+                        patientId: patient.id,
+                        kitData: kit
+                    }));
+                    // Cambiar a vista de pacientes
+                    setView('pacientes');
+                } else {
+                    alert('No se encontró el paciente asociado a este kit');
+                }
+            };
 
             return (
                 <div className="glass-panel rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden border-0 bg-white">
@@ -742,87 +777,16 @@
                             </div>
                         </div>
                         
-                        {/* Botón IA solo para admin */}
-                        {(userRole === 'admin' || userRole === 'superadmin') && !selectedKit && !selectedDay && (
-                            <button onClick={() => setShowAIModal(true)} className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all btn-hover-effect">
-                                <Icons.Bot size={16}/> Generar con IA
+                        {/* Botón para descargar Excel del día (solo admin) */}
+                        {(userRole === 'admin' || userRole === 'superadmin') && selectedDay && (
+                            <button 
+                                onClick={() => downloadDayExcel(groupedByMonth[selectedMonth]?.days[selectedDay]?.kits)} 
+                                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all btn-hover-effect"
+                            >
+                                <Icons.Download size={16}/> Descargar Excel
                             </button>
                         )}
                     </div>
-
-                    {/* Modal IA para admin */}
-                    <Modal isOpen={showAIModal} onClose={() => !generating && setShowAIModal(false)} title="Generador de Reportes IA" maxWidth="max-w-2xl">
-                        <div className="space-y-6">
-                            <div>
-                                <label className="text-xs font-bold text-slate-400 uppercase block mb-2">Describe el reporte que necesitas</label>
-                                <textarea 
-                                    className="w-full h-32 p-4 border rounded-xl text-sm bg-slate-50 outline-none focus:border-purple-400" 
-                                    placeholder="Ej: 'Kits refrigerados de ventanilla del mes pasado con estado GPS pendiente' o 'Pacientes con más de 5 medicamentos en rutas'"
-                                    value={prompt}
-                                    onChange={e => setPrompt(e.target.value)}
-                                    disabled={generating}
-                                />
-                                <p className="text-xs text-slate-400 mt-2">La IA analizará tus kits y generará un Excel con las columnas relevantes</p>
-                            </div>
-                            
-                            {aiStatus && (
-                                <div className={`p-3 rounded-lg text-sm font-medium ${aiStatus.includes('✅') ? 'bg-green-50 text-green-700 border border-green-200' : aiStatus.includes('❌') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-                                    {aiStatus}
-                                </div>
-                            )}
-                            
-                            <div className="flex gap-3">
-                                <button 
-                                    onClick={generateAIReport} 
-                                    disabled={generating || !prompt.trim()}
-                                    className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-xl font-bold text-sm hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                >
-                                    {generating ? (
-                                        <>
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                            Generando...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Icons.Bot size={16}/>
-                                            Generar Reporte IA
-                                        </>
-                                    )}
-                                </button>
-                                <button 
-                                    onClick={() => setShowAIModal(false)} 
-                                    disabled={generating}
-                                    className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors"
-                                >
-                                    Cancelar
-                                </button>
-                            </div>
-                            
-                            {/* Reportes guardados */}
-                            {savedReports.length > 0 && (
-                                <div className="border-t border-slate-200 pt-4">
-                                    <h4 className="text-sm font-bold text-slate-700 mb-3">Reportes Guardados ({savedReports.length})</h4>
-                                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                                        {savedReports.map(report => (
-                                            <div key={report.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                                <div>
-                                                    <div className="font-medium text-slate-800 text-sm">{report.title}</div>
-                                                    <div className="text-xs text-slate-500">{report.dataCount} registros • {report.createdAtFormatted}</div>
-                                                </div>
-                                                <button 
-                                                    onClick={() => downloadSavedReport(report)}
-                                                    className="text-slate-400 hover:text-turquoise-600 p-1.5 rounded-lg hover:bg-white transition-colors"
-                                                    title="Descargar"
-                                                >
-                                                    <Icons.Download size={18}/>
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </Modal>
 
                     {/* Modal detalle del Kit */}
                     <Modal isOpen={showKitModal} onClose={() => setShowKitModal(false)} title="Detalles Completos del Kit" maxWidth="max-w-4xl">
@@ -923,6 +887,22 @@
                                         </div>
                                     )}
                                 </div>
+                                
+                                {/* Botones de acción */}
+                                <div className="flex gap-3 pt-4 border-t border-slate-200">
+                                    <button 
+                                        onClick={() => printKitFromReports(selectedKit, selectedKit.deliveryMode)}
+                                        className="flex-1 bg-slate-700 text-white py-2.5 rounded-lg font-medium flex items-center justify-center gap-2"
+                                    >
+                                        <Icons.Printer size={16}/> Imprimir
+                                    </button>
+                                    <button 
+                                        onClick={() => handleEditKitFromReports(selectedKit)}
+                                        className="flex-1 bg-orange-600 text-white py-2.5 rounded-lg font-medium flex items-center justify-center gap-2"
+                                    >
+                                        <Icons.Edit size={16}/> Editar Kit
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </Modal>
@@ -941,8 +921,7 @@
                                     {groupedByMonth[selectedMonth]?.days[selectedDay]?.kits.map(kit => (
                                         <div 
                                             key={kit.id} 
-                                            onClick={() => { setSelectedKit(kit); setShowKitModal(true); }}
-                                            className="bg-white p-4 rounded-xl border border-slate-200 hover:border-turquoise-400 hover:shadow-md cursor-pointer transition-all group"
+                                            className="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-all"
                                         >
                                             <div className="flex justify-between items-start mb-3">
                                                 <div className="font-bold text-slate-800 text-sm truncate">{kit.nombre}</div>
@@ -950,10 +929,10 @@
                                                     {kit.deliveryMode === 'ruta' ? 'Ruta' : 'Ventanilla'}
                                                 </span>
                                             </div>
-                                            <div className="space-y-2">
+                                            <div className="space-y-2 mb-3">
                                                 <div className="text-xs text-slate-500 flex items-center gap-2">
                                                     <span className="font-mono bg-slate-100 px-2 py-0.5 rounded">{kit.dni}</span>
-                                                    <span className="text-turquoise-600 font-bold">{kit.triggerMeds} meds</span>
+                                                    <span className="text-turquoise-600 font-bold">{kit.medicamentos?.length || 0} meds</span>
                                                 </div>
                                                 <div className="text-xs text-slate-400 flex justify-between">
                                                     <span>{kit.horaOperaciones || '--:--'}</span>
@@ -961,9 +940,29 @@
                                                 </div>
                                                 {kit.isRefrigerated && (
                                                     <div className="text-xs text-blue-600 font-bold flex items-center gap-1">
-                                                        <Icons.Box size={12}/> Refrigerado
+                                                        <Icons.Box size={12}/> Refrigerado: {kit.cantRefriGlobal || 1}
                                                     </div>
                                                 )}
+                                            </div>
+                                            <div className="flex gap-2 pt-2 border-t border-slate-100">
+                                                <button 
+                                                    onClick={() => { setSelectedKit(kit); setShowKitModal(true); }}
+                                                    className="flex-1 bg-slate-100 text-slate-700 py-1.5 rounded text-xs font-medium hover:bg-slate-200 transition-colors"
+                                                >
+                                                    Ver
+                                                </button>
+                                                <button 
+                                                    onClick={() => printKitFromReports(kit, kit.deliveryMode)}
+                                                    className="flex-1 bg-slate-700 text-white py-1.5 rounded text-xs font-medium hover:bg-slate-800 transition-colors flex items-center justify-center gap-1"
+                                                >
+                                                    <Icons.Printer size={12}/> Imprimir
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleEditKitFromReports(kit)}
+                                                    className="flex-1 bg-orange-600 text-white py-1.5 rounded text-xs font-medium hover:bg-orange-700 transition-colors flex items-center justify-center gap-1"
+                                                >
+                                                    <Icons.Edit size={12}/> Editar
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
@@ -986,6 +985,14 @@
                                                 <h4 className="font-bold text-sm text-slate-700">{dayData.display}</h4>
                                                 <p className="text-[10px] text-slate-400 mt-1">{dayData.kits.length} Kits</p>
                                             </div>
+                                            {(userRole === 'admin' || userRole === 'superadmin') && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); downloadDayExcel(dayData.kits); }}
+                                                    className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full hover:bg-green-200 transition-colors"
+                                                >
+                                                    <Icons.Download size={10}/> Excel
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -1011,53 +1018,11 @@
                                                 </p>
                                             </div>
                                             <div className="text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                                                {monthKey === currentMonth ? 'MES ACTUAL' : 'HISTÓRICO'}
+                                                {monthKey === `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}` ? 'MES ACTUAL' : 'HISTÓRICO'}
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                                
-                                {/* Reportes guardados (solo admin) */}
-                                {(userRole === 'admin' || userRole === 'superadmin') && savedReports.length > 0 && (
-                                    <div className="border-t border-slate-200 pt-8 mt-8">
-                                        <h4 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
-                                            <Icons.FileText size={20}/>
-                                            Reportes Guardados
-                                        </h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {savedReports.slice(0, 6).map(report => (
-                                                <div key={report.id} className="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
-                                                    <div className="flex justify-between items-start mb-3">
-                                                        <div className="font-bold text-slate-800 text-sm truncate">{report.title}</div>
-                                                        <button 
-                                                            onClick={() => downloadSavedReport(report)}
-                                                            className="text-slate-400 hover:text-turquoise-600 p-1 rounded-lg hover:bg-slate-50 transition-colors"
-                                                            title="Descargar"
-                                                        >
-                                                            <Icons.Download size={16}/>
-                                                        </button>
-                                                    </div>
-                                                    <div className="text-xs text-slate-500 mb-2">
-                                                        {report.dataCount} registros • {report.generatedBy}
-                                                    </div>
-                                                    <div className="text-xs text-slate-400">
-                                                        {report.createdAtFormatted}
-                                                    </div>
-                                                    <div className="mt-3 flex flex-wrap gap-1">
-                                                        {report.columns?.slice(0, 3).map((col, idx) => (
-                                                            <span key={idx} className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
-                                                                {col}
-                                                            </span>
-                                                        ))}
-                                                        {report.columns?.length > 3 && (
-                                                            <span className="text-[10px] text-slate-400 px-1">+{report.columns.length - 3}</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         )}
                     </div>
@@ -1065,7 +1030,7 @@
             );
         };
 
-        // --- BLOCK: PACIENTES (ACTUALIZADO - SISTEMA DE IMPRESIÓN MEJORADO) ---
+        // --- BLOCK: PACIENTES (ACTUALIZADO - PAGINACIÓN Y RENDIMIENTO) ---
         const PatientManagementBlock = ({ patients, kits, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
@@ -1073,10 +1038,14 @@
             const [editingPatientId, setEditingPatientId] = useState(null);
             const [confirmData, setConfirmData] = useState(null);
             
-            // Estados para Impresión
+            // Estados para paginación
+            const [currentPage, setCurrentPage] = useState(1);
+            const [patientsPerPage] = useState(50); // 50 pacientes por página para mejor rendimiento
+            
+            // Estados para Impresión (ACTUALIZADO con tamaño específico)
             const [printKitData, setPrintKitData] = useState(null);
-            const [printMode, setPrintMode] = useState(null); // 'ventanilla', 'ruta', 'refri'
-            const [printOrientation, setPrintOrientation] = useState('vertical'); // 'vertical' o 'horizontal'
+            const [printMode, setPrintMode] = useState(null);
+            const [printOrientation, setPrintOrientation] = useState('vertical');
             const [showPrintModal, setShowPrintModal] = useState(false);
 
             // Estados para visualización
@@ -1092,7 +1061,6 @@
                 triggerMeds: '', 
                 medicamentos: [],
                 digitador: '',
-                // Logic Fields
                 deliveryMode: '', 
                 selectedPhones: [], 
                 otherPhoneEnabled: false, 
@@ -1123,7 +1091,37 @@
             };
             const [patientForm, setPatientForm] = useState(initialPatient);
 
-            const filteredPatients = patients.filter(p => (p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || p.dni?.includes(searchTerm)));
+            // Verificar si hay un kit para editar desde reportes
+            useEffect(() => {
+                const editKitData = sessionStorage.getItem('editKitFromReports');
+                if (editKitData) {
+                    const { kitData, patientId } = JSON.parse(editKitData);
+                    const patient = patients.find(p => p.id === patientId);
+                    if (patient && kitData) {
+                        setSelectedPatient(patient);
+                        setKitData({...kitData, otherPhoneEnabled: !!kitData.otherPhone});
+                        setEditingKitId(kitData.id);
+                        setIsViewMode(false);
+                        setShowKitForm(true);
+                    }
+                    sessionStorage.removeItem('editKitFromReports');
+                }
+            }, [patients]);
+
+            // Filtrar pacientes con paginación
+            const filteredPatients = useMemo(() => {
+                return patients.filter(p => 
+                    (p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                     p.dni?.includes(searchTerm))
+                );
+            }, [patients, searchTerm]);
+
+            // Calcular pacientes para la página actual
+            const indexOfLastPatient = currentPage * patientsPerPage;
+            const indexOfFirstPatient = indexOfLastPatient - patientsPerPage;
+            const currentPatients = filteredPatients.slice(indexOfFirstPatient, indexOfLastPatient);
+            const totalPages = Math.ceil(filteredPatients.length / patientsPerPage);
+
             const patientKits = selectedPatient ? kits.filter(k => k.patientId === selectedPatient.id) : [];
 
             // Excel Upload Handler
@@ -1224,7 +1222,7 @@
                 setShowKitForm(true); 
             };
 
-            // Print Logic
+            // Print Logic ACTUALIZADA con tamaño específico 71mm x 210mm
             const openPrintModal = (kit) => {
                 setPrintKitData(kit);
                 setShowPrintModal(true);
@@ -1232,7 +1230,8 @@
 
             const triggerPrint = (mode) => {
                 setPrintMode(mode);
-                // Crear un iframe para la impresión
+                
+                // Crear iframe para impresión
                 const printFrame = document.createElement('iframe');
                 printFrame.style.position = 'absolute';
                 printFrame.style.width = '0';
@@ -1241,119 +1240,125 @@
                 
                 document.body.appendChild(printFrame);
                 
+                const isHorizontal = printOrientation === 'horizontal';
+                const width = isHorizontal ? '210mm' : '71mm';
+                const height = isHorizontal ? '71mm' : '210mm';
+                
                 const printContent = `
                     <!DOCTYPE html>
                     <html>
                     <head>
+                        <meta charset="UTF-8">
+                        <title>Impresión Kit</title>
                         <style>
                             @media print {
                                 @page {
-                                    size: ${printOrientation === 'vertical' ? '7.20cm 21cm' : '21cm 7.20cm'};
-                                    margin: ${printOrientation === 'vertical' ? '0.5cm 0' : '0 0.5cm'};
+                                    size: ${width} ${height};
+                                    margin: 0;
                                 }
                                 body {
                                     font-family: 'Arial', sans-serif;
                                     margin: 0;
-                                    padding: 0;
-                                    width: ${printOrientation === 'vertical' ? '7.20cm' : '21cm'};
-                                    height: ${printOrientation === 'vertical' ? '21cm' : '7.20cm'};
+                                    padding: 2mm;
+                                    width: ${width};
+                                    height: ${height};
+                                    box-sizing: border-box;
+                                    font-size: ${isHorizontal ? '9px' : '10px'};
                                 }
-                                .print-container {
+                                .container {
                                     width: 100%;
                                     height: 100%;
-                                    padding: 2mm;
-                                    box-sizing: border-box;
-                                }
-                                .header-container {
                                     display: flex;
+                                    flex-direction: ${isHorizontal ? 'row' : 'column'};
                                     align-items: center;
                                     justify-content: space-between;
+                                }
+                                .header {
+                                    text-align: center;
                                     border-bottom: 2px solid #000;
                                     padding-bottom: 2mm;
                                     margin-bottom: 3mm;
+                                    width: 100%;
                                 }
-                                .logo-box {
-                                    width: 25mm;
-                                    height: 15mm;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    flex-shrink: 0;
-                                }
-                                .logo-img {
-                                    max-width: 100%;
-                                    max-height: 100%;
-                                    object-fit: contain;
-                                }
-                                .header-text {
-                                    flex: 1;
-                                    text-align: center;
-                                    font-size: 9px;
-                                    font-weight: 900;
-                                    line-height: 1.2;
-                                    padding: 0 3mm;
-                                }
-                                .section-title {
-                                    background: #000;
-                                    color: #fff;
-                                    text-align: center;
+                                .header h1 {
+                                    font-size: ${isHorizontal ? '10px' : '12px'};
                                     font-weight: bold;
-                                    font-size: ${printOrientation === 'vertical' ? '14px' : '12px'};
-                                    padding: 2mm 0;
-                                    margin: 3mm 0;
-                                    border-radius: 2px;
+                                    margin: 0;
                                     text-transform: uppercase;
                                 }
-                                .patient-info {
+                                .patient-section {
                                     border: 1px solid #000;
-                                    border-radius: 3px;
+                                    border-radius: 2px;
                                     padding: 3mm;
                                     margin-bottom: 3mm;
+                                    width: 100%;
                                 }
-                                .info-label {
-                                    font-size: 8px;
-                                    font-weight: 900;
-                                    text-transform: uppercase;
-                                    color: #000;
-                                    display: block;
-                                    margin-bottom: 1mm;
-                                }
-                                .info-value {
-                                    font-size: ${printOrientation === 'vertical' ? '12px' : '10px'};
+                                .highlight-box {
+                                    background: #f0f0f0;
+                                    border: 1px solid #000;
+                                    padding: 2mm;
+                                    margin: 2mm 0;
                                     font-weight: bold;
-                                    color: #000;
+                                }
+                                .patient-name {
+                                    font-size: ${isHorizontal ? '11px' : '14px'};
+                                    font-weight: bold;
+                                    text-align: center;
                                     margin-bottom: 2mm;
                                 }
-                                .contact-info {
-                                    border: 1px solid #000;
-                                    border-radius: 3px;
-                                    padding: 3mm;
-                                    margin-bottom: 3mm;
-                                }
-                                .delivery-display {
-                                    font-size: ${printOrientation === 'vertical' ? '24px' : '20px'};
-                                    font-weight: 900;
+                                .patient-dni {
+                                    font-size: ${isHorizontal ? '10px' : '12px'};
+                                    font-family: monospace;
                                     text-align: center;
-                                    border: 2px dashed #000;
-                                    padding: 5mm;
-                                    margin: 5mm 0;
-                                    border-radius: 4px;
+                                    margin-bottom: 2mm;
                                 }
-                                .refrigerado-alert {
-                                    border: 3px solid #000;
-                                    border-radius: 4px;
+                                ${printMode === 'ruta' ? `
+                                .patient-address {
+                                    font-size: ${isHorizontal ? '9px' : '10px'};
+                                    text-align: center;
+                                    font-weight: bold;
+                                    margin: 3mm 0;
+                                    border: 1px dashed #000;
+                                    padding: 2mm;
+                                }
+                                ` : ''}
+                                .details-section {
+                                    display: ${isHorizontal ? 'grid' : 'block'};
+                                    ${isHorizontal ? 'grid-template-columns: repeat(2, 1fr); gap: 2mm;' : ''}
+                                    margin-top: 3mm;
+                                }
+                                .detail-item {
+                                    margin-bottom: 1mm;
+                                }
+                                .detail-label {
+                                    font-weight: bold;
+                                    font-size: ${isHorizontal ? '8px' : '9px'};
+                                }
+                                .detail-value {
+                                    font-size: ${isHorizontal ? '9px' : '10px'};
+                                }
+                                .delivery-mode {
+                                    text-align: center;
+                                    font-size: ${isHorizontal ? '12px' : '16px'};
+                                    font-weight: bold;
+                                    border: 2px solid #000;
                                     padding: 3mm;
+                                    margin: 3mm 0;
+                                }
+                                .refrigerated-section {
+                                    border: 2px solid #0000ff;
+                                    background: #e6f7ff;
+                                    padding: 2mm;
                                     text-align: center;
                                     margin: 3mm 0;
-                                    background: #e6f7ff;
                                 }
                                 .footer {
-                                    margin-top: 5mm;
+                                    margin-top: auto;
                                     border-top: 1px solid #000;
-                                    padding-top: 2mm;
-                                    font-size: 8px;
-                                    display: flex;
-                                    justify-content: space-between;
+                                    padding-top: 1mm;
+                                    font-size: ${isHorizontal ? '7px' : '8px'};
+                                    text-align: center;
+                                    width: 100%;
                                 }
                                 .grid-2 {
                                     display: grid;
@@ -1364,123 +1369,58 @@
                         </style>
                     </head>
                     <body>
-                        <div class="print-container">
-                            <!-- HEADER CON LOGOS -->
-                            <div class="header-container">
-                                <div class="logo-box">
-                                    <img src="https://raw.githubusercontent.com/jose50440/bita/ae8b4188532504b6c4057505172b68be697b2851/img/logo1.png" 
-                                         class="logo-img" 
-                                         alt="Logo IHSS" 
-                                         onerror="this.style.display='none'">
+                        <div class="container">
+                            <div class="header">
+                                <h1>BITÁCORA DE PRODUCCIÓN</h1>
+                                <div>${printMode === 'ventanilla' ? 'VENTANILLA' : printMode === 'ruta' ? 'ENTREGA EN RUTA' : 'REFRIGERADO'}</div>
+                            </div>
+                            
+                            <div class="patient-section">
+                                <div class="patient-name">${printKitData.nombre}</div>
+                                <div class="patient-dni">${printKitData.dni}</div>
+                                
+                                ${printMode === 'ruta' ? `
+                                <div class="patient-address">
+                                    ${patients.find(p => p.dni === printKitData.dni)?.direccion || 'DIRECCIÓN NO DISPONIBLE'}
                                 </div>
-                                <div class="header-text">
-                                    DEPARTAMENTO DE DISPENSACIÓN<br>
-                                    DE MEDICAMENTOS A DOMICILIO<br>
-                                    ${printMode === 'ventanilla' ? 'VENTANILLA' : printMode === 'ruta' ? 'ENTREGA EN RUTA' : 'REFRIGERADO'}
-                                </div>
-                                <div class="logo-box">
-                                    <img src="https://raw.githubusercontent.com/jose50440/bita/ae8b4188532504b6c4057505172b68be697b2851/img/logo2.png" 
-                                         class="logo-img" 
-                                         alt="Logo Logística"
-                                         onerror="this.style.display='none'">
+                                ` : ''}
+                                
+                                <div class="details-section">
+                                    <div class="grid-2">
+                                        <div class="detail-item">
+                                            <div class="detail-label">FECHA ARMADO</div>
+                                            <div class="detail-value">${printKitData.fechaArmado}</div>
+                                        </div>
+                                        <div class="detail-item">
+                                            <div class="detail-label">MEDICAMENTOS</div>
+                                            <div class="detail-value">${printKitData.medicamentos?.length || 0}</div>
+                                        </div>
+                                        <div class="detail-item">
+                                            <div class="detail-label">DIGITADOR</div>
+                                            <div class="detail-value">${printKitData.digitador}</div>
+                                        </div>
+                                        <div class="detail-item">
+                                            <div class="detail-label">ENTREGA KIT</div>
+                                            <div class="detail-value">${printKitData.fechaEntregaKit || 'PENDIENTE'}</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-
-                            <!-- CONTENIDO SEGÚN MODO -->
+                            
                             ${printMode === 'refri' ? `
-                                <div class="section-title">❄️ REFRIGERADO ❄️</div>
-                                <div class="patient-info">
-                                    <span class="info-label">PACIENTE</span>
-                                    <div class="info-value" style="font-size: 16px;">${printKitData.nombre}</div>
-                                    <span class="info-label">IDENTIFICACIÓN</span>
-                                    <div class="info-value" style="font-size: 18px; font-family: monospace;">${printKitData.dni}</div>
-                                    <div class="grid-2" style="margin-top: 4mm;">
-                                        <div>
-                                            <span class="info-label">FECHA ENTREGA</span>
-                                            <div class="info-value">${printKitData.fechaEntregaKit || '---'}</div>
-                                        </div>
-                                        <div style="text-align: center; border: 2px solid #000; padding: 2mm; border-radius: 3px;">
-                                            <span class="info-label">CANTIDAD</span>
-                                            <div style="font-size: 22px; font-weight: 900;">${printKitData.cantRefriGlobal || '1'}</div>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="refrigerated-section">
+                                <div style="font-size: ${isHorizontal ? '12px' : '14px'}; font-weight: bold;">❄️ CONTIENE REFRIGERADO ❄️</div>
+                                <div style="font-size: ${isHorizontal ? '16px' : '20px'}; font-weight: bold; margin: 2mm 0;">CANTIDAD: ${printKitData.cantRefriGlobal || 1}</div>
+                                <div style="font-size: ${isHorizontal ? '9px' : '10px'};">MANTENER CADENA DE FRÍO</div>
+                            </div>
                             ` : `
-                                <div class="section-title">${printMode === 'ventanilla' ? 'ENTREGA VENTANILLA' : 'ENTREGA EN RUTA'}</div>
-                                
-                                <div class="patient-info">
-                                    <span class="info-label">NOMBRE COMPLETO</span>
-                                    <div class="info-value" style="font-size: ${printOrientation === 'vertical' ? '14px' : '12px'};">${printKitData.nombre}</div>
-                                    <div class="grid-2">
-                                        <div>
-                                            <span class="info-label">DNI / AFILIACIÓN</span>
-                                            <div class="info-value">${printKitData.dni}</div>
-                                        </div>
-                                        <div>
-                                            <span class="info-label">FECHA ENTREGA</span>
-                                            <div class="info-value">${printKitData.fechaEntregaKit || '---'}</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="contact-info">
-                                    <span class="info-label">CONTACTO Y SEGUIMIENTO</span>
-                                    <div class="grid-2" style="margin-bottom: 2mm;">
-                                        <div>
-                                            <span class="info-label">TELÉFONOS</span>
-                                            <div style="font-size: 10px; margin-top: 1mm;">
-                                                ${(printKitData.selectedPhones?.length > 0 || printKitData.otherPhone) ? 
-                                                    [...(printKitData.selectedPhones || []), printKitData.otherPhone].filter(Boolean).map(phone => 
-                                                        `<div>${phone}</div>`
-                                                    ).join('') : '---'}
-                                            </div>
-                                        </div>
-                                        <div style="text-align: center; border-left: 1px solid #ccc; padding-left: 2mm;">
-                                            <span class="info-label">MEDICAMENTOS</span>
-                                            <div style="font-size: 18px; font-weight: 900; margin-top: 1mm;">${printKitData.triggerMeds}</div>
-                                        </div>
-                                    </div>
-                                    <div style="border-top: 1px dashed #000; padding-top: 2mm;">
-                                        <span class="info-label">CONTACT CENTER</span>
-                                        <div class="info-value">${printKitData.contactCenter ? printKitData.contactCenter.split('---')[1] : 'N/A'}</div>
-                                    </div>
-                                </div>
-
-                                ${printMode === 'ventanilla' ? `
-                                    <div class="delivery-display">
-                                        📦 VENTANILLA
-                                    </div>
-                                ` : `
-                                    <div class="patient-info">
-                                        <span class="info-label">DIRECCIÓN DE ENTREGA</span>
-                                        <div style="font-size: 10px; text-align: justify; margin-top: 1mm;">
-                                            ${printKitData.addressConfirmed ? selectedPatient.direccion : printKitData.secondaryAddress}
-                                        </div>
-                                        ${printKitData.observations ? `
-                                            <div style="background: #f5f5f5; padding: 2mm; border-radius: 2px; margin-top: 2mm;">
-                                                <span class="info-label">OBSERVACIONES</span>
-                                                <div style="font-size: 9px; font-style: italic;">${printKitData.observations}</div>
-                                            </div>
-                                        ` : ''}
-                                        <div style="margin-top: 3mm; border-top: 1px solid #000; padding-top: 2mm; text-align: center;">
-                                            <span class="info-label">ESTADO GPS</span>
-                                            <div style="font-size: 14px; font-weight: 900;">${printKitData.gpsStatus || 'SIN GPS'}</div>
-                                        </div>
-                                    </div>
-                                `}
-
-                                ${printKitData.isRefrigerated ? `
-                                    <div class="refrigerado-alert">
-                                        <div style="font-size: 12px; font-weight: 900;">❄️ CONTIENE REFRIGERADO ❄️</div>
-                                        <div style="font-size: 11px; font-weight: bold;">CANTIDAD: ${printKitData.cantRefriGlobal}</div>
-                                    </div>
-                                ` : ''}
+                            <div class="delivery-mode">
+                                ${printMode === 'ventanilla' ? 'VENTANILLA' : 'ENTREGA EN RUTA'}
+                            </div>
                             `}
-
-                            <!-- FOOTER -->
+                            
                             <div class="footer">
-                                <div>DIGITADOR: ${printKitData.digitador}</div>
-                                <div>${new Date().toLocaleString('es-ES')}</div>
+                                Generado: ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'})} | Bitácora Producción
                             </div>
                         </div>
                     </body>
@@ -1490,7 +1430,6 @@
                 printFrame.contentDocument.write(printContent);
                 printFrame.contentDocument.close();
                 
-                // Imprimir directamente sin cuadro de diálogo
                 setTimeout(() => {
                     printFrame.contentWindow.focus();
                     printFrame.contentWindow.print();
@@ -1535,7 +1474,7 @@
                         
                         <ConfirmModal isOpen={!!confirmData} onClose={()=>setConfirmData(null)} onConfirm={confirmData?.action} title={confirmData?.title} message={confirmData?.msg} />
                         
-                        {/* MODAL DE SELECCIÓN DE IMPRESIÓN */}
+                        {/* MODAL DE SELECCIÓN DE IMPRESIÓN ACTUALIZADO */}
                         {showPrintModal && (
                             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in">
                                 <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xs text-center">
@@ -1549,16 +1488,17 @@
                                                 onClick={() => setPrintOrientation('vertical')} 
                                                 className={`flex-1 py-2 rounded-lg border ${printOrientation === 'vertical' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-700 border-slate-300'}`}
                                             >
-                                                Vertical
+                                                Vertical (71x210mm)
                                             </button>
                                             <button 
                                                 type="button"
                                                 onClick={() => setPrintOrientation('horizontal')} 
                                                 className={`flex-1 py-2 rounded-lg border ${printOrientation === 'horizontal' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-700 border-slate-300'}`}
                                             >
-                                                Horizontal
+                                                Horizontal (210x71mm)
                                             </button>
                                         </div>
+                                        <p className="text-xs text-slate-500">Tamaño papel: 71mm x 210mm</p>
                                     </div>
                                     
                                     <div className="space-y-3">
@@ -1600,7 +1540,6 @@
                         <Modal isOpen={showKitForm} onClose={closeKitForm} title={isViewMode ? "Detalle del Kit" : (editingKitId ? "Editar Kit" : "Nuevo Kit de Producción")} maxWidth="max-w-4xl">
                             {/* FORMULARIO KIT */}
                             <form onSubmit={handleKitSubmit} className="space-y-6">
-                                {/* Disabled overlay for View Mode */}
                                 <fieldset disabled={isViewMode} className="space-y-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 border-b border-slate-100 pb-4 bg-slate-50 p-4 rounded-xl">
                                         <div>
@@ -1654,7 +1593,6 @@
                                                     </div>
                                                 )}
                                                 
-                                                {/* NUEVO MENU DESPLEGABLE GPS */}
                                                 <div>
                                                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Estado GPS</label>
                                                     <select className="w-full p-2 border rounded text-sm bg-white font-bold text-slate-700" value={kitData.gpsStatus} onChange={e=>setKitData({...kitData, gpsStatus:e.target.value})}>
@@ -1757,7 +1695,6 @@
                                             </div>
                                         </div>
                                         <div className="flex gap-2 justify-end sm:justify-center items-start">
-                                            {/* BOTONES NUEVOS DE ACCIÓN */}
                                             <button onClick={() => openEditKit(kit, true)} className="text-slate-300 hover:text-blue-500 p-2 btn-hover-effect" title="Ver Detalle"><Icons.Search size={18}/></button>
                                             <button onClick={() => openPrintModal(kit)} className="text-slate-300 hover:text-slate-700 p-2 btn-hover-effect" title="Imprimir"><Icons.Printer size={18}/></button>
                                             <button onClick={() => openEditKit(kit, false)} className="text-slate-300 hover:text-orange-500 p-2 btn-hover-effect" title="Editar"><Icons.Edit size={18}/></button>
@@ -1795,7 +1732,6 @@
                     </div>
                     
                     <Modal isOpen={showPatientForm} onClose={closePatientForm} title={editingPatientId ? "Editar Paciente" : "Nuevo Derechohabiente"} maxWidth="max-w-2xl">
-                        {/* FORMULARIO PACIENTE INLINE PARA EVITAR ERROR DE FOCO */}
                         <form onSubmit={handlePatientSubmit} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div><label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">DNI <span className="text-red-500">*</span></label><input type="text" required className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" value={patientForm.dni} onChange={e=>setPatientForm({...patientForm, dni:e.target.value, nAfiliacion:e.target.value})} maxLength={15} /></div>
@@ -1833,6 +1769,34 @@
                     </Modal>
 
                     <div className="h-full overflow-y-auto bg-white p-6">
+                        {/* Controles de paginación */}
+                        {filteredPatients.length > patientsPerPage && (
+                            <div className="mb-4 flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                <div className="text-sm text-slate-600">
+                                    Mostrando {indexOfFirstPatient + 1}-{Math.min(indexOfLastPatient, filteredPatients.length)} de {filteredPatients.length} pacientes
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className={`px-3 py-1 rounded-lg text-sm font-medium ${currentPage === 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                    >
+                                        Anterior
+                                    </button>
+                                    <span className="px-3 py-1 text-sm text-slate-700">
+                                        Página {currentPage} de {totalPages}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className={`px-3 py-1 rounded-lg text-sm font-medium ${currentPage === totalPages ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                    >
+                                        Siguiente
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse min-w-[800px]">
                                 <thead className="bg-slate-50/80 sticky top-0 z-10">
@@ -1844,7 +1808,7 @@
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {filteredPatients.map(p => {
+                                    {currentPatients.map(p => {
                                         const countKits = kits.filter(k => k.patientId === p.id).length;
                                         return (
                                             <tr key={p.id} onClick={() => setSelectedPatient(p)} className={`row-hover-effect cursor-pointer`}>
@@ -1871,6 +1835,36 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Controles de paginación al final */}
+                        {filteredPatients.length > patientsPerPage && (
+                            <div className="mt-4 flex justify-center">
+                                <div className="flex gap-1">
+                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                        let pageNum;
+                                        if (totalPages <= 5) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage <= 3) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pageNum = totalPages - 4 + i;
+                                        } else {
+                                            pageNum = currentPage - 2 + i;
+                                        }
+                                        
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`w-8 h-8 rounded-lg text-sm font-medium ${currentPage === pageNum ? 'bg-turquoise-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
@@ -1885,9 +1879,10 @@
             const [patients, setPatients] = useState([]);
             const [kits, setKits] = useState([]);
             const [medicines, setMedicines] = useState([]);
-            const [contacts, setContacts] = useState([]); // NUEVO: Estado para contactos
+            const [contacts, setContacts] = useState([]);
             const [users, setUsers] = useState([]);
-            const [sidebarCollapsed, setSidebarCollapsed] = useState(false); const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+            const [sidebarCollapsed, setSidebarCollapsed] = useState(false); 
+            const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
             const handleLogout = () => { signOut(auth); sessionStorage.clear(); setRole(null); setUserName(null); };
             const handleLogin = (r, n) => { setRole(r); setUserName(n); sessionStorage.setItem('leq_role', r); sessionStorage.setItem('leq_username', n); };
@@ -1897,7 +1892,7 @@
                 const unsubPatients = onSnapshot(collection(db, 'prod_patients'), s => setPatients(s.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0))));
                 const unsubKits = onSnapshot(collection(db, 'prod_kits'), s => setKits(s.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=> new Date(b.fechaArmado) - new Date(a.fechaArmado))));
                 const unsubMeds = onSnapshot(collection(db, 'prod_medicines'), s => setMedicines(s.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>a.name.localeCompare(b.name))));
-                const unsubContacts = onSnapshot(collection(db, 'prod_contacts'), s => setContacts(s.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>a.name.localeCompare(b.name)))); // NUEVO: Snapshot de contactos
+                const unsubContacts = onSnapshot(collection(db, 'prod_contacts'), s => setContacts(s.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>a.name.localeCompare(b.name))));
                 let unsubUsers = () => {}; if (role === 'admin' || role === 'superadmin') unsubUsers = onSnapshot(collection(db, 'prod_users'), s => setUsers(s.docs.map(d=>({id:d.id, ...d.data()}))));
                 return () => { unsubPatients(); unsubKits(); unsubMeds(); unsubContacts(); unsubUsers(); };
             }, [role]);
@@ -1913,7 +1908,6 @@
             const deleteKit = async (id) => await deleteDoc(doc(db, 'prod_kits', id));
             const addMedsList = async (list) => { for(const name of list) await addDoc(collection(db, 'prod_medicines'), { name }); };
             
-            // NUEVO: Funciones de gestión de contactos
             const addContact = async (name, phone) => await addDoc(collection(db, 'prod_contacts'), { name, phone });
             const deleteContact = async (id) => await deleteDoc(doc(db, 'prod_contacts', id));
 
@@ -1958,11 +1952,8 @@
                         <div className="md:hidden bg-white/80 backdrop-blur-md p-4 shadow-sm flex justify-between items-center z-20"><button onClick={() => setMobileMenuOpen(true)} className="text-slate-600 p-1 btn-hover-effect"><Icons.Menu size={24}/></button><div className="font-bold text-slate-800 flex items-center gap-2 brand-font"><Icons.Activity size={18} className="text-turquoise-600"/> LEQ Móvil</div><div className="w-8"></div></div>
                         <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative z-10">
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} />}
-                            {/* AQUÍ SE PASA "role" Y "userName" AL COMPONENTE REPORTSBLOCK */}
-                            {view === 'reports' && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} />}
-                            {/* AQUÍ SE PASA "contacts" COMO PROP */}
+                            {view === 'reports' && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} />}
                             {view === 'pacientes' && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={{name: userName, role: role}} userRole={role} contacts={contacts} />}
-                            {/* AQUÍ SE PASA "contacts" Y FUNCIONES AL CONFIG */}
                             {view === 'config' && (role === 'admin' || role === 'superadmin') && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} />}
                             {view === 'users' && (role === 'admin' || role === 'superadmin') && <UserManagementBlock users={users} onAddUser={addUser} onUpdateUser={updateUser} onDeleteUser={deleteUser} />}
                         </div>
