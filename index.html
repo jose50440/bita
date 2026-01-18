@@ -1286,50 +1286,163 @@
                     <div className="glass-panel rounded-3xl shadow-soft h-full flex flex-col animate-in border-0 bg-white">
                         
                         {/* ESTILOS DE IMPRESIÓN */}
-                        <style>{`
-                            @media print {
-                                body * { visibility: hidden; }
-                                #print-section, #print-section * { visibility: visible; }
-                                #print-section { 
-                                    position: fixed; 
-                                    left: 0; 
-                                    top: 0; 
-                                    width: 72mm;
-                                    margin: 0;
-                                    padding: 2px;
-                                    background: white;
-                                    color: black;
-                                    font-family: 'Arial', 'Helvetica', sans-serif; 
-                                    font-size: 11px;
-                                    line-height: 1.15;
-                                }
-                                .header-container { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid black; padding-bottom: 4px; margin-bottom: 4px; }
-                                .logo-box { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
-                                .logo-img { width: 100%; height: 100%; object-fit: contain; }
-                                .header-text { flex: 1; text-align: center; font-size: 8px; font-weight: 900; line-height: 1.1; padding: 0 4px; }
-                                
-                                .section-title { background: black; color: white; text-align: center; font-weight: bold; font-size: 14px; padding: 4px 0; -webkit-print-color-adjust: exact; margin: 6px 0; border-radius: 4px; text-transform: uppercase; }
-                                .info-header { text-align: center; font-size: 10px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid black; padding-bottom: 2px; margin-bottom: 4px; }
-                                
-                                .box-modern { border: 2px solid black; border-radius: 6px; padding: 4px; margin-bottom: 6px; }
-                                .label-modern { font-size: 9px; font-weight: 900; text-transform: uppercase; color: #000; }
-                                .value-modern { font-size: 12px; font-weight: bold; color: #000; word-break: break-word; }
-                                .value-small { font-size: 11px; font-weight: 600; }
-                                .big-value { font-size: 14px; font-weight: 900; }
-                                
-                                .ventanilla-display { font-size: 26px; font-weight: 900; text-align: center; border: 3px dashed black; padding: 10px; border-radius: 8px; margin: 10px 0; }
-                                
-                                .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-                                .footer-modern { margin-top: 10px; border-top: 2px solid black; padding-top: 4px; display: flex; justify-content: space-between; font-size: 8px; font-weight: bold; }
-                                
-                                /* Estilo Refri */
-                                .refri-card { border: 4px solid black; border-radius: 8px; padding: 5px; }
-                                .refri-header { background: black; color: white; font-size: 18px; font-weight: 900; text-align: center; padding: 5px; border-radius: 4px; margin-bottom: 10px; -webkit-print-color-adjust: exact; }
-                                .refri-item { border: 2px solid black; border-radius: 4px; padding: 4px; text-align: center; }
-                                
-                                @page { size: 72mm auto; margin: 0mm; }
-                            }
-                        `}</style>
+                       <style>{`
+    @media print {
+        body * { visibility: hidden; }
+        #print-section, #print-section * { visibility: visible; }
+        #print-section { 
+            position: fixed; 
+            left: 0; 
+            top: 0; 
+            width: 190mm;
+            height: auto;
+            margin: 10mm 0;
+            padding: 0;
+            background: white;
+            color: black;
+            font-family: 'Arial', 'Helvetica', sans-serif; 
+            font-size: 14px;
+            line-height: 1.2;
+            box-sizing: border-box;
+        }
+        .print-container {
+            width: 100%;
+            padding: 5mm;
+        }
+        .header-container { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            border-bottom: 2px solid black; 
+            padding-bottom: 4mm; 
+            margin-bottom: 4mm; 
+        }
+        .logo-box { 
+            width: 45mm; 
+            height: 20mm; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            flex-shrink: 0;
+        }
+        .logo-img { 
+            max-width: 100%; 
+            max-height: 100%; 
+            object-fit: contain; 
+        }
+        .header-text { 
+            flex: 1; 
+            text-align: center; 
+            font-size: 10px; 
+            font-weight: 900; 
+            line-height: 1.2; 
+            padding: 0 4mm; 
+        }
+        
+        .section-title { 
+            background: black; 
+            color: white; 
+            text-align: center; 
+            font-weight: bold; 
+            font-size: 16px; 
+            padding: 3mm 0; 
+            -webkit-print-color-adjust: exact; 
+            margin: 6mm 0; 
+            border-radius: 4px; 
+            text-transform: uppercase; 
+        }
+        .info-header { 
+            text-align: center; 
+            font-size: 12px; 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            border-bottom: 1px solid black; 
+            padding-bottom: 2mm; 
+            margin-bottom: 4mm; 
+        }
+        
+        .box-modern { 
+            border: 2px solid black; 
+            border-radius: 6px; 
+            padding: 4mm; 
+            margin-bottom: 6mm; 
+        }
+        .label-modern { 
+            font-size: 10px; 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            color: #000; 
+        }
+        .value-modern { 
+            font-size: 14px; 
+            font-weight: bold; 
+            color: #000; 
+            word-break: break-word; 
+        }
+        .value-small { 
+            font-size: 12px; 
+            font-weight: 600; 
+        }
+        .big-value { 
+            font-size: 16px; 
+            font-weight: 900; 
+        }
+        
+        .ventanilla-display { 
+            font-size: 32px; 
+            font-weight: 900; 
+            text-align: center; 
+            border: 3px dashed black; 
+            padding: 10mm; 
+            border-radius: 8px; 
+            margin: 10mm 0; 
+        }
+        
+        .grid-2 { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 4mm; 
+        }
+        .footer-modern { 
+            margin-top: 10mm; 
+            border-top: 2px solid black; 
+            padding-top: 4mm; 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 10px; 
+            font-weight: bold; 
+        }
+        
+        /* Estilo Refri */
+        .refri-card { 
+            border: 4px solid black; 
+            border-radius: 8px; 
+            padding: 5mm; 
+        }
+        .refri-header { 
+            background: black; 
+            color: white; 
+            font-size: 22px; 
+            font-weight: 900; 
+            text-align: center; 
+            padding: 5mm; 
+            border-radius: 4px; 
+            margin-bottom: 10mm; 
+            -webkit-print-color-adjust: exact; 
+        }
+        .refri-item { 
+            border: 2px solid black; 
+            border-radius: 4px; 
+            padding: 4mm; 
+            text-align: center; 
+        }
+        
+        @page { 
+            size: 190mm auto; 
+            margin: 10mm 0; 
+        }
+    }
+`}</style>
 
                         {/* PLANTILLA DE IMPRESIÓN */}
                         {printKitData && printMode && (
