@@ -82,7 +82,7 @@
             Users: (p) => <Icon {...p} path={<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>} />,
             Search: (p) => <Icon {...p} path={<><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></>} />,
             LogOut: (p) => <Icon {...p} path={<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>} />,
-            Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></>} />,
+            Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7 4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></>} />,
             Calendar: (p) => <Icon {...p} path={<><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></>} />,
             Settings: (p) => <Icon {...p} path={<circle cx="12" cy="12" r="3"></circle>} />,
             Plus: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></>} />,
@@ -109,7 +109,7 @@
             WifiOff: (p) => <Icon {...p} path={<><line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></>} />,
             Phone: (p) => <Icon {...p} path={<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>} />,
             Save: (p) => <Icon {...p} path={<><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></>} />,
-            FileSpreadsheet: (p) => <Icon {...p} path={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2"></path><path d="M8 17h2"></path><path d="M14 13h2"></path><path d="M14 17h2"></path></>} />
+            FileSpreadsheet: (p) => <Icon {...p} path={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2"></path><path d="M8 17h2"></path><path d="M14 13h2"></path><path d="M14 17h2"></path></>}
         };
 
         // --- FIREBASE CONFIG (bitacora-217cf) ---
@@ -480,7 +480,7 @@
             );
         };
 
-        // --- BLOCK: REPORTES (ACTUALIZADO - ORGANIZACIÓN POR MESES/DÍAS + IA) ---
+        // --- BLOCK: REPORTES (ACTUALIZADO - SOLO UNA API KEY) ---
         const ReportsBlock = ({ kits, patients, userRole, userName }) => {
             const [selectedMonth, setSelectedMonth] = useState(null);
             const [selectedDay, setSelectedDay] = useState(null);
@@ -548,136 +548,118 @@
                 setGenerating(true);
                 setAiStatus('Procesando con IA...');
 
-                // API Keys para rotación
-                const apiKeys = [
-                    'AIzaSyBosxJqxUT9yCUXCq2z4CKfyXHN0uwjb5E',
-                    'AIzaSyA2VVqE7LZTuEJW8SPssea6rUsqQnK_vGY',
-                    'AIzaSyBLafCU2tgKE-BfncjLkNtg47UCKc1iFno'
-                ];
+                // SOLO UNA API KEY
+                const apiKey = 'AIzaSyAdXwJ76Uttb_DGGe5PQ2bxEVcGoA6NiE4';
 
-                let success = false;
-                let reportData = null;
-
-                // Intentar con cada API Key
-                for (let i = 0; i < apiKeys.length; i++) {
-                    try {
-                        setAiStatus(`Usando API Key ${i + 1} de ${apiKeys.length}...`);
-                        
-                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKeys[i]}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                contents: [{
-                                    parts: [{
-                                        text: `Eres un asistente especializado en análisis de datos médicos y generación de reportes. 
-                                        El usuario quiere un reporte basado en: "${prompt}"
-                                        
-                                        Datos disponibles:
-                                        - Total kits: ${kits.length}
-                                        - Pacientes únicos: ${new Set(kits.map(k => k.dni)).size}
-                                        - Rango de fechas: ${kits.length > 0 ? `${kits[kits.length-1].fechaArmado} a ${kits[0].fechaArmado}` : 'Sin datos'}
-                                        
-                                        Campos disponibles en cada kit:
-                                        - fechaArmado, fechaEntregaLogistica, fechaEntregaKit
-                                        - horaOperaciones, contactCenter, triggerMeds
-                                        - medicamentos (array con nombre, idReceta, cantidad)
-                                        - digitador, deliveryMode (ventanilla/ruta)
-                                        - selectedPhones, otherPhone, addressConfirmed
-                                        - secondaryAddress, gpsStatus, observations
-                                        - isRefrigerated, cantRefriGlobal
-                                        - nombre (paciente), dni (paciente)
-                                        
-                                        Campos de pacientes asociados:
-                                        - nombre, dni, telefono, direccion, familiar, telefonoFamiliar
-                                        - descripcionMunicipio, tipoAfiliado, nAfiliacion
-                                        
-                                        Por favor genera un esquema de reporte que incluya:
-                                        1. Título del reporte
-                                        2. Columnas recomendadas (máximo 10 columnas relevantes)
-                                        3. Filtros sugeridos
-                                        4. Un análisis breve de lo que se podría extraer
-                                        
-                                        Formato de respuesta JSON:
-                                        {
-                                            "title": "Título del reporte",
-                                            "description": "Descripción breve",
-                                            "columns": ["Col1", "Col2", ...],
-                                            "filters": ["filtro1", "filtro2"],
-                                            "analysis": "Análisis de datos..."
-                                        }`
-                                    }]
+                try {
+                    setAiStatus(`Generando reporte...`);
+                    
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-pro:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: `Eres un asistente especializado en análisis de datos médicos y generación de reportes. 
+                                    El usuario quiere un reporte basado en: "${prompt}"
+                                    
+                                    Datos disponibles:
+                                    - Total kits: ${kits.length}
+                                    - Pacientes únicos: ${new Set(kits.map(k => k.dni)).size}
+                                    - Rango de fechas: ${kits.length > 0 ? `${kits[kits.length-1].fechaArmado} a ${kits[0].fechaArmado}` : 'Sin datos'}
+                                    
+                                    Campos disponibles en cada kit:
+                                    - fechaArmado, fechaEntregaLogistica, fechaEntregaKit
+                                    - horaOperaciones, contactCenter, triggerMeds
+                                    - medicamentos (array con nombre, idReceta, cantidad)
+                                    - digitador, deliveryMode (ventanilla/ruta)
+                                    - selectedPhones, otherPhone, addressConfirmed
+                                    - secondaryAddress, gpsStatus, observations
+                                    - isRefrigerated, cantRefriGlobal
+                                    - nombre (paciente), dni (paciente)
+                                    
+                                    Campos de pacientes asociados:
+                                    - nombre, dni, telefono, direccion, familiar, telefonoFamiliar
+                                    - descripcionMunicipio, tipoAfiliado, nAfiliacion
+                                    
+                                    Por favor genera un esquema de reporte que incluya:
+                                    1. Título del reporte
+                                    2. Columnas recomendadas (máximo 10 columnas relevantes)
+                                    3. Filtros sugeridos
+                                    4. Un análisis breve de lo que se podría extraer
+                                    
+                                    Formato de respuesta JSON:
+                                    {
+                                        "title": "Título del reporte",
+                                        "description": "Descripción breve",
+                                        "columns": ["Col1", "Col2", ...],
+                                        "filters": ["filtro1", "filtro2"],
+                                        "analysis": "Análisis de datos..."
+                                    }`
                                 }]
-                            })
+                            }]
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Error API: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const text = data.candidates[0].content.parts[0].text;
+                    
+                    // Extraer JSON de la respuesta
+                    const jsonMatch = text.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        const reportData = JSON.parse(jsonMatch[0]);
+                        
+                        // Generar datos del reporte basados en columnas sugeridas
+                        const selectedColumns = reportData.columns || ['nombre', 'dni', 'fechaArmado', 'digitador', 'triggerMeds'];
+                        const filteredKits = applyFilters(kits, reportData.filters || []);
+                        
+                        const excelData = filteredKits.map(kit => {
+                            const row = {};
+                            selectedColumns.forEach(col => {
+                                row[col] = getKitValue(kit, col);
+                            });
+                            return row;
                         });
 
-                        if (!response.ok) {
-                            if (response.status === 429) { // Límite excedido
-                                continue; // Probar siguiente API Key
-                            }
-                            throw new Error(`Error API: ${response.status}`);
-                        }
-
-                        const data = await response.json();
-                        const text = data.candidates[0].content.parts[0].text;
+                        // Crear archivo Excel
+                        const ws = XLSX.utils.json_to_sheet(excelData);
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, ws, "Reporte");
                         
-                        // Extraer JSON de la respuesta
-                        const jsonMatch = text.match(/\{[\s\S]*\}/);
-                        if (jsonMatch) {
-                            reportData = JSON.parse(jsonMatch[0]);
-                            
-                            // Generar datos del reporte basados en columnas sugeridas
-                            const selectedColumns = reportData.columns || ['nombre', 'dni', 'fechaArmado', 'digitador', 'triggerMeds'];
-                            const filteredKits = applyFilters(kits, reportData.filters || []);
-                            
-                            const excelData = filteredKits.map(kit => {
-                                const row = {};
-                                selectedColumns.forEach(col => {
-                                    row[col] = getKitValue(kit, col);
-                                });
-                                return row;
-                            });
-
-                            // Crear archivo Excel
-                            const ws = XLSX.utils.json_to_sheet(excelData);
-                            const wb = XLSX.utils.book_new();
-                            XLSX.utils.book_append_sheet(wb, ws, "Reporte");
-                            
-                            // Guardar reporte en Firebase
-                            const reportDoc = {
-                                prompt: prompt,
-                                title: reportData.title || 'Reporte Generado',
-                                columns: selectedColumns,
-                                filters: reportData.filters || [],
-                                dataCount: excelData.length,
-                                generatedBy: userName,
-                                createdAt: serverTimestamp(),
-                                excelData: excelData.slice(0, 100) // Guardar solo primeros 100 registros para preview
-                            };
-                            
-                            const docRef = await addDoc(collection(db, 'prod_reports'), reportDoc);
-                            
-                            // Descargar archivo
-                            const fileName = `reporte_${new Date().toISOString().split('T')[0]}_${docRef.id.slice(0, 8)}.xlsx`;
-                            XLSX.writeFile(wb, fileName);
-                            
-                            success = true;
-                            setAiStatus('✅ Reporte generado exitosamente');
-                            break;
-                        }
-                    } catch (error) {
-                        console.error(`Error con API Key ${i + 1}:`, error);
-                        continue;
+                        // Guardar reporte en Firebase
+                        const reportDoc = {
+                            prompt: prompt,
+                            title: reportData.title || 'Reporte Generado',
+                            columns: selectedColumns,
+                            filters: reportData.filters || [],
+                            dataCount: excelData.length,
+                            generatedBy: userName,
+                            createdAt: serverTimestamp(),
+                            excelData: excelData.slice(0, 100) // Guardar solo primeros 100 registros para preview
+                        };
+                        
+                        const docRef = await addDoc(collection(db, 'prod_reports'), reportDoc);
+                        
+                        // Descargar archivo
+                        const fileName = `reporte_${new Date().toISOString().split('T')[0]}_${docRef.id.slice(0, 8)}.xlsx`;
+                        XLSX.writeFile(wb, fileName);
+                        
+                        setAiStatus('✅ Reporte generado exitosamente');
+                        setPrompt('');
+                        setTimeout(() => setShowAIModal(false), 2000);
+                    } else {
+                        throw new Error('No se pudo extraer el JSON de la respuesta');
                     }
+                } catch (error) {
+                    console.error('Error generando reporte:', error);
+                    setAiStatus('❌ Error al generar el reporte. Intenta nuevamente.');
                 }
 
                 setGenerating(false);
-                if (!success) {
-                    setAiStatus('❌ Todas las API Keys excedieron el límite. Intenta mañana.');
-                    alert('No se pudo generar el reporte. Todas las API Keys han excedido su límite diario.');
-                } else {
-                    setPrompt('');
-                    setTimeout(() => setShowAIModal(false), 2000);
-                }
             };
 
             // Función auxiliar para obtener valores del kit
@@ -1083,7 +1065,7 @@
             );
         };
 
-        // --- BLOCK: PACIENTES (ACTUALIZADO - PLANTILLAS CON LOGOS Y DISEÑO MODERNO) ---
+        // --- BLOCK: PACIENTES (ACTUALIZADO CON PLANTILLAS DE IMPRESIÓN AJUSTADAS A 71mm x 210mm) ---
         const PatientManagementBlock = ({ patients, kits, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
@@ -1094,6 +1076,7 @@
             // Estados para Impresión
             const [printKitData, setPrintKitData] = useState(null);
             const [printMode, setPrintMode] = useState(null); // 'ventanilla', 'ruta', 'refri'
+            const [printOrientation, setPrintOrientation] = useState('vertical'); // 'vertical' o 'horizontal'
             const [showPrintModal, setShowPrintModal] = useState(false);
 
             // Estados para visualización
@@ -1241,7 +1224,7 @@
                 setShowKitForm(true); 
             };
 
-            // Print Logic
+            // Print Logic - PLANTILLAS ACTUALIZADAS PARA 71mm x 210mm
             const openPrintModal = (kit) => {
                 setPrintKitData(kit);
                 setShowPrintModal(true);
@@ -1249,11 +1232,326 @@
 
             const triggerPrint = (mode) => {
                 setPrintMode(mode);
+                // Crear un iframe para la impresión
+                const printFrame = document.createElement('iframe');
+                printFrame.style.position = 'absolute';
+                printFrame.style.width = '0';
+                printFrame.style.height = '0';
+                printFrame.style.border = '0';
+                
+                document.body.appendChild(printFrame);
+                
+                const printContent = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            @media print {
+                                @page {
+                                    size: ${printOrientation === 'vertical' ? '71mm 210mm' : '210mm 71mm'};
+                                    margin: 2mm;
+                                }
+                                body {
+                                    font-family: 'Arial', sans-serif;
+                                    margin: 0;
+                                    padding: 0;
+                                    width: ${printOrientation === 'vertical' ? '71mm' : '210mm'};
+                                    height: ${printOrientation === 'vertical' ? '210mm' : '71mm'};
+                                    overflow: hidden;
+                                }
+                                .print-container {
+                                    width: 100%;
+                                    height: 100%;
+                                    padding: 1mm;
+                                    box-sizing: border-box;
+                                    display: flex;
+                                    flex-direction: column;
+                                }
+                                .header-container {
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: space-between;
+                                    border-bottom: 1px solid #000;
+                                    padding-bottom: 1mm;
+                                    margin-bottom: 2mm;
+                                    flex-shrink: 0;
+                                }
+                                .logo-box {
+                                    width: 15mm;
+                                    height: 10mm;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    flex-shrink: 0;
+                                }
+                                .logo-img {
+                                    max-width: 100%;
+                                    max-height: 100%;
+                                    object-fit: contain;
+                                }
+                                .header-text {
+                                    flex: 1;
+                                    text-align: center;
+                                    font-size: 6px;
+                                    font-weight: 900;
+                                    line-height: 1.2;
+                                    padding: 0 1mm;
+                                    text-transform: uppercase;
+                                }
+                                .section-title {
+                                    background: #000;
+                                    color: #fff;
+                                    text-align: center;
+                                    font-weight: bold;
+                                    font-size: 8px;
+                                    padding: 1mm 0;
+                                    margin: 2mm 0;
+                                    border-radius: 1px;
+                                    text-transform: uppercase;
+                                    flex-shrink: 0;
+                                }
+                                .patient-info {
+                                    border: 1px solid #000;
+                                    border-radius: 2px;
+                                    padding: 2mm;
+                                    margin-bottom: 2mm;
+                                    flex-shrink: 0;
+                                }
+                                .info-label {
+                                    font-size: 5px;
+                                    font-weight: 900;
+                                    text-transform: uppercase;
+                                    color: #000;
+                                    display: block;
+                                    margin-bottom: 0.5mm;
+                                }
+                                .info-value {
+                                    font-size: ${printOrientation === 'vertical' ? '10px' : '8px'};
+                                    font-weight: bold;
+                                    color: #000;
+                                    margin-bottom: 1mm;
+                                    word-break: break-word;
+                                }
+                                .highlight-box {
+                                    background: #f0f0f0;
+                                    padding: 2mm;
+                                    border: 1px solid #000;
+                                    border-radius: 2px;
+                                    margin: 2mm 0;
+                                }
+                                .highlight-title {
+                                    font-size: 8px;
+                                    font-weight: 900;
+                                    text-transform: uppercase;
+                                    text-align: center;
+                                    margin-bottom: 1mm;
+                                }
+                                .contact-info {
+                                    border: 1px solid #000;
+                                    border-radius: 2px;
+                                    padding: 2mm;
+                                    margin-bottom: 2mm;
+                                    flex-shrink: 0;
+                                }
+                                .delivery-display {
+                                    font-size: ${printOrientation === 'vertical' ? '20px' : '16px'};
+                                    font-weight: 900;
+                                    text-align: center;
+                                    border: 1px dashed #000;
+                                    padding: 3mm;
+                                    margin: 3mm 0;
+                                    border-radius: 2px;
+                                    flex-shrink: 0;
+                                }
+                                .refrigerado-alert {
+                                    border: 1px solid #000;
+                                    border-radius: 2px;
+                                    padding: 2mm;
+                                    text-align: center;
+                                    margin: 2mm 0;
+                                    background: #e6f7ff;
+                                    flex-shrink: 0;
+                                }
+                                .footer {
+                                    margin-top: 3mm;
+                                    border-top: 1px solid #000;
+                                    padding-top: 1mm;
+                                    font-size: 5px;
+                                    display: flex;
+                                    justify-content: space-between;
+                                    flex-shrink: 0;
+                                }
+                                .grid-2 {
+                                    display: grid;
+                                    grid-template-columns: 1fr 1fr;
+                                    gap: 1mm;
+                                }
+                                .content {
+                                    flex: 1;
+                                    overflow: hidden;
+                                    display: flex;
+                                    flex-direction: column;
+                                }
+                                .address-highlight {
+                                    font-size: 9px;
+                                    font-weight: 900;
+                                    text-align: center;
+                                    padding: 2mm;
+                                    background: #fffacd;
+                                    border: 1px solid #ffd700;
+                                    border-radius: 2px;
+                                    margin: 2mm 0;
+                                }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="print-container">
+                            <!-- HEADER CON LOGOS -->
+                            <div class="header-container">
+                                <div class="logo-box">
+                                    <img src="https://raw.githubusercontent.com/jose50440/bita/ae8b4188532504b6c4057505172b68be697b2851/img/logo1.png" 
+                                         class="logo-img" 
+                                         alt="Logo IHSS" 
+                                         onerror="this.style.display='none'">
+                                </div>
+                                <div class="header-text">
+                                    DEPARTAMENTO DE DISPENSACIÓN<br>
+                                    DE MEDICAMENTOS A DOMICILIO<br>
+                                    ${printMode === 'ventanilla' ? 'VENTANILLA' : printMode === 'ruta' ? 'ENTREGA EN RUTA' : 'REFRIGERADO'}
+                                </div>
+                                <div class="logo-box">
+                                    <img src="https://raw.githubusercontent.com/jose50440/bita/ae8b4188532504b6c4057505172b68be697b2851/img/logo2.png" 
+                                         class="logo-img" 
+                                         alt="Logo Logística"
+                                         onerror="this.style.display='none'">
+                                </div>
+                            </div>
+
+                            <div class="content">
+                                <!-- CONTENIDO SEGÚN MODO -->
+                                ${printMode === 'refri' ? `
+                                    <div class="section-title">❄️ REFRIGERADO ❄️</div>
+                                    <div class="patient-info">
+                                        <span class="info-label">PACIENTE</span>
+                                        <div class="info-value" style="font-size: 12px;">${printKitData.nombre}</div>
+                                        <span class="info-label">IDENTIFICACIÓN</span>
+                                        <div class="info-value" style="font-size: 14px; font-family: monospace;">${printKitData.dni}</div>
+                                        <div class="grid-2" style="margin-top: 2mm;">
+                                            <div>
+                                                <span class="info-label">FECHA ENTREGA</span>
+                                                <div class="info-value">${printKitData.fechaEntregaKit || '---'}</div>
+                                            </div>
+                                            <div style="text-align: center; border: 1px solid #000; padding: 1mm; border-radius: 1px;">
+                                                <span class="info-label">CANTIDAD</span>
+                                                <div style="font-size: 16px; font-weight: 900;">${printKitData.cantRefriGlobal || '1'}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="section-title">${printMode === 'ventanilla' ? 'ENTREGA VENTANILLA' : 'ENTREGA EN RUTA'}</div>
+                                    
+                                    <!-- INFORMACIÓN DESTACADA DEL PACIENTE -->
+                                    <div class="highlight-box">
+                                        <div class="highlight-title">INFORMACIÓN DEL PACIENTE</div>
+                                        <div style="text-align: center; margin-bottom: 2mm;">
+                                            <div style="font-size: ${printOrientation === 'vertical' ? '12px' : '10px'}; font-weight: 900; margin-bottom: 1mm;">${printKitData.nombre}</div>
+                                            <div style="font-size: 11px; font-family: monospace; font-weight: bold;">DNI: ${printKitData.dni}</div>
+                                        </div>
+                                    </div>
+
+                                    ${printMode === 'ruta' ? `
+                                        <!-- DIRECCIÓN DESTACADA SOLO PARA RUTA -->
+                                        <div class="address-highlight">
+                                            <div style="font-size: 8px; font-weight: bold; margin-bottom: 1mm;">DIRECCIÓN DE ENTREGA</div>
+                                            <div style="font-size: 9px; text-align: center; font-weight: bold;">
+                                                ${printKitData.addressConfirmed ? selectedPatient.direccion : printKitData.secondaryAddress}
+                                            </div>
+                                        </div>
+                                    ` : ''}
+
+                                    <div class="patient-info">
+                                        <div class="grid-2">
+                                            <div>
+                                                <span class="info-label">FECHA ENTREGA</span>
+                                                <div class="info-value">${printKitData.fechaEntregaKit || '---'}</div>
+                                            </div>
+                                            <div>
+                                                <span class="info-label">MEDICAMENTOS</span>
+                                                <div style="font-size: 14px; font-weight: 900; text-align: center;">${printKitData.triggerMeds}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="contact-info">
+                                        <span class="info-label">CONTACTO Y SEGUIMIENTO</span>
+                                        <div style="margin-bottom: 1mm;">
+                                            <div style="font-size: 8px; margin-top: 0.5mm;">
+                                                ${(printKitData.selectedPhones?.length > 0 || printKitData.otherPhone) ? 
+                                                    [...(printKitData.selectedPhones || []), printKitData.otherPhone].filter(Boolean).map(phone => 
+                                                        `<div style="margin-bottom: 0.5mm;">📞 ${phone}</div>`
+                                                    ).join('') : '<div style="text-align: center;">---</div>'}
+                                            </div>
+                                        </div>
+                                        <div style="border-top: 1px dashed #000; padding-top: 1mm;">
+                                            <span class="info-label">CONTACT CENTER</span>
+                                            <div class="info-value">${printKitData.contactCenter ? printKitData.contactCenter.split('---')[1] : 'N/A'}</div>
+                                        </div>
+                                    </div>
+
+                                    ${printMode === 'ventanilla' ? `
+                                        <div class="delivery-display">
+                                            📦 VENTANILLA
+                                        </div>
+                                    ` : `
+                                        <div class="patient-info">
+                                            ${printKitData.observations ? `
+                                                <div style="background: #f5f5f5; padding: 1mm; border-radius: 1px; margin-bottom: 1mm;">
+                                                    <span class="info-label">OBSERVACIONES</span>
+                                                    <div style="font-size: 7px; font-style: italic;">${printKitData.observations}</div>
+                                                </div>
+                                            ` : ''}
+                                            <div style="margin-top: 2mm; border-top: 1px solid #000; padding-top: 1mm;">
+                                                <span class="info-label">ESTADO GPS</span>
+                                                <div style="font-size: 10px; font-weight: 900; text-align: center;">${printKitData.gpsStatus || 'SIN GPS'}</div>
+                                            </div>
+                                        </div>
+                                    `}
+
+                                    ${printKitData.isRefrigerated ? `
+                                        <div class="refrigerado-alert">
+                                            <div style="font-size: 10px; font-weight: 900;">❄️ CONTIENE REFRIGERADO ❄️</div>
+                                            <div style="font-size: 9px; font-weight: bold;">CANTIDAD: ${printKitData.cantRefriGlobal}</div>
+                                        </div>
+                                    ` : ''}
+                                `}
+                            </div>
+
+                            <!-- FOOTER -->
+                            <div class="footer">
+                                <div>DIGITADOR: ${printKitData.digitador}</div>
+                                <div>${new Date().toLocaleString('es-ES')}</div>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                `;
+                
+                printFrame.contentDocument.write(printContent);
+                printFrame.contentDocument.close();
+                
+                // Imprimir directamente sin cuadro de diálogo
                 setTimeout(() => {
-                    window.print();
-                    setShowPrintModal(false);
-                    setPrintMode(null);
-                }, 100);
+                    printFrame.contentWindow.focus();
+                    printFrame.contentWindow.print();
+                    
+                    // Limpiar
+                    setTimeout(() => {
+                        document.body.removeChild(printFrame);
+                        setShowPrintModal(false);
+                        setPrintMode(null);
+                    }, 100);
+                }, 500);
             };
 
             const handleMedChange = (idx, field, val) => {
@@ -1285,320 +1583,6 @@
                 return (
                     <div className="glass-panel rounded-3xl shadow-soft h-full flex flex-col animate-in border-0 bg-white">
                         
-                        {/* ESTILOS DE IMPRESIÓN */}
-                       <style>{`
-    @media print {
-        body * { visibility: hidden; }
-        #print-section, #print-section * { visibility: visible; }
-        #print-section { 
-            position: fixed; 
-            left: 0; 
-            top: 0; 
-            width: 190mm;
-            height: auto;
-            margin: 10mm 0;
-            padding: 0;
-            background: white;
-            color: black;
-            font-family: 'Arial', 'Helvetica', sans-serif; 
-            font-size: 14px;
-            line-height: 1.2;
-            box-sizing: border-box;
-        }
-        .print-container {
-            width: 100%;
-            padding: 5mm;
-        }
-        .header-container { 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            border-bottom: 2px solid black; 
-            padding-bottom: 4mm; 
-            margin-bottom: 4mm; 
-        }
-        .logo-box { 
-            width: 45mm; 
-            height: 20mm; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            flex-shrink: 0;
-        }
-        .logo-img { 
-            max-width: 100%; 
-            max-height: 100%; 
-            object-fit: contain; 
-        }
-        .header-text { 
-            flex: 1; 
-            text-align: center; 
-            font-size: 10px; 
-            font-weight: 900; 
-            line-height: 1.2; 
-            padding: 0 4mm; 
-        }
-        
-        .section-title { 
-            background: black; 
-            color: white; 
-            text-align: center; 
-            font-weight: bold; 
-            font-size: 16px; 
-            padding: 3mm 0; 
-            -webkit-print-color-adjust: exact; 
-            margin: 6mm 0; 
-            border-radius: 4px; 
-            text-transform: uppercase; 
-        }
-        .info-header { 
-            text-align: center; 
-            font-size: 12px; 
-            font-weight: 900; 
-            text-transform: uppercase; 
-            border-bottom: 1px solid black; 
-            padding-bottom: 2mm; 
-            margin-bottom: 4mm; 
-        }
-        
-        .box-modern { 
-            border: 2px solid black; 
-            border-radius: 6px; 
-            padding: 4mm; 
-            margin-bottom: 6mm; 
-        }
-        .label-modern { 
-            font-size: 10px; 
-            font-weight: 900; 
-            text-transform: uppercase; 
-            color: #000; 
-        }
-        .value-modern { 
-            font-size: 14px; 
-            font-weight: bold; 
-            color: #000; 
-            word-break: break-word; 
-        }
-        .value-small { 
-            font-size: 12px; 
-            font-weight: 600; 
-        }
-        .big-value { 
-            font-size: 16px; 
-            font-weight: 900; 
-        }
-        
-        .ventanilla-display { 
-            font-size: 32px; 
-            font-weight: 900; 
-            text-align: center; 
-            border: 3px dashed black; 
-            padding: 10mm; 
-            border-radius: 8px; 
-            margin: 10mm 0; 
-        }
-        
-        .grid-2 { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 4mm; 
-        }
-        .footer-modern { 
-            margin-top: 10mm; 
-            border-top: 2px solid black; 
-            padding-top: 4mm; 
-            display: flex; 
-            justify-content: space-between; 
-            font-size: 10px; 
-            font-weight: bold; 
-        }
-        
-        /* Estilo Refri */
-        .refri-card { 
-            border: 4px solid black; 
-            border-radius: 8px; 
-            padding: 5mm; 
-        }
-        .refri-header { 
-            background: black; 
-            color: white; 
-            font-size: 22px; 
-            font-weight: 900; 
-            text-align: center; 
-            padding: 5mm; 
-            border-radius: 4px; 
-            margin-bottom: 10mm; 
-            -webkit-print-color-adjust: exact; 
-        }
-        .refri-item { 
-            border: 2px solid black; 
-            border-radius: 4px; 
-            padding: 4mm; 
-            text-align: center; 
-        }
-        
-        @page { 
-            size: 190mm auto; 
-            margin: 10mm 0; 
-        }
-    }
-`}</style>
-
-                        {/* PLANTILLA DE IMPRESIÓN */}
-                        {printKitData && printMode && (
-                            <div id="print-section" className="hidden print:block">
-                                <div className="print-container">
-                                    
-                                    {/* HEADER CON LOGOS Y TEXTO INSTITUCIONAL */}
-                                    <div className="header-container">
-                                        <div className="logo-box">
-                                            <img 
-                                                src="https://raw.githubusercontent.com/jose50440/bita/ae8b4188532504b6c4057505172b68be697b2851/img/logo1.png" 
-                                                className="logo-img" 
-                                                alt="Logo IHSS" 
-                                                onError={(e) => e.currentTarget.style.display = 'none'}
-                                            />
-                                        </div>
-                                        <div className="header-text">
-                                            DEPARTAMENTO DE DISPENSACIÓN<br/>
-                                            DE MEDICAMENTOS A DOMICILIO<br/>
-                                        </div>
-                                        <div className="logo-box">
-                                            <img 
-                                                src="https://raw.githubusercontent.com/jose50440/bita/ae8b4188532504b6c4057505172b68be697b2851/img/logo2.png" 
-                                                className="logo-img" 
-                                                alt="Logo Logística" 
-                                                onError={(e) => e.currentTarget.style.display = 'none'}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* PLANTILLA 1: VENTANILLA O RUTA */}
-                                    {(printMode === 'ventanilla' || printMode === 'ruta') && (
-                                        <>
-                                            <div className="section-title">
-                                                {printMode === 'ruta' ? 'ENTREGA EN RUTA' : 'ENTREGA VENTANILLA'}
-                                            </div>
-                                            
-                                            <div className="box-modern">
-                                                <div className="info-header">INFORMACIÓN DE DERECHOHABIENTE</div>
-                                                <div>
-                                                    <span className="label-modern">NOMBRE COMPLETO:</span><br/>
-                                                    <span className="value-modern big-value">{printKitData.nombre}</span>
-                                                </div>
-                                                <div className="grid-2" style={{marginTop:'4px'}}>
-                                                    <div>
-                                                        <span className="label-modern">DNI / AFILIACIÓN:</span><br/>
-                                                        <span className="value-modern">{printKitData.dni}</span>
-                                                    </div>
-                                                    <div style={{textAlign:'right'}}>
-                                                        <span className="label-modern">FECHA ENTREGA:</span><br/>
-                                                        <span className="value-modern">{printKitData.fechaEntregaKit || '---'}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="box-modern">
-                                                <div className="info-header">CONTACTO Y SEGUIMIENTO</div>
-                                                <div className="grid-2" style={{marginBottom:'4px'}}>
-                                                    <div>
-                                                        <span className="label-modern">TELÉFONOS:</span><br/>
-                                                        <div className="value-small">
-                                                            {(printKitData.selectedPhones?.length > 0 || printKitData.otherPhone) ? (
-                                                                <>
-                                                                    {printKitData.selectedPhones?.map(p => <div key={p}>{p}</div>)}
-                                                                    {printKitData.otherPhone && <div>{printKitData.otherPhone}</div>}
-                                                                </>
-                                                            ) : '---'}
-                                                        </div>
-                                                    </div>
-                                                    <div style={{textAlign:'center', borderLeft:'1px solid #ccc'}}>
-                                                        <span className="label-modern">MEDICAMENTOS</span><br/>
-                                                        <span className="big-value">{printKitData.triggerMeds}</span>
-                                                    </div>
-                                                </div>
-                                                <div style={{borderTop:'1px dashed black', paddingTop:'2px'}}>
-                                                    <span className="label-modern">CONTACT CENTER ASIGNADO:</span><br/>
-                                                    <span className="value-modern">{printKitData.contactCenter ? printKitData.contactCenter.split('---')[1] : 'N/A'}</span>
-                                                </div>
-                                            </div>
-
-                                            {/* ZONA DE UBICACIÓN */}
-                                            {printMode === 'ventanilla' ? (
-                                                <div className="ventanilla-display">
-                                                    <Icons.Box size={32} style={{display:'inline'}}/>
-                                                    <div>VENTANILLA</div>
-                                                </div>
-                                            ) : (
-                                                <div className="box-modern" style={{minHeight:'3cm'}}>
-                                                    <div className="info-header">DIRECCIÓN DE ENTREGA</div>
-                                                    <div className="value-small" style={{textAlign:'justify', marginBottom:'6px'}}>
-                                                        {printKitData.addressConfirmed ? selectedPatient.direccion : printKitData.secondaryAddress}
-                                                    </div>
-                                                    
-                                                    {printKitData.observations && (
-                                                        <div style={{background:'#eee', padding:'2px', borderRadius:'2px', marginTop:'4px'}}>
-                                                            <span className="label-modern">OBSERVACIONES:</span><br/>
-                                                            <span style={{fontSize:'10px', fontStyle:'italic'}}>{printKitData.observations}</span>
-                                                        </div>
-                                                    )}
-
-                                                    <div style={{marginTop:'8px', borderTop:'2px solid black', paddingTop:'4px', textAlign:'center'}}>
-                                                        <span className="label-modern" style={{marginRight:'5px'}}>ESTADO GPS:</span>
-                                                        <span className="big-value">{printKitData.gpsStatus || 'SIN GPS'}</span>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* REFRIGERADO ALERT */}
-                                            {printKitData.isRefrigerated && (
-                                                <div style={{border:'3px dashed black', padding:'4px', textAlign:'center', marginTop:'5px', borderRadius:'6px'}}>
-                                                    <div style={{fontSize:'12px', fontWeight:'900'}}>❄️ CONTIENE REFRIGERADO ❄️</div>
-                                                    <div style={{fontSize:'11px', fontWeight:'bold'}}>CANTIDAD: {printKitData.cantRefriGlobal}</div>
-                                                </div>
-                                            )}
-
-                                            <div className="footer-modern">
-                                                <div>DIGITADOR: {printKitData.digitador}</div>
-                                                <div>{new Date().toLocaleString()}</div>
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {/* PLANTILLA 2: REFRIGERADO */}
-                                    {printMode === 'refri' && (
-                                        <div className="refri-card">
-                                            <div className="refri-header">❄️ REFRIGERADO ❄️</div>
-                                            
-                                            <div style={{marginBottom:'10px', borderBottom:'2px solid black', paddingBottom:'5px'}}>
-                                                <span className="label-modern">PACIENTE</span><br/>
-                                                <span className="big-value" style={{fontSize:'16px'}}>{printKitData.nombre}</span>
-                                            </div>
-                                            
-                                            <div style={{marginBottom:'10px'}}>
-                                                <span className="label-modern">IDENTIFICACIÓN</span><br/>
-                                                <span className="big-value" style={{fontSize:'18px', fontFamily:'monospace'}}>{printKitData.dni}</span>
-                                            </div>
-
-                                            <div className="grid-2" style={{borderTop:'2px solid black', paddingTop:'8px'}}>
-                                                <div style={{textAlign:'left'}}>
-                                                    <span className="label-modern">FECHA ENTREGA</span><br/>
-                                                    <span className="value-modern">{printKitData.fechaEntregaKit}</span>
-                                                </div>
-                                                <div className="refri-item" style={{background:'black', color:'white'}}>
-                                                    <span className="label-modern" style={{color:'white'}}>CANTIDAD</span><br/>
-                                                    <span style={{fontSize:'22px', fontWeight:'900'}}>{printKitData.cantRefriGlobal}</span>
-                                                </div>
-                                            </div>
-                                            <div className="footer-modern" style={{justifyContent:'center', marginTop:'15px'}}>
-                                                OP: {printKitData.digitador}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
                         <ConfirmModal isOpen={!!confirmData} onClose={()=>setConfirmData(null)} onConfirm={confirmData?.action} title={confirmData?.title} message={confirmData?.msg} />
                         
                         {/* MODAL DE SELECCIÓN DE IMPRESIÓN */}
@@ -1606,6 +1590,27 @@
                             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in">
                                 <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xs text-center">
                                     <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center justify-center gap-2"><Icons.Printer/> Imprimir Kit</h3>
+                                    
+                                    <div className="mb-4">
+                                        <div className="text-sm font-bold text-slate-600 mb-2">Orientación:</div>
+                                        <div className="flex gap-2 mb-4">
+                                            <button 
+                                                type="button"
+                                                onClick={() => setPrintOrientation('vertical')} 
+                                                className={`flex-1 py-2 rounded-lg border ${printOrientation === 'vertical' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-700 border-slate-300'}`}
+                                            >
+                                                Vertical
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setPrintOrientation('horizontal')} 
+                                                className={`flex-1 py-2 rounded-lg border ${printOrientation === 'horizontal' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-700 border-slate-300'}`}
+                                            >
+                                                Horizontal
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
                                     <div className="space-y-3">
                                         <button 
                                             onClick={() => triggerPrint('ventanilla')} 
