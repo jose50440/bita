@@ -123,41 +123,80 @@
         let app, auth, db, storage;
         let firebaseInitialized = false;
         
-        try {
-            if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length === 0) {
-                app = firebase.initializeApp(firebaseConfig);
-                console.log("🚀 Firebase inicializando...");
-            } else if (firebase.apps && firebase.apps.length > 0) {
-                app = firebase.app();
-            }
-            
-            if (app) {
-                auth = firebase.auth();
-                db = firebase.firestore();
-                storage = firebase.storage();
-                firebaseInitialized = true;
-                console.log("✅ Firebase inicializado correctamente");
-                
-                // Configurar persistencia offline
-                if (db) {
-                    db.enablePersistence()
-                        .then(() => console.log("📦 Persistencia offline habilitada"))
-                        .catch(err => {
-                            console.warn("⚠️ Persistencia offline no disponible:", err.code);
-                        });
+        // Función para inicializar Firebase
+        const initializeFirebase = () => {
+            try {
+                // Verificar que Firebase esté disponible
+                if (typeof firebase === 'undefined') {
+                    console.warn("⚠️ Firebase aún no está cargado, reintentando...");
+                    setTimeout(initializeFirebase, 100);
+                    return;
                 }
+                
+                if (firebase.apps && firebase.apps.length === 0) {
+                    app = firebase.initializeApp(firebaseConfig);
+                    console.log("🚀 Firebase inicializando...");
+                } else if (firebase.apps && firebase.apps.length > 0) {
+                    app = firebase.app();
+                }
+                
+                if (app) {
+                    auth = firebase.auth();
+                    db = firebase.firestore();
+                    storage = firebase.storage();
+                    firebaseInitialized = true;
+                    console.log("✅ Firebase inicializado correctamente");
+                    
+                    // Configurar persistencia offline
+                    if (db) {
+                        db.enablePersistence()
+                            .then(() => console.log("📦 Persistencia offline habilitada"))
+                            .catch(err => {
+                                console.warn("⚠️ Persistencia offline no disponible:", err.code);
+                            });
+                    }
+                } else {
+                    console.warn("⚠️ No se pudo crear la app de Firebase, reintentando...");
+                    setTimeout(initializeFirebase, 100);
+                }
+            } catch (error) {
+                console.error("❌ Error crítico al inicializar Firebase:", error);
+                firebaseInitialized = false;
+                // Reintentar después de un segundo
+                setTimeout(initializeFirebase, 1000);
             }
-        } catch (error) {
-            console.error("❌ Error crítico al inicializar Firebase:", error);
-            firebaseInitialized = false;
+        };
+        
+        // Inicializar cuando el DOM esté listo
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeFirebase);
+        } else {
+            // Si el DOM ya está listo, esperar un poco para que Firebase se cargue
+            setTimeout(initializeFirebase, 100);
         }
 
         // Verificar conexión a Firestore
         const checkFirestoreConnection = async () => {
-            // Solo verificar que Firebase esté inicializado
-            // Firestore creará las colecciones automáticamente al escribir datos
-            // No intentar leer colecciones que pueden no existir
-            return firebaseInitialized && db !== null && db !== undefined;
+            // Esperar hasta que Firebase esté inicializado (máximo 5 segundos)
+            let attempts = 0;
+            while (!firebaseInitialized && attempts < 50) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            
+            // Verificar que Firebase esté inicializado y db esté disponible
+            if (!firebaseInitialized) {
+                console.warn("⚠️ Firebase aún no está inicializado después de esperar");
+                return false;
+            }
+            
+            if (!db || db === null || db === undefined) {
+                console.warn("⚠️ Firestore (db) no está disponible");
+                return false;
+            }
+            
+            // Firebase está listo - las colecciones se crearán automáticamente al escribir datos
+            return true;
         };
 
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
@@ -1192,28 +1231,44 @@
                 window.addEventListener('online', handleOnline);
                 window.addEventListener('offline', handleOffline);
                 
-                // Verificar estado de Firebase
+                // Verificar estado de Firebase periódicamente hasta que esté listo
+                let isChecking = false;
                 const checkFirebase = async () => {
-                    if (firebaseInitialized && db) {
-                        try {
-                            // Verificar conexión sin depender de colecciones existentes
-                            // Firestore crea colecciones automáticamente al guardar datos
-                            const isConnected = await checkFirestoreConnection();
-                            setFirebaseStatus(isConnected ? 'Conectado' : 'Error de conexión');
-                        } catch (err) {
-                            // Si Firebase está inicializado, considerarlo conectado
-                            // Las colecciones se crearán automáticamente al guardar datos
+                    if (isChecking) return;
+                    
+                    try {
+                        isChecking = true;
+                        const isConnected = await checkFirestoreConnection();
+                        if (isConnected) {
                             setFirebaseStatus('Conectado');
-                            console.log("ℹ️ Firebase listo - Las colecciones se crearán automáticamente al guardar datos");
+                            console.log("✅ Firebase conectado - Las colecciones se crearán automáticamente al guardar datos");
+                            isChecking = false;
+                        } else {
+                            setFirebaseStatus('Conectando...');
+                            isChecking = false;
+                            // Reintentar después de 500ms
+                            setTimeout(checkFirebase, 500);
                         }
-                    } else {
-                        setFirebaseStatus('No inicializado');
+                    } catch (err) {
+                        console.warn("⚠️ Error verificando Firebase:", err);
+                        setFirebaseStatus('Conectando...');
+                        isChecking = false;
+                        // Reintentar después de 1 segundo
+                        setTimeout(checkFirebase, 1000);
                     }
                 };
                 
+                // Iniciar verificación inmediatamente
                 checkFirebase();
                 
+                // Verificar periódicamente cada 2 segundos
+                const checkInterval = setInterval(() => {
+                    checkFirebase();
+                }, 2000);
+                
+                // Limpiar al desmontar
                 return () => {
+                    clearInterval(checkInterval);
                     window.removeEventListener('online', handleOnline);
                     window.removeEventListener('offline', handleOffline);
                 };
