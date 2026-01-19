@@ -122,6 +122,8 @@
         // Inicializar Firebase con manejo de errores mejorado
         let app, auth, db, storage;
         let firebaseInitialized = false;
+        let firebaseConnectionError = null;
+        let firebaseConnectionStatus = 'initializing'; // 'initializing', 'connected', 'error', 'timeout'
         
         // Función para inicializar Firebase
         const initializeFirebase = () => {
@@ -179,6 +181,8 @@
                     }
                     
                     firebaseInitialized = true;
+                    firebaseConnectionStatus = 'connected';
+                    firebaseConnectionError = null;
                     console.log("✅ Firebase completamente inicializado");
                     console.log("✅ auth:", !!auth);
                     console.log("✅ db:", !!db);
@@ -206,13 +210,48 @@
                 console.error("❌ Error code:", error.code);
                 console.error("❌ Error message:", error.message);
                 firebaseInitialized = false;
-                // Reintentar después de un segundo
-                setTimeout(initializeFirebase, 1000);
+                firebaseConnectionStatus = 'error';
+                firebaseConnectionError = {
+                    code: error.code || 'unknown',
+                    message: error.message || 'Error desconocido',
+                    details: error.toString()
+                };
+                
+                // Disparar evento de error
+                window.dispatchEvent(new CustomEvent('firebaseError', { 
+                    detail: firebaseConnectionError 
+                }));
+                
+                // Reintentar después de un segundo (máximo 3 intentos)
+                const retryCount = window.firebaseRetryCount || 0;
+                if (retryCount < 3) {
+                    window.firebaseRetryCount = retryCount + 1;
+                    setTimeout(initializeFirebase, 1000);
+                }
             }
         };
         
         // Esperar a que la ventana esté completamente cargada
         const startInitialization = () => {
+            // Resetear contador de reintentos
+            window.firebaseRetryCount = 0;
+            firebaseConnectionStatus = 'initializing';
+            
+            // Timeout de 15 segundos
+            setTimeout(() => {
+                if (!firebaseInitialized && firebaseConnectionStatus === 'initializing') {
+                    firebaseConnectionStatus = 'timeout';
+                    firebaseConnectionError = {
+                        code: 'timeout',
+                        message: 'Tiempo de espera agotado. Firebase no se pudo inicializar en 15 segundos.',
+                        details: 'Verifica tu conexión a internet y que los scripts de Firebase se estén cargando correctamente.'
+                    };
+                    window.dispatchEvent(new CustomEvent('firebaseError', { 
+                        detail: firebaseConnectionError 
+                    }));
+                }
+            }, 15000);
+            
             // Esperar un poco más para asegurar que los scripts estén cargados
             setTimeout(() => {
                 initializeFirebase();
@@ -258,6 +297,7 @@
         const Icon = ({ path, className = "w-5 h-5", size = 20 }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>;
         const Icons = {
             Activity: (p) => <Icon {...p} path={<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>} />,
+            AlertCircle: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></>} />,
             Users: (p) => <Icon {...p} path={<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>} />,
             Search: (p) => <Icon {...p} path={<><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></>} />,
             LogOut: (p) => <Icon {...p} path={<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>} />,
@@ -1270,6 +1310,189 @@
         }
 
         // --- BLOCK: LOGIN ---
+        // --- FIREBASE CONNECTION SCREEN ---
+        const FirebaseConnectionScreen = () => {
+            const [status, setStatus] = useState(firebaseConnectionStatus);
+            const [error, setError] = useState(firebaseConnectionError);
+            const [retryCount, setRetryCount] = useState(0);
+            
+            useEffect(() => {
+                const handleInitialized = () => {
+                    setStatus('connected');
+                    setError(null);
+                };
+                
+                const handleError = (e) => {
+                    setStatus('error');
+                    setError(e.detail);
+                };
+                
+                window.addEventListener('firebaseInitialized', handleInitialized);
+                window.addEventListener('firebaseError', handleError);
+                
+                // Verificar estado periódicamente
+                const checkInterval = setInterval(() => {
+                    if (firebaseInitialized) {
+                        setStatus('connected');
+                    } else if (firebaseConnectionStatus !== 'initializing') {
+                        setStatus(firebaseConnectionStatus);
+                        setError(firebaseConnectionError);
+                    }
+                }, 500);
+                
+                return () => {
+                    window.removeEventListener('firebaseInitialized', handleInitialized);
+                    window.removeEventListener('firebaseError', handleError);
+                    clearInterval(checkInterval);
+                };
+            }, []);
+            
+            const handleRetry = () => {
+                setRetryCount(prev => prev + 1);
+                // Recargar la página para reiniciar completamente
+                window.location.reload();
+            };
+            
+            const getErrorMessage = () => {
+                if (!error) return 'Error desconocido';
+                
+                switch (error.code) {
+                    case 'timeout':
+                        return '⏱️ Tiempo de espera agotado';
+                    case 'permission-denied':
+                        return '🔒 Error de permisos';
+                    case 'unavailable':
+                        return '🌐 Servicio no disponible';
+                    case 'failed-precondition':
+                        return '⚠️ Condición previa fallida';
+                    default:
+                        return '❌ Error de conexión';
+                }
+            };
+            
+            const getErrorDetails = () => {
+                if (!error) return '';
+                
+                if (error.code === 'timeout') {
+                    return 'Firebase no se pudo inicializar en 15 segundos. Posibles causas:\n• Conexión a internet lenta o intermitente\n• Scripts de Firebase bloqueados por el navegador\n• Problemas con el firewall o proxy';
+                }
+                
+                return error.details || error.message || 'Error desconocido al conectar con Firebase';
+            };
+            
+            if (status === 'connected') {
+                return null; // No mostrar nada si está conectado
+            }
+            
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-turquoise-50 to-clinical-50 p-6">
+                    <div className="glass-panel p-10 rounded-3xl shadow-soft w-full max-w-md border-white/50 text-center">
+                        <div className="mb-8">
+                            {status === 'initializing' ? (
+                                <div className="bg-gradient-to-tr from-turquoise-500 to-clinical-400 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow text-white animate-pulse">
+                                    <Icons.Activity size={40} />
+                                </div>
+                            ) : (
+                                <div className="bg-gradient-to-tr from-red-500 to-orange-400 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow text-white">
+                                    <Icons.AlertCircle size={40} />
+                                </div>
+                            )}
+                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight brand-font mb-2">
+                                {status === 'initializing' ? 'Conectando...' : 'Error de Conexión'}
+                            </h1>
+                            <p className="text-sm text-slate-500">
+                                {status === 'initializing' 
+                                    ? 'Inicializando Firebase y verificando conexión' 
+                                    : 'No se pudo conectar con la base de datos'}
+                            </p>
+                        </div>
+                        
+                        {status === 'initializing' && (
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-center gap-2 text-sm text-slate-600">
+                                    <div className="w-2 h-2 bg-turquoise-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                    <div className="w-2 h-2 bg-turquoise-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                    <div className="w-2 h-2 bg-turquoise-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                </div>
+                                <p className="text-xs text-slate-400">Por favor espera...</p>
+                            </div>
+                        )}
+                        
+                        {status === 'error' && error && (
+                            <div className="space-y-4 text-left">
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                    <div className="font-bold text-red-700 mb-2">{getErrorMessage()}</div>
+                                    <div className="text-xs text-red-600 whitespace-pre-line">{getErrorDetails()}</div>
+                                </div>
+                                
+                                {error.code && (
+                                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                        <div className="text-xs font-mono text-slate-600">
+                                            <div><strong>Código:</strong> {error.code}</div>
+                                            {error.message && <div className="mt-1"><strong>Mensaje:</strong> {error.message}</div>}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                <div className="flex gap-3 pt-2">
+                                    <button 
+                                        onClick={handleRetry}
+                                        className="flex-1 bg-gradient-to-r from-turquoise-500 to-clinical-400 text-white px-6 py-3 rounded-xl font-bold text-sm hover:shadow-lg transition-all hover:scale-105"
+                                    >
+                                        🔄 Reintentar
+                                    </button>
+                                    <button 
+                                        onClick={() => window.location.reload()}
+                                        className="flex-1 bg-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-300 transition-all"
+                                    >
+                                        🔃 Recargar
+                                    </button>
+                                </div>
+                                
+                                {retryCount > 0 && (
+                                    <p className="text-xs text-slate-500 text-center">
+                                        Reintentos: {retryCount}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                        
+                        {status === 'timeout' && (
+                            <div className="space-y-4 text-left">
+                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                    <div className="font-bold text-orange-700 mb-2">⏱️ Tiempo de espera agotado</div>
+                                    <div className="text-xs text-orange-600 whitespace-pre-line">
+                                        Firebase no se pudo inicializar en 15 segundos.
+                                        
+                                        Posibles soluciones:
+                                        • Verifica tu conexión a internet
+                                        • Desactiva bloqueadores de anuncios
+                                        • Verifica que los scripts de Firebase se estén cargando
+                                        • Intenta recargar la página
+                                    </div>
+                                </div>
+                                
+                                <div className="flex gap-3 pt-2">
+                                    <button 
+                                        onClick={handleRetry}
+                                        className="flex-1 bg-gradient-to-r from-turquoise-500 to-clinical-400 text-white px-6 py-3 rounded-xl font-bold text-sm hover:shadow-lg transition-all hover:scale-105"
+                                    >
+                                        🔄 Reintentar
+                                    </button>
+                                    <button 
+                                        onClick={() => window.location.reload()}
+                                        className="flex-1 bg-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-300 transition-all"
+                                    >
+                                        🔃 Recargar Página
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
         const LoginBlock = ({ onLogin }) => {
             const [username, setUsername] = useState(''); 
             const [password, setPassword] = useState(''); 
@@ -3446,18 +3669,41 @@
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
             const [cacheManager] = useState(new CacheManager());
             const [firebaseStatus, setFirebaseStatus] = useState('Conectando...');
+            const [isFirebaseReady, setIsFirebaseReady] = useState(firebaseInitialized);
 
             // Verificar estado de Firebase periódicamente
             useEffect(() => {
+                const handleInitialized = () => {
+                    setIsFirebaseReady(true);
+                    setFirebaseStatus('Conectado');
+                };
+                
+                const handleError = () => {
+                    setIsFirebaseReady(false);
+                };
+                
+                window.addEventListener('firebaseInitialized', handleInitialized);
+                window.addEventListener('firebaseError', handleError);
+                
+                // Verificar estado inicial
                 const checkFirebaseStatus = async () => {
-                    const isConnected = await checkFirestoreConnection();
-                    setFirebaseStatus(isConnected ? 'Conectado' : 'Desconectado');
+                    if (firebaseInitialized) {
+                        setIsFirebaseReady(true);
+                        const isConnected = await checkFirestoreConnection();
+                        setFirebaseStatus(isConnected ? 'Conectado' : 'Desconectado');
+                    } else {
+                        setIsFirebaseReady(false);
+                    }
                 };
 
                 checkFirebaseStatus();
-                const interval = setInterval(checkFirebaseStatus, 30000); // Verificar cada 30 segundos
+                const interval = setInterval(checkFirebaseStatus, 5000); // Verificar cada 5 segundos
 
-                return () => clearInterval(interval);
+                return () => {
+                    clearInterval(interval);
+                    window.removeEventListener('firebaseInitialized', handleInitialized);
+                    window.removeEventListener('firebaseError', handleError);
+                };
             }, []);
 
             const handleLogout = () => { 
@@ -3817,6 +4063,11 @@
                 }
             };
 
+            // Mostrar pantalla de conexión si Firebase no está listo
+            if (!isFirebaseReady && firebaseConnectionStatus !== 'connected') {
+                return <FirebaseConnectionScreen />;
+            }
+            
             if (!role) return <LoginBlock onLogin={handleLogin} />;
 
             const NavItem = ({ id, label, icon: Icon }) => (
