@@ -129,22 +129,44 @@
         const initializeFirebase = () => {
             try {
                 console.log("🔍 Intentando inicializar Firebase...");
+                
+                // Verificar scripts primero
+                const scriptStatus = checkFirebaseScripts();
+                if (!scriptStatus.allLoaded) {
+                    console.error("❌ Scripts de Firebase no están completamente cargados:", scriptStatus.missing);
+                    throw new Error(`Scripts faltantes: ${scriptStatus.missing.join(', ')}`);
+                }
+                
+                console.log("✅ Todos los scripts de Firebase están cargados");
                 console.log("🔍 typeof firebase:", typeof firebase);
                 console.log("🔍 firebase disponible:", typeof firebase !== 'undefined');
                 
                 // Verificar que Firebase esté completamente disponible
                 if (typeof firebase === 'undefined') {
-                    console.warn("⚠️ Firebase aún no está cargado, reintentando en 200ms...");
-                    setTimeout(initializeFirebase, 200);
+                    console.warn("⚠️ Firebase aún no está cargado, reintentando en 500ms...");
+                    setTimeout(initializeFirebase, 500);
                     return;
                 }
                 
                 // Verificar que firebase.initializeApp esté disponible
                 if (typeof firebase.initializeApp === 'undefined') {
                     console.warn("⚠️ firebase.initializeApp no está disponible, reintentando...");
-                    setTimeout(initializeFirebase, 200);
+                    setTimeout(initializeFirebase, 500);
                     return;
                 }
+                
+                // Verificar que todos los servicios estén disponibles
+                if (typeof firebase.firestore === 'undefined') {
+                    throw new Error("firebase.firestore no está disponible");
+                }
+                if (typeof firebase.auth === 'undefined') {
+                    throw new Error("firebase.auth no está disponible");
+                }
+                if (typeof firebase.storage === 'undefined') {
+                    throw new Error("firebase.storage no está disponible");
+                }
+                
+                console.log("✅ Todos los servicios de Firebase están disponibles");
                 
                 // Verificar si ya existe una instancia
                 let existingApp = null;
@@ -231,31 +253,94 @@
             }
         };
         
+        // Verificar que los scripts de Firebase se hayan cargado
+        const checkFirebaseScripts = () => {
+            const scripts = {
+                'firebase-app': typeof firebase !== 'undefined',
+                'firebase-auth': typeof firebase !== 'undefined' && typeof firebase.auth === 'function',
+                'firebase-firestore': typeof firebase !== 'undefined' && typeof firebase.firestore === 'function',
+                'firebase-storage': typeof firebase !== 'undefined' && typeof firebase.storage === 'function'
+            };
+            
+            const missing = Object.entries(scripts)
+                .filter(([name, loaded]) => !loaded)
+                .map(([name]) => name);
+            
+            return {
+                allLoaded: missing.length === 0,
+                missing: missing,
+                details: scripts
+            };
+        };
+        
         // Esperar a que la ventana esté completamente cargada
         const startInitialization = () => {
             // Resetear contador de reintentos
             window.firebaseRetryCount = 0;
             firebaseConnectionStatus = 'initializing';
             
-            // Timeout de 15 segundos
+            // Verificar scripts después de un tiempo razonable
+            let scriptCheckCount = 0;
+            const checkScriptsInterval = setInterval(() => {
+                scriptCheckCount++;
+                const scriptStatus = checkFirebaseScripts();
+                
+                if (!scriptStatus.allLoaded && scriptCheckCount < 30) {
+                    console.warn(`⚠️ Scripts faltantes (intento ${scriptCheckCount}):`, scriptStatus.missing);
+                } else {
+                    clearInterval(checkScriptsInterval);
+                    
+                    if (!scriptStatus.allLoaded) {
+                        // Scripts no se cargaron después de 6 segundos
+                        firebaseConnectionStatus = 'error';
+                        firebaseConnectionError = {
+                            code: 'scripts-not-loaded',
+                            message: 'Los scripts de Firebase no se cargaron correctamente',
+                            details: `Scripts faltantes: ${scriptStatus.missing.join(', ')}\n\nPosibles causas:\n• Bloqueador de anuncios bloqueando los scripts\n• Problemas de conexión a internet\n• Firewall o proxy bloqueando gstatic.com\n• Scripts bloqueados por política CORS\n\nVerifica la consola del navegador (F12) para más detalles.`
+                        };
+                        window.dispatchEvent(new CustomEvent('firebaseError', { 
+                            detail: firebaseConnectionError 
+                        }));
+                        return;
+                    }
+                }
+            }, 200);
+            
+            // Timeout de 20 segundos (aumentado)
             setTimeout(() => {
                 if (!firebaseInitialized && firebaseConnectionStatus === 'initializing') {
+                    const scriptStatus = checkFirebaseScripts();
                     firebaseConnectionStatus = 'timeout';
                     firebaseConnectionError = {
                         code: 'timeout',
-                        message: 'Tiempo de espera agotado. Firebase no se pudo inicializar en 15 segundos.',
-                        details: 'Verifica tu conexión a internet y que los scripts de Firebase se estén cargando correctamente.'
+                        message: 'Tiempo de espera agotado. Firebase no se pudo inicializar en 20 segundos.',
+                        details: scriptStatus.allLoaded 
+                            ? 'Los scripts están cargados pero la inicialización falló. Verifica la consola del navegador (F12) para más detalles.'
+                            : `Scripts faltantes: ${scriptStatus.missing.join(', ')}\n\nVerifica:\n• Tu conexión a internet\n• Que no haya bloqueadores de anuncios activos\n• Que los scripts de Firebase se estén cargando (F12 → Network)`
                     };
                     window.dispatchEvent(new CustomEvent('firebaseError', { 
                         detail: firebaseConnectionError 
                     }));
                 }
-            }, 15000);
+            }, 20000);
             
             // Esperar un poco más para asegurar que los scripts estén cargados
             setTimeout(() => {
-                initializeFirebase();
-            }, 300);
+                const scriptStatus = checkFirebaseScripts();
+                if (scriptStatus.allLoaded) {
+                    initializeFirebase();
+                } else {
+                    console.warn("⚠️ Esperando scripts de Firebase...", scriptStatus.missing);
+                    // Reintentar cada segundo hasta que los scripts estén listos
+                    const waitForScripts = setInterval(() => {
+                        const status = checkFirebaseScripts();
+                        if (status.allLoaded) {
+                            clearInterval(waitForScripts);
+                            initializeFirebase();
+                        }
+                    }, 500);
+                }
+            }, 500);
         };
         
         // Inicializar cuando todo esté listo
@@ -1359,6 +1444,8 @@
                 switch (error.code) {
                     case 'timeout':
                         return '⏱️ Tiempo de espera agotado';
+                    case 'scripts-not-loaded':
+                        return '📦 Scripts de Firebase no cargados';
                     case 'permission-denied':
                         return '🔒 Error de permisos';
                     case 'unavailable':
@@ -1462,13 +1549,21 @@
                                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                                     <div className="font-bold text-orange-700 mb-2">⏱️ Tiempo de espera agotado</div>
                                     <div className="text-xs text-orange-600 whitespace-pre-line">
-                                        Firebase no se pudo inicializar en 15 segundos.
+                                        Firebase no se pudo inicializar en 20 segundos.
+                                        
+                                        Pasos para diagnosticar:
+                                        1. Abre la consola del navegador (F12)
+                                        2. Ve a la pestaña "Network" (Red)
+                                        3. Recarga la página
+                                        4. Busca archivos que empiecen con "firebase"
+                                        5. Verifica si hay errores (rojos) al cargar
                                         
                                         Posibles soluciones:
                                         • Verifica tu conexión a internet
-                                        • Desactiva bloqueadores de anuncios
-                                        • Verifica que los scripts de Firebase se estén cargando
-                                        • Intenta recargar la página
+                                        • Desactiva bloqueadores de anuncios (uBlock, AdBlock, etc.)
+                                        • Verifica que gstatic.com no esté bloqueado
+                                        • Intenta en modo incógnito
+                                        • Verifica la consola (F12) para ver errores específicos
                                     </div>
                                 </div>
                                 
