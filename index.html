@@ -4985,7 +4985,455 @@
                     .replace(/'/g, '&#39;');
             };
 
-            // Función para imprimir
+            // Función helper para auto-ajustar texto
+            const autoFitText = (element, maxPx = 18, minPx = 8) => {
+                if (!element) return;
+                const container = element;
+                const text = container.textContent || '';
+                if (!text.trim()) return;
+                
+                let fontSize = maxPx;
+                container.style.fontSize = fontSize + 'px';
+                
+                while (container.scrollHeight > container.clientHeight && fontSize > minPx) {
+                    fontSize -= 0.5;
+                    container.style.fontSize = fontSize + 'px';
+                }
+            };
+
+            // Helper para construir ventana de impresión
+            const buildPrintWindow = (html, css, title = 'Imprimir Viñeta', onAfterPrintClose = true) => {
+                const printWindow = window.open('', '_blank');
+                if (!printWindow) {
+                    alert('No se pudo abrir la ventana de impresión. Por favor, permite ventanas emergentes.');
+                    return null;
+                }
+                
+                const fullHtml = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${escapeHtml(title)}</title>
+    <style>${css}</style>
+</head>
+<body>
+    ${html}
+    <script>
+        (function() {
+            try {
+                if (window.opener && window.opener !== window && window.opener.location) {
+                    window.addEventListener("load", function() {
+                        setTimeout(function() { 
+                            window.print(); 
+                        }, 500);
+                        ${onAfterPrintClose ? `setTimeout(function() { window.close(); }, 2000);` : ''}
+                    });
+                }
+            } catch(e) { 
+                console.log("Print error:", e); 
+            }
+        })();
+    <\/script>
+</body>
+</html>`;
+                
+                printWindow.document.open();
+                printWindow.document.write(fullHtml);
+                printWindow.document.close();
+                
+                if (printWindow && !printWindow.closed) {
+                    printWindow.focus();
+                }
+                
+                return printWindow;
+            };
+
+            // CSS base para impresión de viñetas
+            const getPrintVignetteCSS = () => `
+                @page { 
+                    size: 210mm 71mm; 
+                    margin: 0; 
+                }
+                * { 
+                    margin: 0; 
+                    padding: 0; 
+                    box-sizing: border-box; 
+                }
+                html, body { 
+                    width: 210mm; 
+                    height: 71mm; 
+                    margin: 0; 
+                    padding: 0; 
+                    font-family: Arial, sans-serif;
+                    text-transform: uppercase;
+                }
+                .sheet { 
+                    box-sizing: border-box; 
+                    width: 210mm; 
+                    height: 71mm; 
+                    padding: 1mm 0.5mm; 
+                    overflow: hidden;
+                    background: white;
+                    position: relative;
+                }
+                .header { 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: space-between; 
+                    margin-bottom: 1mm; 
+                    padding-bottom: 0.5mm;
+                    border-bottom: 0.3mm solid #000;
+                }
+                .header-title { 
+                    font-size: 3.5mm; 
+                    font-weight: bold; 
+                    text-align: center; 
+                    flex: 1;
+                }
+                .logo-placeholder { 
+                    width: 15mm; 
+                    height: 8mm; 
+                    border: 0.2mm dashed #999; 
+                    font-size: 2mm; 
+                    color: #999; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center;
+                }
+                .banner { 
+                    background: #000; 
+                    color: #fff; 
+                    padding: 1mm 0; 
+                    text-align: center; 
+                    font-weight: bold; 
+                    font-size: 4mm; 
+                    margin: 1mm 0;
+                }
+                .section { 
+                    border: 0.5mm solid #000; 
+                    border-radius: 1mm; 
+                    padding: 1mm; 
+                    margin: 0.5mm 0;
+                }
+                .section-title { 
+                    font-size: 2.5mm; 
+                    font-weight: bold; 
+                    margin-bottom: 0.5mm;
+                    border-bottom: 0.2mm solid #000;
+                    padding-bottom: 0.3mm;
+                }
+                .field-row { 
+                    display: flex; 
+                    gap: 1mm; 
+                    margin: 0.3mm 0;
+                }
+                .field-label { 
+                    font-size: 2mm; 
+                    font-weight: bold; 
+                    min-width: 20mm;
+                }
+                .field-value { 
+                    font-size: 2.5mm; 
+                    flex: 1;
+                }
+                .field-value-large { 
+                    font-size: 4mm; 
+                    font-weight: bold;
+                }
+                .field-value-extra-large { 
+                    font-size: 6mm; 
+                    font-weight: bold;
+                }
+                .dashed-box { 
+                    border: 0.5mm dashed #000; 
+                    border-radius: 1mm; 
+                    padding: 2mm; 
+                    text-align: center; 
+                    font-size: 8mm; 
+                    font-weight: bold;
+                    margin: 1mm 0;
+                }
+                .gps-status { 
+                    border: 0.5mm solid #000; 
+                    border-radius: 1mm; 
+                    padding: 0.5mm 1mm; 
+                    font-size: 2.5mm; 
+                    font-weight: bold;
+                    display: inline-block;
+                }
+                .refrigerado-box { 
+                    border: 0.5mm dashed #000; 
+                    border-radius: 1mm; 
+                    padding: 0.5mm 1mm; 
+                    margin-top: 1mm;
+                    font-size: 2.5mm;
+                }
+                .footer { 
+                    margin-top: 0.5mm; 
+                    font-size: 1.8mm; 
+                    text-align: right; 
+                    color: #666;
+                }
+                @media print { 
+                    body * { visibility: hidden; } 
+                    .sheet, .sheet * { visibility: visible; } 
+                    .sheet { 
+                        position: absolute; 
+                        left: 0; 
+                        top: 0; 
+                    } 
+                }
+            `;
+
+            // Función para imprimir viñeta RUTA
+            const printRutaVignette = (kit, patient) => {
+                const patientData = patient || selectedPatientFullData || {};
+                const operatorName = currentUser?.name || currentUser?.email || auth?.currentUser?.email || 'OPERADOR';
+                const printedAt = new Date().toLocaleString('es-ES', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                const data = {
+                    nombre: (kit.nombre || patientData.nombre || '').toUpperCase(),
+                    dni: (kit.dni || patientData.dni || '').toUpperCase(),
+                    fechaEntrega: kit.fechaArmado || '',
+                    telefonoPrincipal: (patientData.telefono || '').toUpperCase(),
+                    telefonoRef: (patientData.telefonoFamiliar || '').toUpperCase(),
+                    medicamentos: `${kit.medicamentos?.length || 0}`,
+                    contactCenter: (kit.contactCenter || '').toUpperCase(),
+                    direccion: (patientData.direccion || patientData.secondaryAddress || kit.secondaryAddress || '').toUpperCase(),
+                    observaciones: (kit.observations || '').toUpperCase(),
+                    gpsStatus: (kit.gpsStatus || 'SIN GPS').toUpperCase(),
+                    refrigerado: kit.isRefrigerated || false,
+                    cantRefrigerados: kit.isRefrigerated ? (kit.cantRefriGlobal || 1) : 0,
+                    operatorName: operatorName.toUpperCase(),
+                    printedAt: printedAt.toUpperCase()
+                };
+                
+                const html = `
+                    <div class="sheet">
+                        <div class="header">
+                            <div class="logo-placeholder">LOGO 1</div>
+                            <div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>
+                            <div class="logo-placeholder">LOGO 2</div>
+                        </div>
+                        <div class="banner">ENTREGA EN RUTA</div>
+                        
+                        <div class="section">
+                            <div class="section-title">INFORMACIÓN DE DERECHOHABIENTE</div>
+                            <div class="field-row">
+                                <div class="field-label">NOMBRE:</div>
+                                <div class="field-value-extra-large">${escapeHtml(data.nombre) || '—'}</div>
+                            </div>
+                            <div class="field-row">
+                                <div class="field-label">DNI/AFILIACIÓN:</div>
+                                <div class="field-value-large">${escapeHtml(data.dni) || '—'}</div>
+                            </div>
+                            <div class="field-row">
+                                <div class="field-label">FECHA ENTREGA:</div>
+                                <div class="field-value">${escapeHtml(data.fechaEntrega) || '—'}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="section">
+                            <div class="section-title">CONTACTO Y SEGUIMIENTO</div>
+                            <div class="field-row">
+                                <div class="field-label">TELÉFONOS:</div>
+                                <div class="field-value">${escapeHtml(data.telefonoPrincipal || '')} ${data.telefonoRef ? '/ ' + escapeHtml(data.telefonoRef) : ''}</div>
+                            </div>
+                            <div class="field-row">
+                                <div class="field-label">MEDICAMENTOS:</div>
+                                <div class="field-value">${data.medicamentos}</div>
+                            </div>
+                            ${data.contactCenter ? `
+                            <div class="field-row">
+                                <div class="field-label">CONTACT CENTER:</div>
+                                <div class="field-value">${escapeHtml(data.contactCenter)}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="section">
+                            <div class="section-title">DIRECCIÓN DE ENTREGA</div>
+                            <div class="field-value" style="font-size: 3mm; min-height: 8mm; word-wrap: break-word;">${escapeHtml(data.direccion) || '—'}</div>
+                            ${data.observaciones ? `
+                            <div style="margin-top: 0.5mm; font-size: 2.5mm; font-weight: bold;">OBSERVACIONES:</div>
+                            <div class="field-value" style="font-size: 2.5mm; min-height: 4mm; word-wrap: break-word;">${escapeHtml(data.observaciones)}</div>
+                            ` : ''}
+                        </div>
+                        
+                        <div style="margin: 0.5mm 0;">
+                            <span class="field-label">ESTADO GPS:</span>
+                            <span class="gps-status">${escapeHtml(data.gpsStatus)}</span>
+                        </div>
+                        
+                        ${data.refrigerado ? `
+                        <div class="refrigerado-box">
+                            <strong>CONTIENE REFRIGERADO</strong> - CANTIDAD: ${data.cantRefrigerados}
+                        </div>
+                        ` : ''}
+                        
+                        <div class="footer">OP: ${escapeHtml(data.operatorName)} | ${escapeHtml(data.printedAt)}</div>
+                    </div>
+                `;
+                
+                buildPrintWindow(html, getPrintVignetteCSS(), 'Imprimir Viñeta Ruta');
+            };
+
+            // Función para imprimir viñeta VENTANILLA
+            const printVentanillaVignette = (kit, patient) => {
+                const patientData = patient || selectedPatientFullData || {};
+                const operatorName = currentUser?.name || currentUser?.email || auth?.currentUser?.email || 'OPERADOR';
+                const printedAt = new Date().toLocaleString('es-ES', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                const data = {
+                    nombre: (kit.nombre || patientData.nombre || '').toUpperCase(),
+                    dni: (kit.dni || patientData.dni || '').toUpperCase(),
+                    fechaEntrega: kit.fechaArmado || '',
+                    telefonoPrincipal: (patientData.telefono || '').toUpperCase(),
+                    telefonoRef: (patientData.telefonoFamiliar || '').toUpperCase(),
+                    medicamentos: `${kit.medicamentos?.length || 0}`,
+                    contactCenter: (kit.contactCenter || '').toUpperCase(),
+                    observaciones: (kit.observations || '').toUpperCase(),
+                    refrigerado: kit.isRefrigerated || false,
+                    cantRefrigerados: kit.isRefrigerated ? (kit.cantRefriGlobal || 1) : 0,
+                    operatorName: operatorName.toUpperCase(),
+                    printedAt: printedAt.toUpperCase()
+                };
+                
+                const html = `
+                    <div class="sheet">
+                        <div class="header">
+                            <div class="logo-placeholder">LOGO 1</div>
+                            <div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>
+                            <div class="logo-placeholder">LOGO 2</div>
+                        </div>
+                        <div class="banner">ENTREGA VENTANILLA</div>
+                        
+                        <div class="section">
+                            <div class="section-title">INFORMACIÓN DE DERECHOHABIENTE</div>
+                            <div class="field-row">
+                                <div class="field-label">NOMBRE:</div>
+                                <div class="field-value-extra-large">${escapeHtml(data.nombre) || '—'}</div>
+                            </div>
+                            <div class="field-row">
+                                <div class="field-label">DNI/AFILIACIÓN:</div>
+                                <div class="field-value-large">${escapeHtml(data.dni) || '—'}</div>
+                            </div>
+                            <div class="field-row">
+                                <div class="field-label">FECHA ENTREGA:</div>
+                                <div class="field-value">${escapeHtml(data.fechaEntrega) || '—'}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="section">
+                            <div class="section-title">CONTACTO Y SEGUIMIENTO</div>
+                            <div class="field-row">
+                                <div class="field-label">TELÉFONOS:</div>
+                                <div class="field-value">${escapeHtml(data.telefonoPrincipal || '')} ${data.telefonoRef ? '/ ' + escapeHtml(data.telefonoRef) : ''}</div>
+                            </div>
+                            <div class="field-row">
+                                <div class="field-label">MEDICAMENTOS:</div>
+                                <div class="field-value">${data.medicamentos}</div>
+                            </div>
+                            ${data.contactCenter ? `
+                            <div class="field-row">
+                                <div class="field-label">CONTACT CENTER:</div>
+                                <div class="field-value">${escapeHtml(data.contactCenter)}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="dashed-box">VENTANILLA</div>
+                        
+                        ${data.observaciones ? `
+                        <div class="section" style="margin-top: 0.5mm;">
+                            <div class="section-title">OBSERVACIONES</div>
+                            <div class="field-value" style="font-size: 2.5mm; min-height: 4mm; word-wrap: break-word;">${escapeHtml(data.observaciones)}</div>
+                        </div>
+                        ` : ''}
+                        
+                        ${data.refrigerado ? `
+                        <div class="refrigerado-box">
+                            <strong>CONTIENE REFRIGERADO</strong> - CANTIDAD: ${data.cantRefrigerados}
+                        </div>
+                        ` : ''}
+                        
+                        <div class="footer">OP: ${escapeHtml(data.operatorName)} | ${escapeHtml(data.printedAt)}</div>
+                    </div>
+                `;
+                
+                buildPrintWindow(html, getPrintVignetteCSS(), 'Imprimir Viñeta Ventanilla');
+            };
+
+            // Función para imprimir viñeta REFRIGERADO
+            const printRefrigeradoVignette = (kit, patient) => {
+                const patientData = patient || selectedPatientFullData || {};
+                const operatorName = currentUser?.name || currentUser?.email || auth?.currentUser?.email || 'OPERADOR';
+                const printedAt = new Date().toLocaleString('es-ES', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                const data = {
+                    nombre: (kit.nombre || patientData.nombre || '').toUpperCase(),
+                    dni: (kit.dni || patientData.dni || '').toUpperCase(),
+                    fechaEntrega: kit.fechaArmado || '',
+                    cantRefrigerados: kit.isRefrigerated ? (kit.cantRefriGlobal || 1) : 0,
+                    operatorName: operatorName.toUpperCase(),
+                    printedAt: printedAt.toUpperCase()
+                };
+                
+                const html = `
+                    <div class="sheet">
+                        <div class="header">
+                            <div class="logo-placeholder">LOGO 1</div>
+                            <div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>
+                            <div class="logo-placeholder">LOGO 2</div>
+                        </div>
+                        <div class="banner" style="font-size: 5mm; padding: 1.5mm 0;">PRODUCTO REFRIGERADO</div>
+                        
+                        <div style="display: flex; gap: 2mm; margin-top: 1mm;">
+                            <div style="flex: 1;">
+                                <div class="field-row">
+                                    <div class="field-label">NOMBRE:</div>
+                                    <div class="field-value-large">${escapeHtml(data.nombre) || '—'}</div>
+                                </div>
+                                <div class="field-row" style="margin-top: 1mm;">
+                                    <div class="field-label">ID:</div>
+                                    <div class="field-value-large">${escapeHtml(data.dni) || '—'}</div>
+                                </div>
+                                <div class="field-row" style="margin-top: 1mm;">
+                                    <div class="field-label">FECHA:</div>
+                                    <div class="field-value">${escapeHtml(data.fechaEntrega) || '—'}</div>
+                                </div>
+                            </div>
+                            <div style="width: 35mm; border: 0.8mm solid #000; border-radius: 2mm; display: flex; align-items: center; justify-content: center; font-size: 12mm; font-weight: bold;">
+                                ${data.cantRefrigerados}
+                            </div>
+                        </div>
+                        
+                        <div class="footer" style="margin-top: 1mm;">OP: ${escapeHtml(data.operatorName)} | ${escapeHtml(data.printedAt)}</div>
+                    </div>
+                `;
+                
+                buildPrintWindow(html, getPrintVignetteCSS(), 'Imprimir Viñeta Refrigerado');
+            };
+
+            // Función para imprimir (mantener compatibilidad)
             const handlePrint = (kit, templateOverride = null) => {
                 const template = templateOverride || selectedPrintTemplate;
                 if (!template) {
@@ -5117,13 +5565,7 @@
                                 <div className="space-y-2">
                                     <button
                                         onClick={() => {
-                                            const rutaTemplate = printTemplates.find(t => t.id === 'plantilla_ruta' || t.type === 'ruta');
-                                            if (rutaTemplate) {
-                                                setSelectedPrintTemplate(rutaTemplate);
-                                                handlePrint(kitData, rutaTemplate);
-                                            } else {
-                                                alert('Plantilla Ruta no encontrada. Cargue las plantillas predeterminadas desde Configuración.');
-                                            }
+                                            printRutaVignette(kitData, selectedPatientFullData);
                                         }}
                                         disabled={kitData.deliveryMode !== 'ruta'}
                                         className="w-full px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -5133,13 +5575,7 @@
                                     
                                     <button
                                         onClick={() => {
-                                            const ventanillaTemplate = printTemplates.find(t => t.id === 'plantilla_ventanilla' || t.type === 'ventanilla');
-                                            if (ventanillaTemplate) {
-                                                setSelectedPrintTemplate(ventanillaTemplate);
-                                                handlePrint(kitData, ventanillaTemplate);
-                                            } else {
-                                                alert('Plantilla Ventanilla no encontrada. Cargue las plantillas predeterminadas desde Configuración.');
-                                            }
+                                            printVentanillaVignette(kitData, selectedPatientFullData);
                                         }}
                                         disabled={kitData.deliveryMode !== 'ventanilla'}
                                         className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -5149,13 +5585,7 @@
                                     
                                     <button
                                         onClick={() => {
-                                            const refrigeradoTemplate = printTemplates.find(t => t.id === 'plantilla_refrigerados' || t.type === 'refrigerado');
-                                            if (refrigeradoTemplate) {
-                                                setSelectedPrintTemplate(refrigeradoTemplate);
-                                                handlePrint(kitData, refrigeradoTemplate);
-                                            } else {
-                                                alert('Plantilla Refrigerados no encontrada. Cargue las plantillas predeterminadas desde Configuración.');
-                                            }
+                                            printRefrigeradoVignette(kitData, selectedPatientFullData);
                                         }}
                                         disabled={!kitData.isRefrigerated && !(kitData.cantRefriGlobal && parseInt(kitData.cantRefriGlobal) > 0)}
                                         className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
