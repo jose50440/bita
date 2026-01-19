@@ -273,74 +273,177 @@
             };
         };
         
+        // Cargar scripts de Firebase dinámicamente si no se cargaron
+        const loadFirebaseScripts = () => {
+            return new Promise((resolve, reject) => {
+                const scriptsToLoad = [
+                    { name: 'firebase-app', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js' },
+                    { name: 'firebase-auth', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js' },
+                    { name: 'firebase-firestore', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js' },
+                    { name: 'firebase-storage', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js' }
+                ];
+                
+                let loadedCount = 0;
+                const errors = [];
+                const loadedScripts = [];
+                
+                // Primero verificar cuáles scripts ya existen
+                scriptsToLoad.forEach(scriptInfo => {
+                    const existingScript = document.querySelector(`script[src*="${scriptInfo.name}"]`);
+                    if (existingScript) {
+                        loadedCount++;
+                        loadedScripts.push(scriptInfo.name);
+                    }
+                });
+                
+                // Si todos ya existen, solo verificar
+                if (loadedCount === scriptsToLoad.length) {
+                    setTimeout(() => {
+                        const status = checkFirebaseScripts();
+                        if (status.allLoaded) {
+                            resolve(true);
+                        } else {
+                            reject(new Error(`Scripts existentes pero no funcionando. Faltantes: ${status.missing.join(', ')}`));
+                        }
+                    }, 500);
+                    return;
+                }
+                
+                // Cargar scripts que faltan en orden secuencial
+                const loadScript = (index) => {
+                    if (index >= scriptsToLoad.length) {
+                        // Todos los scripts cargados
+                        setTimeout(() => {
+                            const status = checkFirebaseScripts();
+                            if (status.allLoaded) {
+                                resolve(true);
+                            } else {
+                                reject(new Error(`Scripts cargados pero no funcionando. Faltantes: ${status.missing.join(', ')}`));
+                            }
+                        }, 1000);
+                        return;
+                    }
+                    
+                    const scriptInfo = scriptsToLoad[index];
+                    
+                    // Si ya existe, pasar al siguiente
+                    if (loadedScripts.includes(scriptInfo.name)) {
+                        loadScript(index + 1);
+                        return;
+                    }
+                    
+                    const script = document.createElement('script');
+                    script.src = scriptInfo.url;
+                    script.async = false;
+                    script.type = 'text/javascript';
+                    
+                    script.onload = () => {
+                        console.log(`✅ Script cargado: ${scriptInfo.name}`);
+                        loadedCount++;
+                        // Cargar el siguiente script
+                        loadScript(index + 1);
+                    };
+                    
+                    script.onerror = () => {
+                        errors.push(scriptInfo.name);
+                        console.error(`❌ Error cargando script: ${scriptInfo.name}`);
+                        reject(new Error(`Error cargando scripts: ${errors.join(', ')}`));
+                    };
+                    
+                    document.head.appendChild(script);
+                };
+                
+                // Empezar a cargar desde el primero
+                loadScript(0);
+            });
+        };
+        
         // Esperar a que la ventana esté completamente cargada
-        const startInitialization = () => {
+        const startInitialization = async () => {
             // Resetear contador de reintentos
             window.firebaseRetryCount = 0;
             firebaseConnectionStatus = 'initializing';
             
-            // Verificar scripts después de un tiempo razonable
+            // Esperar un poco para que los scripts del HTML se carguen
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Verificar scripts
+            let scriptStatus = checkFirebaseScripts();
+            console.log("🔍 Estado inicial de scripts:", scriptStatus);
+            
+            // Si los scripts no están cargados, intentar cargarlos dinámicamente
+            if (!scriptStatus.allLoaded) {
+                console.log("⚠️ Scripts no detectados, intentando cargar dinámicamente...");
+                try {
+                    await loadFirebaseScripts();
+                    scriptStatus = checkFirebaseScripts();
+                    console.log("✅ Scripts cargados dinámicamente:", scriptStatus);
+                } catch (loadError) {
+                    console.error("❌ Error al cargar scripts dinámicamente:", loadError);
+                    // Continuar con el flujo normal para verificar si se cargaron de otra forma
+                }
+            }
+            
+            // Verificar scripts periódicamente
             let scriptCheckCount = 0;
             const checkScriptsInterval = setInterval(() => {
                 scriptCheckCount++;
-                const scriptStatus = checkFirebaseScripts();
+                scriptStatus = checkFirebaseScripts();
                 
-                if (!scriptStatus.allLoaded && scriptCheckCount < 30) {
-                    console.warn(`⚠️ Scripts faltantes (intento ${scriptCheckCount}):`, scriptStatus.missing);
-                } else {
+                if (scriptStatus.allLoaded) {
                     clearInterval(checkScriptsInterval);
+                    console.log("✅ Todos los scripts están cargados");
+                    initializeFirebase();
+                } else if (scriptCheckCount >= 40) {
+                    // Después de 8 segundos de verificación, intentar cargar dinámicamente si aún no están
+                    clearInterval(checkScriptsInterval);
+                    console.warn("⚠️ Scripts aún no cargados después de esperar, intentando cargar...");
                     
-                    if (!scriptStatus.allLoaded) {
-                        // Scripts no se cargaron después de 6 segundos
-                        firebaseConnectionStatus = 'error';
-                        firebaseConnectionError = {
-                            code: 'scripts-not-loaded',
-                            message: 'Los scripts de Firebase no se cargaron correctamente',
-                            details: `Scripts faltantes: ${scriptStatus.missing.join(', ')}\n\nPosibles causas:\n• Bloqueador de anuncios bloqueando los scripts\n• Problemas de conexión a internet\n• Firewall o proxy bloqueando gstatic.com\n• Scripts bloqueados por política CORS\n\nVerifica la consola del navegador (F12) para más detalles.`
-                        };
-                        window.dispatchEvent(new CustomEvent('firebaseError', { 
-                            detail: firebaseConnectionError 
-                        }));
-                        return;
-                    }
+                    loadFirebaseScripts()
+                        .then(() => {
+                            console.log("✅ Scripts cargados dinámicamente con éxito");
+                            scriptStatus = checkFirebaseScripts();
+                            if (scriptStatus.allLoaded) {
+                                initializeFirebase();
+                            } else {
+                                throw new Error(`Scripts cargados pero aún faltantes: ${scriptStatus.missing.join(', ')}`);
+                            }
+                        })
+                        .catch((error) => {
+                            console.error("❌ Error definitivo al cargar scripts:", error);
+                            firebaseConnectionStatus = 'error';
+                            firebaseConnectionError = {
+                                code: 'scripts-not-loaded',
+                                message: 'Los scripts de Firebase no se pudieron cargar',
+                                details: `Scripts faltantes: ${scriptStatus.missing.join(', ')}\n\nError: ${error.message}\n\nPosibles causas:\n• Bloqueador de anuncios bloqueando gstatic.com\n• Problemas de conexión a internet\n• Firewall o proxy bloqueando los scripts\n• Scripts bloqueados por política CORS\n\nSolución:\n1. Desactiva bloqueadores de anuncios (uBlock, AdBlock, etc.)\n2. Verifica tu conexión a internet\n3. Intenta en modo incógnito\n4. Verifica la consola (F12) para ver errores específicos`
+                            };
+                            window.dispatchEvent(new CustomEvent('firebaseError', { 
+                                detail: firebaseConnectionError 
+                            }));
+                        });
+                } else {
+                    console.warn(`⚠️ Scripts faltantes (intento ${scriptCheckCount}/40):`, scriptStatus.missing);
                 }
             }, 200);
             
-            // Timeout de 20 segundos (aumentado)
+            // Timeout de 25 segundos (aumentado para dar tiempo a cargar scripts dinámicamente)
             setTimeout(() => {
                 if (!firebaseInitialized && firebaseConnectionStatus === 'initializing') {
-                    const scriptStatus = checkFirebaseScripts();
+                    clearInterval(checkScriptsInterval);
+                    scriptStatus = checkFirebaseScripts();
                     firebaseConnectionStatus = 'timeout';
                     firebaseConnectionError = {
                         code: 'timeout',
-                        message: 'Tiempo de espera agotado. Firebase no se pudo inicializar en 20 segundos.',
+                        message: 'Tiempo de espera agotado. Firebase no se pudo inicializar en 25 segundos.',
                         details: scriptStatus.allLoaded 
                             ? 'Los scripts están cargados pero la inicialización falló. Verifica la consola del navegador (F12) para más detalles.'
-                            : `Scripts faltantes: ${scriptStatus.missing.join(', ')}\n\nVerifica:\n• Tu conexión a internet\n• Que no haya bloqueadores de anuncios activos\n• Que los scripts de Firebase se estén cargando (F12 → Network)`
+                            : `Scripts faltantes: ${scriptStatus.missing.join(', ')}\n\nVerifica:\n• Tu conexión a internet\n• Que no haya bloqueadores de anuncios activos\n• Que los scripts de Firebase se estén cargando (F12 → Network)\n• Intenta desactivar extensiones del navegador`
                     };
                     window.dispatchEvent(new CustomEvent('firebaseError', { 
                         detail: firebaseConnectionError 
                     }));
                 }
-            }, 20000);
-            
-            // Esperar un poco más para asegurar que los scripts estén cargados
-            setTimeout(() => {
-                const scriptStatus = checkFirebaseScripts();
-                if (scriptStatus.allLoaded) {
-                    initializeFirebase();
-                } else {
-                    console.warn("⚠️ Esperando scripts de Firebase...", scriptStatus.missing);
-                    // Reintentar cada segundo hasta que los scripts estén listos
-                    const waitForScripts = setInterval(() => {
-                        const status = checkFirebaseScripts();
-                        if (status.allLoaded) {
-                            clearInterval(waitForScripts);
-                            initializeFirebase();
-                        }
-                    }, 500);
-                }
-            }, 500);
+            }, 25000);
         };
         
         // Inicializar cuando todo esté listo
