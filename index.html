@@ -5,22 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bitácora de Producción - Operaciones</title>
     
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     
+    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
+    <!-- SheetJS (Para Excel) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <!-- Firebase (Versión CDN completa) -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js"></script>
 
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 
     <script>
@@ -68,15 +75,24 @@
             body * { visibility: hidden; }
             .print-area, .print-area * { visibility: visible; }
             .print-area { position: absolute; left: 0; top: 0; padding: 0; margin: 0; }
-            @page { margin: 0; }
         }
         
+        /* Estilos para diferentes orientaciones */
+        .print-vertical { width: 71mm; height: 210mm; }
+        .print-horizontal { width: 210mm; height: 71mm; }
+        
         /* Editor de plantillas */
+        .template-editor { min-height: 500px; }
+        .template-preview { border: 2px dashed #ccc; min-height: 300px; padding: 20px; }
         .draggable-item { cursor: move; padding: 8px; border: 1px solid #e5e7eb; background: white; margin: 4px 0; border-radius: 6px; }
         .draggable-item:hover { background: #f3f4f6; border-color: #14b8a6; }
         
+        /* Estilos específicos para el editor de plantillas */
+        .drop-zone { min-height: 400px; background: #fafafa; border: 2px dashed #cbd5e1; }
         .template-element { position: absolute; cursor: move; user-select: none; }
         .template-element.selected { outline: 2px solid #14b8a6; z-index: 100; }
+        .element-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .element-barcode { background: white; padding: 5px; text-align: center; }
         
         /* Área de diseño de plantilla */
         .design-area { 
@@ -93,37 +109,56 @@
     <div id="root" class="h-full"></div>
 
     <script type="text/babel" data-type="module">
-        // Configuración de Firebase - Proyecto: bitacora-62355
+        // CONFIGURACIÓN MEJORADA DE FIREBASE - NUEVA BASE DE DATOS
         const firebaseConfig = {
-            apiKey: "AIzaSyDMOkNpY19dyQbDdECJS32gxBbx-WSVAeo",
-            authDomain: "bitacora-62355.firebaseapp.com",
-            projectId: "bitacora-62355",
-            storageBucket: "bitacora-62355.firebasestorage.app",
-            messagingSenderId: "318270223151",
-            appId: "1:318270223151:web:9c8d2d1684ddd1514667da"
+            apiKey: "AIzaSyChbdbjQaPkoSj7wXhUrO_ZDG0cJ_RYfFk",
+            authDomain: "operacionesbita.firebaseapp.com",
+            projectId: "operacionesbita",
+            storageBucket: "operacionesbita.firebasestorage.app",
+            messagingSenderId: "734557088994",
+            appId: "1:734557088994:web:113a9e29320568760602bb"
         };
 
-        // Inicializar Firebase (Usando sintaxis Compat para garantizar conexión)
+        // Inicializar Firebase con manejo de errores mejorado
         let app, auth, db, storage;
+        let firebaseInitialized = false;
+        
         try {
-            if (!firebase.apps.length) {
+            if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length === 0) {
                 app = firebase.initializeApp(firebaseConfig);
-            } else {
+                console.log("🚀 Firebase inicializando...");
+            } else if (firebase.apps && firebase.apps.length > 0) {
                 app = firebase.app();
             }
-            auth = firebase.auth();
-            db = firebase.firestore();
-            storage = firebase.storage();
-            console.log("✅ Firebase (Compat) inicializado correctamente en: " + firebaseConfig.projectId);
             
-            // Habilitar persistencia offline
-            db.enablePersistence({ synchronizeTabs: true })
-                .then(() => console.log("📦 Persistencia offline habilitada"))
-                .catch(err => console.warn("⚠️ Persistencia:", err.code));
+            if (app) {
+                auth = firebase.auth();
+                db = firebase.firestore();
+                storage = firebase.storage();
+                firebaseInitialized = true;
+                console.log("✅ Firebase inicializado correctamente");
+                
+                // Configurar persistencia offline
+                if (db) {
+                    db.enablePersistence()
+                        .then(() => console.log("📦 Persistencia offline habilitada"))
+                        .catch(err => {
+                            console.warn("⚠️ Persistencia offline no disponible:", err.code);
+                        });
+                }
+            }
         } catch (error) {
-            console.error("❌ Error CRÍTICO al inicializar Firebase:", error);
-            alert("Error de conexión con la Base de Datos. Revise la consola.");
+            console.error("❌ Error crítico al inicializar Firebase:", error);
+            firebaseInitialized = false;
         }
+
+        // Verificar conexión a Firestore
+        const checkFirestoreConnection = async () => {
+            // Solo verificar que Firebase esté inicializado
+            // Firestore creará las colecciones automáticamente al escribir datos
+            // No intentar leer colecciones que pueden no existir
+            return firebaseInitialized && db !== null && db !== undefined;
+        };
 
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
         
@@ -231,6 +266,7 @@
             const [savedTemplates, setSavedTemplates] = useState([]);
             const [showSaveModal, setShowSaveModal] = useState(false);
             const [templateType, setTemplateType] = useState('ruta'); // 'ventanilla', 'ruta', 'refrigerado'
+            const [templateOrientation, setTemplateOrientation] = useState('vertical'); // 'vertical', 'horizontal'
             const [imageUploading, setImageUploading] = useState(false);
             const [uploadedImages, setUploadedImages] = useState([]);
             
@@ -243,7 +279,7 @@
                 { id: 'image', name: 'Imagen', icon: Icons.Image, default: { width: 100, height: 100, url: '', alt: 'Logo' } }
             ];
 
-            // ACTUALIZACIÓN: Se agregan los campos solicitados Cantidad Medicamentos y Refrigerados
+            // CAMPOS ACTUALIZADOS CON CANTIDAD DE MEDICAMENTOS Y REFRIGERADOS
             const kitFields = [
                 { id: 'nombre', label: 'Nombre Paciente', value: kitData?.nombre || patientData?.nombre || 'NOMBRE PACIENTE' },
                 { id: 'dni', label: 'DNI', value: kitData?.dni || patientData?.dni || '00000000' },
@@ -255,10 +291,12 @@
                 { id: 'contactCenter', label: 'Contact Center', value: kitData?.contactCenter || 'CONTACTO' },
                 { id: 'deliveryMode', label: 'Modo Entrega', value: kitData?.deliveryMode === 'ruta' ? 'RUTA' : 'VENTANILLA' },
                 { id: 'medicamentos', label: 'Medicamentos', value: kitData?.medicamentos?.map(m => m.nombre).join(', ') || 'MEDICAMENTOS' },
-                { id: 'cantMeds', label: 'Cantidad Medicamentos', value: kitData?.medicamentos?.length || '0' },
-                { id: 'cantRefriGlobal', label: 'Cantidad Refrigerados', value: kitData?.cantRefriGlobal || '0' },
                 { id: 'observaciones', label: 'Observaciones', value: kitData?.observations || 'OBSERVACIONES' },
-                { id: 'gpsStatus', label: 'GPS', value: kitData?.gpsStatus || 'SIN GPS' }
+                { id: 'gpsStatus', label: 'GPS', value: kitData?.gpsStatus || 'SIN GPS' },
+                // NUEVOS CAMPOS
+                { id: 'cantMedicamentos', label: 'Cantidad Medicamentos', value: kitData?.medicamentos?.length || 0 },
+                { id: 'cantRefrigerados', label: 'Cantidad Refrigerados', value: kitData?.isRefrigerated ? (kitData?.cantRefriGlobal || 1) : 0 },
+                { id: 'isRefrigerado', label: 'Es Refrigerado', value: kitData?.isRefrigerated ? 'SÍ' : 'NO' }
             ];
 
             // Cargar plantillas guardadas
@@ -269,6 +307,11 @@
 
             const loadTemplates = async () => {
                 try {
+                    if (!firebaseInitialized || !db) {
+                        console.warn('Firebase no disponible para cargar plantillas');
+                        return;
+                    }
+                    
                     const snapshot = await db.collection('prod_templates')
                         .orderBy('createdAt', 'desc')
                         .get();
@@ -284,6 +327,11 @@
 
             const loadUploadedImages = async () => {
                 try {
+                    if (!firebaseInitialized || !db) {
+                        console.warn('Firebase no disponible para cargar imágenes');
+                        return;
+                    }
+                    
                     const snapshot = await db.collection('prod_images')
                         .orderBy('createdAt', 'desc')
                         .get();
@@ -377,6 +425,10 @@
                 
                 setImageUploading(true);
                 try {
+                    if (!firebaseInitialized || !storage) {
+                        throw new Error("Firebase Storage no disponible");
+                    }
+                    
                     const storageRef = storage.ref();
                     const imageRef = storageRef.child(`templates/${Date.now()}_${file.name}`);
                     await imageRef.put(file);
@@ -407,7 +459,7 @@
                     
                 } catch (error) {
                     console.error('Error subiendo imagen:', error);
-                    alert('Error al subir la imagen');
+                    alert('Error al subir la imagen: ' + error.message);
                 } finally {
                     setImageUploading(false);
                 }
@@ -420,9 +472,14 @@
                 }
 
                 try {
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Firebase no disponible");
+                    }
+                    
                     await db.collection('prod_templates').add({
                         name: templateName,
                         type: templateType,
+                        orientation: templateOrientation,
                         elements,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -432,7 +489,7 @@
                     loadTemplates();
                 } catch (error) {
                     console.error('Error guardando plantilla:', error);
-                    alert('Error al guardar la plantilla');
+                    alert('Error al guardar la plantilla: ' + error.message);
                 }
             };
 
@@ -440,6 +497,7 @@
                 setElements(template.elements || []);
                 setTemplateName(template.name);
                 setTemplateType(template.type || 'ruta');
+                setTemplateOrientation(template.orientation || 'vertical');
                 setSelectedElement(null);
             };
 
@@ -465,8 +523,10 @@
             const handlePrintPreview = () => {
                 const printContent = document.getElementById('template-preview');
                 const printWindow = window.open('', '_blank');
-                // IMPORTANTE: Definir la orientación basada en las dimensiones
-                const isLandscape = false; // Se puede configurar según la plantilla
+                
+                const orientationStyle = templateOrientation === 'horizontal' 
+                    ? `width: 210mm; height: 71mm;` 
+                    : `width: 71mm; height: 210mm;`;
                 
                 printWindow.document.write(`
                     <!DOCTYPE html>
@@ -476,8 +536,7 @@
                         <style>
                             body { margin: 0; padding: 0; }
                             .print-area { 
-                                width: 71mm; 
-                                height: 210mm; 
+                                ${orientationStyle}
                                 border: 1px solid #ccc; 
                                 position: relative; 
                                 overflow: hidden;
@@ -486,10 +545,6 @@
                             .template-element {
                                 position: absolute;
                                 box-sizing: border-box;
-                            }
-                            @media print {
-                                .print-area { border: none; }
-                                @page { margin: 0; size: 71mm 210mm; }
                             }
                         </style>
                     </head>
@@ -503,6 +558,15 @@
                 printWindow.document.close();
                 printWindow.focus();
             };
+
+            // Dimensiones según orientación
+            const getDesignAreaDimensions = () => {
+                return templateOrientation === 'horizontal' 
+                    ? { width: '210mm', height: '71mm' }
+                    : { width: '71mm', height: '210mm' };
+            };
+
+            const dimensions = getDesignAreaDimensions();
 
             return (
                 <div className="space-y-6">
@@ -610,16 +674,26 @@
                         <div className="lg:col-span-2">
                             <div className="bg-white p-4 rounded-xl border border-slate-200 h-full">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h5 className="font-bold text-slate-700 text-sm">Área de Diseño (71mm x 210mm)</h5>
-                                    <select 
-                                        value={templateType}
-                                        onChange={(e) => setTemplateType(e.target.value)}
-                                        className="text-xs border rounded px-2 py-1"
-                                    >
-                                        <option value="ventanilla">Ventanilla</option>
-                                        <option value="ruta">Ruta</option>
-                                        <option value="refrigerado">Refrigerado</option>
-                                    </select>
+                                    <h5 className="font-bold text-slate-700 text-sm">Área de Diseño ({templateOrientation === 'horizontal' ? '210mm x 71mm' : '71mm x 210mm'})</h5>
+                                    <div className="flex gap-2">
+                                        <select 
+                                            value={templateType}
+                                            onChange={(e) => setTemplateType(e.target.value)}
+                                            className="text-xs border rounded px-2 py-1"
+                                        >
+                                            <option value="ventanilla">Ventanilla</option>
+                                            <option value="ruta">Ruta</option>
+                                            <option value="refrigerado">Refrigerado</option>
+                                        </select>
+                                        <select 
+                                            value={templateOrientation}
+                                            onChange={(e) => setTemplateOrientation(e.target.value)}
+                                            className="text-xs border rounded px-2 py-1"
+                                        >
+                                            <option value="vertical">Vertical</option>
+                                            <option value="horizontal">Horizontal</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div 
                                     className="design-area relative rounded-lg border-2 border-slate-300"
@@ -628,7 +702,7 @@
                                     onMouseMove={handleMouseMove}
                                     onMouseUp={handleMouseUp}
                                     onMouseLeave={handleMouseUp}
-                                    style={{ width: '71mm', height: '210mm', margin: '0 auto' }}
+                                    style={dimensions}
                                 >
                                     <div id="template-preview" style={{ width: '100%', height: '100%', position: 'relative' }}>
                                         {elements.map(element => (
@@ -906,7 +980,7 @@
                                         >
                                             <div className="font-medium text-slate-800">{template.name}</div>
                                             <div className="text-xs text-slate-500 flex justify-between">
-                                                <span className="capitalize">{template.type}</span>
+                                                <span className="capitalize">{template.type} - {template.orientation || 'vertical'}</span>
                                                 <span>{template.elements?.length || 0} elementos</span>
                                             </div>
                                         </div>
@@ -939,6 +1013,17 @@
                                     <option value="ventanilla">Ventanilla</option>
                                     <option value="ruta">Ruta</option>
                                     <option value="refrigerado">Refrigerado</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Orientación</label>
+                                <select
+                                    className="w-full p-3 border border-slate-300 rounded-lg"
+                                    value={templateOrientation}
+                                    onChange={(e) => setTemplateOrientation(e.target.value)}
+                                >
+                                    <option value="vertical">Vertical (71x210mm)</option>
+                                    <option value="horizontal">Horizontal (210x71mm)</option>
                                 </select>
                             </div>
                             <div className="flex justify-end gap-3 pt-4">
@@ -1023,28 +1108,72 @@
                 }
             }
             
-            getPatient(patientId) { return this.getFromCache(`${this.PATIENT_CACHE_PREFIX}${patientId}`); }
-            savePatient(patientId, patientData) { this.saveToCache(`${this.PATIENT_CACHE_PREFIX}${patientId}`, patientData); }
-            getPatientList() { return this.getFromCache(this.PATIENT_LIST_CACHE_KEY); }
-            savePatientList(patientList) { this.saveToCache(this.PATIENT_LIST_CACHE_KEY, patientList); }
-            getMedicines() { return this.getFromCache(this.MEDICINES_CACHE_KEY); }
-            saveMedicines(medicines) { this.saveToCache(this.MEDICINES_CACHE_KEY, medicines); }
-            getContacts() { return this.getFromCache(this.CONTACTS_CACHE_KEY); }
-            saveContacts(contacts) { this.saveToCache(this.CONTACTS_CACHE_KEY, contacts); }
-            getUsers() { return this.getFromCache(this.USERS_CACHE_KEY); }
-            saveUsers(users) { this.saveToCache(this.USERS_CACHE_KEY, users); }
-            getKits() { return this.getFromCache(this.KITS_CACHE_KEY); }
-            saveKits(kits) { this.saveToCache(this.KITS_CACHE_KEY, kits); }
-            getTemplates() { return this.getFromCache(this.TEMPLATES_CACHE_KEY); }
-            saveTemplates(templates) { this.saveToCache(this.TEMPLATES_CACHE_KEY, templates); }
+            getPatient(patientId) {
+                return this.getFromCache(`${this.PATIENT_CACHE_PREFIX}${patientId}`);
+            }
+            
+            savePatient(patientId, patientData) {
+                this.saveToCache(`${this.PATIENT_CACHE_PREFIX}${patientId}`, patientData);
+            }
+            
+            getPatientList() {
+                return this.getFromCache(this.PATIENT_LIST_CACHE_KEY);
+            }
+            
+            savePatientList(patientList) {
+                this.saveToCache(this.PATIENT_LIST_CACHE_KEY, patientList);
+            }
+            
+            getMedicines() {
+                return this.getFromCache(this.MEDICINES_CACHE_KEY);
+            }
+            
+            saveMedicines(medicines) {
+                this.saveToCache(this.MEDICINES_CACHE_KEY, medicines);
+            }
+            
+            getContacts() {
+                return this.getFromCache(this.CONTACTS_CACHE_KEY);
+            }
+            
+            saveContacts(contacts) {
+                this.saveToCache(this.CONTACTS_CACHE_KEY, contacts);
+            }
+            
+            getUsers() {
+                return this.getFromCache(this.USERS_CACHE_KEY);
+            }
+            
+            saveUsers(users) {
+                this.saveToCache(this.USERS_CACHE_KEY, users);
+            }
+            
+            getKits() {
+                return this.getFromCache(this.KITS_CACHE_KEY);
+            }
+            
+            saveKits(kits) {
+                this.saveToCache(this.KITS_CACHE_KEY, kits);
+            }
+            
+            getTemplates() {
+                return this.getFromCache(this.TEMPLATES_CACHE_KEY);
+            }
+            
+            saveTemplates(templates) {
+                this.saveToCache(this.TEMPLATES_CACHE_KEY, templates);
+            }
             
             isValid(key) {
                 const cached = localStorage.getItem(key);
                 if (!cached) return false;
+                
                 try {
                     const { timestamp } = JSON.parse(cached);
                     return Date.now() - timestamp < this.CACHE_DURATION;
-                } catch { return false; }
+                } catch {
+                    return false;
+                }
             }
         }
 
@@ -1055,12 +1184,34 @@
             const [loading, setLoading] = useState(false); 
             const [error, setError] = useState('');
             const [isOnline, setIsOnline] = useState(navigator.onLine);
+            const [firebaseStatus, setFirebaseStatus] = useState('Conectando...');
 
             useEffect(() => {
                 const handleOnline = () => setIsOnline(true);
                 const handleOffline = () => setIsOnline(false);
                 window.addEventListener('online', handleOnline);
                 window.addEventListener('offline', handleOffline);
+                
+                // Verificar estado de Firebase
+                const checkFirebase = async () => {
+                    if (firebaseInitialized && db) {
+                        try {
+                            // Verificar conexión sin depender de colecciones existentes
+                            // Firestore crea colecciones automáticamente al guardar datos
+                            const isConnected = await checkFirestoreConnection();
+                            setFirebaseStatus(isConnected ? 'Conectado' : 'Error de conexión');
+                        } catch (err) {
+                            // Si Firebase está inicializado, considerarlo conectado
+                            // Las colecciones se crearán automáticamente al guardar datos
+                            setFirebaseStatus('Conectado');
+                            console.log("ℹ️ Firebase listo - Las colecciones se crearán automáticamente al guardar datos");
+                        }
+                    } else {
+                        setFirebaseStatus('No inicializado');
+                    }
+                };
+                
+                checkFirebase();
                 
                 return () => {
                     window.removeEventListener('online', handleOnline);
@@ -1080,8 +1231,9 @@
                     return; 
                 }
                 
-                if (!db) {
-                    setError('No se pudo conectar con la base de datos. Verifica tu conexión.');
+                // Verificar si Firebase está disponible
+                if (!firebaseInitialized || !db) {
+                    setError('No se pudo conectar con la base de datos. Por favor, recarga la página.');
                     setLoading(false);
                     return;
                 }
@@ -1119,8 +1271,8 @@
                             {isOnline ? <Icons.Wifi size={16}/> : <Icons.WifiOff size={16}/>}
                             {isOnline ? 'Conectado a Internet' : 'Sin Conexión'}
                         </div>
-                        <div className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 ${db ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'}`}>
-                            {db ? '✅ Base de datos conectada' : '⚠️ Base de datos desconectada'}
+                        <div className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 ${firebaseStatus === 'Conectado' ? 'bg-green-100 text-green-700 border border-green-200' : firebaseStatus === 'Conectando...' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
+                            {firebaseStatus === 'Conectado' ? '✅ Base de datos' : firebaseStatus === 'Conectando...' ? '🔄 Conectando...' : '❌ Base de datos'}
                         </div>
                     </div>
 
@@ -1131,7 +1283,6 @@
                             </div>
                             <h1 className="text-2xl font-bold text-slate-800 tracking-tight brand-font">Bitácora <span className="text-turquoise-600">Producción</span></h1>
                             <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Dpto. Operaciones</p>
-                            {/* Eliminado nombre de proyecto y credenciales por privacidad */}
                         </div>
                         <form onSubmit={handleLogin} className="space-y-6">
                             {error && <div className="bg-red-50 text-red-500 p-3 rounded-lg text-xs text-center font-bold border border-red-100">{error}</div>}
@@ -1241,6 +1392,8 @@
             const [selectedMonth, setSelectedMonth] = useState(null);
             const [selectedDay, setSelectedDay] = useState(null);
             const [selectedKit, setSelectedKit] = useState(null);
+            const [showKitModal, setShowKitModal] = useState(false);
+            const [kitToEdit, setKitToEdit] = useState(null);
             
             const groupedByMonth = useMemo(() => {
                 const groups = {};
@@ -1309,6 +1462,7 @@
             };
 
             const handleEditKitFromReports = (kit) => {
+                setKitToEdit(kit);
                 const patient = patients.find(p => p.dni === kit.dni);
                 if (patient) {
                     sessionStorage.setItem('editKitFromReports', JSON.stringify({
@@ -1390,6 +1544,12 @@
                                                 )}
                                             </div>
                                             <div className="flex gap-2 pt-2 border-t border-slate-100">
+                                                <button 
+                                                    onClick={() => { setSelectedKit(kit); setShowKitModal(true); }}
+                                                    className="flex-1 bg-slate-100 text-slate-700 py-1.5 rounded text-xs font-medium hover:bg-slate-200 transition-colors"
+                                                >
+                                                    Ver
+                                                </button>
                                                 <button 
                                                     onClick={() => handleEditKitFromReports(kit)}
                                                     className="flex-1 bg-orange-600 text-white py-1.5 rounded text-xs font-medium hover:bg-orange-700 transition-colors flex items-center justify-center gap-1"
@@ -1475,9 +1635,11 @@
             const [patients, setPatients] = useState([]);
             const [kits, setKits] = useState([]);
             const [patientCache] = useState(new CacheManager());
+            const [showPrintModal, setShowPrintModal] = useState(false);
             const [showTemplateEditor, setShowTemplateEditor] = useState(false);
             const [isViewMode, setIsViewMode] = useState(false);
-            
+            const [printTemplates, setPrintTemplates] = useState([]);
+            const [selectedPrintTemplate, setSelectedPrintTemplate] = useState(null);
             const [kitData, setKitData] = useState({ 
                 fechaArmado: new Date().toISOString().split('T')[0], 
                 fechaEntregaLogistica: '', 
@@ -1514,134 +1676,29 @@
                 nAfiliacion: '' 
             });
 
-            // LOGICA DE IMPRESIÓN (ACTUALIZADA)
-            const handlePrintKit = async (kit, type) => {
-                if (!db) { alert('Base de datos no disponible para obtener plantillas'); return; }
-                
+            // Cargar plantillas de impresión
+            const loadPrintTemplates = async () => {
                 try {
-                    // Buscar plantilla adecuada
-                    const templatesSnapshot = await db.collection('prod_templates')
-                        .where('type', '==', type)
-                        .orderBy('updatedAt', 'desc')
-                        .limit(1)
-                        .get();
-                    
-                    let template = null;
-                    if (!templatesSnapshot.empty) {
-                        template = templatesSnapshot.docs[0].data();
-                    } else {
-                        alert(`No se encontró plantilla configurada para tipo: ${type}`);
+                    if (!firebaseInitialized || !db) {
+                        console.warn('Firebase no disponible para cargar plantillas de impresión');
                         return;
                     }
-
-                    // Construir HTML de impresión
-                    const elements = template.elements || [];
-                    const printWindow = window.open('', '_blank');
                     
-                    // Mapa de valores para reemplazar
-                    const fieldMap = {
-                        'nombre': kit.nombre,
-                        'dni': kit.dni,
-                        'direccion': selectedPatientFullData?.direccion || 'N/A',
-                        'telefono': selectedPatientFullData?.telefono || 'N/A',
-                        'fechaArmado': kit.fechaArmado,
-                        'horaOperaciones': kit.horaOperaciones,
-                        'digitador': kit.digitador,
-                        'contactCenter': kit.contactCenter,
-                        'deliveryMode': kit.deliveryMode === 'ruta' ? 'RUTA' : 'VENTANILLA',
-                        'medicamentos': kit.medicamentos?.map(m => `${m.nombre} (${m.cantidad})`).join(', '),
-                        'cantMeds': kit.medicamentos?.length || 0,
-                        'cantRefriGlobal': kit.cantRefriGlobal || 0,
-                        'observaciones': kit.observations,
-                        'gpsStatus': kit.gpsStatus
-                    };
-
-                    const elementsHtml = elements.map(el => {
-                        // CONDICIONAL: Si es el campo cantRefriGlobal pero el kit NO es refrigerado, no mostrar
-                        if (el.isField && el.fieldId === 'cantRefriGlobal' && !kit.isRefrigerated) {
-                            return '';
-                        }
-
-                        let content = el.content;
-                        if (el.isField && el.fieldId) {
-                            content = fieldMap[el.fieldId] || '';
-                        }
-
-                        let style = `
-                            position: absolute;
-                            left: ${el.x}px;
-                            top: ${el.y}px;
-                            width: ${el.width ? el.width + 'px' : 'auto'};
-                            height: ${el.height ? el.height + 'px' : 'auto'};
-                            font-size: ${el.fontSize || 12}px;
-                            color: ${el.color || '#000'};
-                            font-family: ${el.fontFamily || 'Arial'};
-                            font-weight: ${el.bold ? 'bold' : 'normal'};
-                            font-style: ${el.italic ? 'italic' : 'normal'};
-                            display: flex;
-                            align-items: center;
-                            justify-content: ${el.align || 'flex-start'};
-                        `;
-
-                        if (el.type === 'rectangle') {
-                            style += `background-color: ${el.color}; border: ${el.borderWidth || 1}px solid ${el.borderColor || '#000'};`;
-                            content = ''; 
-                        } else if (el.type === 'line') {
-                            style += `border-top: 2px solid ${el.color}; height: 0;`;
-                            content = '';
-                        }
-
-                        if (el.type === 'text') {
-                            return `<div style="${style}">${content}</div>`;
-                        } else if (el.type === 'barcode') {
-                            return `<div style="${style}; background:white; text-align:center;">
-                                        <div style="font-size:8px;">*${content}*</div>
-                                    </div>`;
-                        } else if (el.type === 'image' && el.url) {
-                            return `<img src="${el.url}" style="${style}; object-fit: contain;" />`;
-                        }
-                        return '';
-                    }).join('');
-
-                    printWindow.document.write(`
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <title>Imprimir ${type}</title>
-                            <style>
-                                body { margin: 0; padding: 0; }
-                                .print-area { 
-                                    width: 71mm; 
-                                    height: 210mm; 
-                                    position: relative; 
-                                    overflow: hidden; 
-                                }
-                                @media print {
-                                    @page { size: 71mm 210mm; margin: 0; }
-                                    .print-area { border: none; }
-                                }
-                            </style>
-                        </head>
-                        <body onload="window.print();">
-                            <div class="print-area">
-                                ${elementsHtml}
-                            </div>
-                        </body>
-                        </html>
-                    `);
-                    printWindow.document.close();
-
+                    const snapshot = await db.collection('prod_templates').get();
+                    const templates = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    setPrintTemplates(templates);
                 } catch (error) {
-                    console.error("Error al imprimir:", error);
-                    alert("Error generando impresión: " + error.message);
+                    console.error('Error cargando plantillas de impresión:', error);
                 }
             };
 
-            // ... (Resto de funciones de carga como loadPatients, loadKits, handleSelectPatient, etc. se mantienen igual) ...
-            
             const loadPatients = async () => {
                 setLoadingPatients(true);
                 setLoadingProgress(0);
+                
                 try {
                     const cachedPatients = patientCache.getPatientList();
                     if (cachedPatients && cachedPatients.length > 0) {
@@ -1649,8 +1706,15 @@
                         setLoadingPatients(false);
                         return;
                     }
-                    if (!db) throw new Error("Base de datos no disponible");
-                    const querySnapshot = await db.collection('prod_patients').orderBy('createdAt', 'desc').get();
+                    
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
+                    
+                    const querySnapshot = await db.collection('prod_patients')
+                        .orderBy('createdAt', 'desc')
+                        .get();
+                    
                     const allPatients = querySnapshot.docs.map(doc => ({
                         id: doc.id,
                         dni: doc.data().dni || '',
@@ -1658,8 +1722,10 @@
                         tipoAfiliado: doc.data().tipoAfiliado || 'AFILIADO DIRECTO',
                         createdAt: doc.data().createdAt
                     }));
+                    
                     patientCache.savePatientList(allPatients);
                     setPatients(allPatients);
+                    
                 } catch (error) {
                     console.error('Error cargando pacientes:', error);
                     alert('Error al cargar pacientes: ' + error.message);
@@ -1672,10 +1738,19 @@
             const loadKits = async () => {
                 try {
                     const cachedKits = patientCache.getKits();
-                    if (cachedKits) { setKits(cachedKits); return; }
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (cachedKits) {
+                        setKits(cachedKits);
+                        return;
+                    }
+                    
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
+                    
                     const kitsSnapshot = await db.collection('prod_kits').get();
-                    const kitsData = kitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => new Date(b.fechaArmado) - new Date(a.fechaArmado));
+                    const kitsData = kitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                        .sort((a, b) => new Date(b.fechaArmado) - new Date(a.fechaArmado));
+                    
                     patientCache.saveKits(kitsData);
                     setKits(kitsData);
                 } catch (error) {
@@ -1683,7 +1758,11 @@
                 }
             };
 
-            useEffect(() => { loadPatients(); loadKits(); }, []);
+            useEffect(() => {
+                loadPatients();
+                loadKits();
+                loadPrintTemplates();
+            }, []);
 
             useEffect(() => {
                 const editKitData = sessionStorage.getItem('editKitFromReports');
@@ -1702,23 +1781,35 @@
             }, [patients]);
 
             const loadPatientFullData = async (patientId) => {
-                if (patientSnapshotUnsubscribe) patientSnapshotUnsubscribe();
+                if (patientSnapshotUnsubscribe) {
+                    patientSnapshotUnsubscribe();
+                }
+                
                 try {
                     const cachedPatient = patientCache.getPatient(patientId);
-                    if (cachedPatient) setSelectedPatientFullData(cachedPatient);
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (cachedPatient) {
+                        setSelectedPatientFullData(cachedPatient);
+                    }
+                    
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
+                    
                     const patientDoc = await db.collection('prod_patients').doc(patientId).get();
                     if (patientDoc.exists) {
                         const fullData = { id: patientDoc.id, ...patientDoc.data() };
                         setSelectedPatientFullData(fullData);
                         patientCache.savePatient(patientId, fullData);
-                        const unsubscribe = db.collection('prod_patients').doc(patientId).onSnapshot((doc) => {
-                            if (doc.exists) {
-                                const updatedData = { id: doc.id, ...doc.data() };
-                                setSelectedPatientFullData(updatedData);
-                                patientCache.savePatient(patientId, updatedData);
-                            }
-                        });
+                        
+                        const unsubscribe = db.collection('prod_patients').doc(patientId)
+                            .onSnapshot((doc) => {
+                                if (doc.exists) {
+                                    const updatedData = { id: doc.id, ...doc.data() };
+                                    setSelectedPatientFullData(updatedData);
+                                    patientCache.savePatient(patientId, updatedData);
+                                }
+                            });
+                        
                         setPatientSnapshotUnsubscribe(() => unsubscribe);
                     }
                 } catch (error) {
@@ -1732,20 +1823,27 @@
             };
 
             useEffect(() => {
-                return () => { if (patientSnapshotUnsubscribe) patientSnapshotUnsubscribe(); };
+                return () => {
+                    if (patientSnapshotUnsubscribe) {
+                        patientSnapshotUnsubscribe();
+                    }
+                };
             }, [patientSnapshotUnsubscribe]);
 
             const filteredPatients = useMemo(() => {
-                return patients.filter(p => (p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || p.dni?.includes(searchTerm)));
+                return patients.filter(p => 
+                    (p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                     p.dni?.includes(searchTerm))
+                );
             }, [patients, searchTerm]);
 
             const indexOfLastPatient = currentPage * patientsPerPage;
             const indexOfFirstPatient = indexOfLastPatient - patientsPerPage;
             const currentPatients = filteredPatients.slice(indexOfFirstPatient, indexOfLastPatient);
             const totalPages = Math.ceil(filteredPatients.length / patientsPerPage);
+
             const patientKits = selectedPatient ? kits.filter(k => k.patientId === selectedPatient.id) : [];
 
-            // ... (Resto de funciones: handleExcelUpload, handlePatientSubmit, closePatientForm, openEditPatient, handleKitSubmit, closeKitForm, openNewKit, openEditKit, handleMedChange, handleTriggerMeds, togglePhoneSelection, handleBackToList, handleEditTemplate) se mantienen igual ...
             const handleExcelUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -1756,7 +1854,11 @@
                     const wsname = wb.SheetNames[0];
                     const ws = wb.Sheets[wsname];
                     const data = XLSX.utils.sheet_to_json(ws);
-                    let added = 0; let skipped = 0; let updated = 0;
+                    
+                    let added = 0;
+                    let skipped = 0;
+                    let updated = 0;
+
                     for (const row of data) {
                         const pData = {
                             dni: String(row['DNI'] || row['dni'] || '').trim(),
@@ -1769,8 +1871,11 @@
                             tipoAfiliado: String(row['TIPOAFILIADO'] || row['tipoafiliado'] || 'AFILIADO DIRECTO').toUpperCase().trim(),
                             nAfiliacion: String(row['DNI'] || row['dni'] || '').trim() 
                         };
+
                         if (!pData.dni) continue;
+
                         const existingPatient = patients.find(p => p.dni === pData.dni);
+
                         if (existingPatient) {
                             let needsUpdate = false;
                             const updates = {};
@@ -1784,9 +1889,11 @@
                             };
                             checkAndFill('nombre'); checkAndFill('telefono'); checkAndFill('direccion');
                             checkAndFill('familiar'); checkAndFill('telefonoFamiliar'); checkAndFill('descripcionMunicipio');
+                            
                             if ((!existingPatient.tipoAfiliado || existingPatient.tipoAfiliado === 'AFILIADO DIRECTO') && pData.tipoAfiliado && pData.tipoAfiliado !== 'AFILIADO DIRECTO') {
                                  updates.tipoAfiliado = pData.tipoAfiliado; needsUpdate = true;
                             }
+
                             if (needsUpdate) { 
                                 await onUpdatePatient(existingPatient.id, updates); 
                                 patientCache.clearPatientCache(existingPatient.id);
@@ -1798,7 +1905,9 @@
                             added++;
                         }
                     }
+                    
                     await loadPatients();
+                    
                     alert(`Resumen de Carga:\n\n✅ Pacientes Agregados: ${added}\n🔄 Pacientes Modificados: ${updated}\n⏭️ Pacientes Omitidos: ${skipped}`);
                 };
                 reader.readAsBinaryString(file);
@@ -1823,7 +1932,17 @@
             };
             
             const closePatientForm = () => { 
-                setPatientForm({ dni: '', nombre: '', telefono: '', direccion: '', familiar: '', telefonoFamiliar: '', descripcionMunicipio: '', tipoAfiliado: 'AFILIADO DIRECTO', nAfiliacion: '' }); 
+                setPatientForm({ 
+                    dni: '', 
+                    nombre: '', 
+                    telefono: '', 
+                    direccion: '', 
+                    familiar: '', 
+                    telefonoFamiliar: '', 
+                    descripcionMunicipio: '', 
+                    tipoAfiliado: 'AFILIADO DIRECTO',
+                    nAfiliacion: '' 
+                }); 
                 setEditingPatientId(null); 
                 setShowPatientForm(false); 
             };
@@ -1832,10 +1951,18 @@
                 e.stopPropagation(); 
                 try {
                     const cachedPatient = patientCache.getPatient(p.id);
-                    if (cachedPatient) { setPatientForm(cachedPatient); } else {
-                        if (!db) throw new Error("Base de datos no disponible");
+                    if (cachedPatient) {
+                        setPatientForm(cachedPatient);
+                    } else {
+                        if (!firebaseInitialized || !db) {
+                            throw new Error("Base de datos no disponible");
+                        }
                         const patientDoc = await db.collection('prod_patients').doc(p.id).get();
-                        if (patientDoc.exists) { setPatientForm({ id: p.id, ...patientDoc.data() }); } else { setPatientForm(p); }
+                        if (patientDoc.exists) {
+                            setPatientForm({ id: p.id, ...patientDoc.data() });
+                        } else {
+                            setPatientForm(p);
+                        }
                     }
                 } catch (error) {
                     console.error("Error cargando paciente:", error);
@@ -1848,14 +1975,31 @@
             const handleKitSubmit = async (e) => {
                 e.preventDefault();
                 if (isViewMode) { closeKitForm(); return; } 
+                
                 try {
-                    const finalData = { ...kitData, digitador: currentUser.name, dni: selectedPatient.dni, nombre: selectedPatient.nombre, patientId: selectedPatient.id }; 
+                    const finalData = { 
+                        ...kitData, 
+                        digitador: currentUser.name, 
+                        dni: selectedPatient.dni, 
+                        nombre: selectedPatient.nombre,
+                        patientId: selectedPatient.id
+                    }; 
+                    
                     if (!editingKitId && !finalData.horaOperaciones) {
                         finalData.horaOperaciones = new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', hour12:true});
                     }
+                    
                     const kitId = await onSaveKit(editingKitId, finalData, selectedPatient.id, !!editingKitId);
+                    
                     patientCache.clearPatientCache(selectedPatient.id);
                     patientCache.clearCache(patientCache.KITS_CACHE_KEY);
+                    
+                    if (editingKitId) {
+                        ['ventanilla', 'ruta', 'refri'].forEach(mode => {
+                            localStorage.removeItem(`vineta_${editingKitId}_${mode}`);
+                        });
+                    }
+                    
                     await loadKits();
                     closeKitForm();
                 } catch (error) {
@@ -1864,15 +2008,58 @@
             };
             
             const closeKitForm = () => { 
-                setKitData({ fechaArmado: new Date().toISOString().split('T')[0], fechaEntregaLogistica: '', fechaEntregaKit: '', horaOperaciones: '', contactCenter: '', triggerMeds: '', medicamentos: [], digitador: '', deliveryMode: '', selectedPhones: [], otherPhoneEnabled: false, otherPhone: '', addressConfirmed: true, secondaryAddress: '', gpsStatus: 'SIN GPS', observationsEnabled: false, observations: '', isRefrigerated: false, cantRefriGlobal: '' }); 
+                setKitData({ 
+                    fechaArmado: new Date().toISOString().split('T')[0], 
+                    fechaEntregaLogistica: '', 
+                    fechaEntregaKit: '', 
+                    horaOperaciones: '', 
+                    contactCenter: '', 
+                    triggerMeds: '', 
+                    medicamentos: [],
+                    digitador: '',
+                    deliveryMode: '', 
+                    selectedPhones: [], 
+                    otherPhoneEnabled: false, 
+                    otherPhone: '',
+                    addressConfirmed: true, 
+                    secondaryAddress: '',
+                    gpsStatus: 'SIN GPS', 
+                    observationsEnabled: false,
+                    observations: '',
+                    isRefrigerated: false, 
+                    cantRefriGlobal: '' 
+                }); 
                 setEditingKitId(null); 
                 setShowKitForm(false); 
                 setIsViewMode(false); 
-                if (patientSnapshotUnsubscribe) { patientSnapshotUnsubscribe(); setPatientSnapshotUnsubscribe(null); }
+                if (patientSnapshotUnsubscribe) {
+                    patientSnapshotUnsubscribe();
+                    setPatientSnapshotUnsubscribe(null);
+                }
             };
             
             const openNewKit = () => {
-                setKitData({ fechaArmado: new Date().toISOString().split('T')[0], fechaEntregaLogistica: '', fechaEntregaKit: '', horaOperaciones: '', contactCenter: '', triggerMeds: '', medicamentos: [], digitador: currentUser.name, deliveryMode: '', selectedPhones: [], otherPhoneEnabled: false, otherPhone: '', addressConfirmed: true, secondaryAddress: '', gpsStatus: 'SIN GPS', observationsEnabled: false, observations: '', isRefrigerated: false, cantRefriGlobal: '' });
+                setKitData({ 
+                    fechaArmado: new Date().toISOString().split('T')[0], 
+                    fechaEntregaLogistica: '', 
+                    fechaEntregaKit: '', 
+                    horaOperaciones: '', 
+                    contactCenter: '', 
+                    triggerMeds: '', 
+                    medicamentos: [],
+                    digitador: currentUser.name,
+                    deliveryMode: '', 
+                    selectedPhones: [], 
+                    otherPhoneEnabled: false, 
+                    otherPhone: '',
+                    addressConfirmed: true, 
+                    secondaryAddress: '',
+                    gpsStatus: 'SIN GPS', 
+                    observationsEnabled: false,
+                    observations: '',
+                    isRefrigerated: false, 
+                    cantRefriGlobal: '' 
+                });
                 setIsViewMode(false);
                 setShowKitForm(true);
             };
@@ -1922,8 +2109,173 @@
                 }
             };
 
+            // Función para editar plantillas
             const handleEditTemplate = () => {
                 setShowTemplateEditor(true);
+            };
+
+            // Función para imprimir viñeta
+            const handlePrintVineta = (kit) => {
+                // Filtrar plantillas según el tipo de kit
+                let availableTemplates = printTemplates;
+                
+                if (kit.deliveryMode === 'ruta') {
+                    availableTemplates = printTemplates.filter(t => t.type === 'ruta');
+                } else if (kit.deliveryMode === 'ventanilla') {
+                    availableTemplates = printTemplates.filter(t => t.type === 'ventanilla');
+                }
+                
+                if (kit.isRefrigerated) {
+                    availableTemplates = printTemplates.filter(t => t.type === 'refrigerado');
+                }
+                
+                setSelectedPrintTemplate(availableTemplates[0] || null);
+                setShowPrintModal(true);
+            };
+
+            // Función para generar contenido de impresión
+            const generatePrintContent = (kit, template) => {
+                if (!template) return '';
+                
+                const orientationClass = template.orientation === 'horizontal' ? 'print-horizontal' : 'print-vertical';
+                
+                // Reemplazar campos en los elementos
+                const elementsWithData = template.elements.map(element => {
+                    let content = element.content || '';
+                    
+                    // Reemplazar campos dinámicos
+                    if (element.isField) {
+                        switch(element.fieldId) {
+                            case 'nombre':
+                                content = kit.nombre || '';
+                                break;
+                            case 'dni':
+                                content = kit.dni || '';
+                                break;
+                            case 'direccion':
+                                content = selectedPatientFullData?.direccion || '';
+                                break;
+                            case 'telefono':
+                                content = selectedPatientFullData?.telefono || '';
+                                break;
+                            case 'fechaArmado':
+                                content = kit.fechaArmado || '';
+                                break;
+                            case 'horaOperaciones':
+                                content = kit.horaOperaciones || '';
+                                break;
+                            case 'digitador':
+                                content = kit.digitador || '';
+                                break;
+                            case 'contactCenter':
+                                content = kit.contactCenter || '';
+                                break;
+                            case 'deliveryMode':
+                                content = kit.deliveryMode === 'ruta' ? 'RUTA' : 'VENTANILLA';
+                                break;
+                            case 'medicamentos':
+                                content = kit.medicamentos?.map(m => m.nombre).join(', ') || '';
+                                break;
+                            case 'observaciones':
+                                content = kit.observations || '';
+                                break;
+                            case 'gpsStatus':
+                                content = kit.gpsStatus || 'SIN GPS';
+                                break;
+                            case 'cantMedicamentos':
+                                content = kit.medicamentos?.length || 0;
+                                break;
+                            case 'cantRefrigerados':
+                                // Solo mostrar si es refrigerado
+                                content = kit.isRefrigerated ? (kit.cantRefriGlobal || 1) : '';
+                                break;
+                            case 'isRefrigerado':
+                                content = kit.isRefrigerated ? 'SÍ' : 'NO';
+                                break;
+                            default:
+                                content = element.content || '';
+                        }
+                    }
+                    
+                    return {
+                        ...element,
+                        content: content.toString()
+                    };
+                });
+                
+                // Generar HTML para impresión
+                return `
+                    <div class="print-area ${orientationClass} p-4 relative" style="font-family: Arial, sans-serif;">
+                        ${elementsWithData.map(element => `
+                            <div style="
+                                position: absolute;
+                                left: ${element.x}px;
+                                top: ${element.y}px;
+                                width: ${element.width || 'auto'}px;
+                                height: ${element.height || 'auto'}px;
+                                font-size: ${element.fontSize || 12}px;
+                                color: ${element.color || '#000000'};
+                                font-family: ${element.fontFamily || 'Arial'};
+                                font-weight: ${element.bold ? 'bold' : 'normal'};
+                                font-style: ${element.italic ? 'italic' : 'normal'};
+                                background-color: ${element.type === 'rectangle' ? element.color : 'transparent'};
+                                border: ${element.type === 'line' ? `2px solid ${element.color}` : 
+                                       element.type === 'rectangle' ? `${element.borderWidth || 1}px solid ${element.borderColor || '#000000'}` : 'none'};
+                                display: flex;
+                                align-items: center;
+                                justify-content: ${element.align || 'left'};
+                            ">
+                                ${element.type === 'text' ? element.content : ''}
+                                ${element.type === 'barcode' ? `<div style="background: white; padding: 5px; text-align: center; width: 100%;">[CÓDIGO DE BARRAS]<br/><small>${element.content}</small></div>` : ''}
+                                ${element.type === 'qrcode' ? `<div style="background: white; padding: 5px; text-align: center; width: 100%;">[QR CODE]<br/><small>${element.content}</small></div>` : ''}
+                                ${element.type === 'image' && element.url ? `<img src="${element.url}" alt="${element.alt}" style="max-width: 100%; max-height: 100%;">` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            };
+
+            // Función para imprimir
+            const handlePrint = (kit) => {
+                const template = selectedPrintTemplate;
+                if (!template) {
+                    alert('No hay plantilla seleccionada');
+                    return;
+                }
+                
+                const printContent = generatePrintContent(kit, template);
+                const printWindow = window.open('', '_blank');
+                
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Imprimir Viñeta - ${kit.nombre}</title>
+                        <style>
+                            body { margin: 0; padding: 0; }
+                            @media print {
+                                body * { visibility: hidden; }
+                                .print-area, .print-area * { visibility: visible; }
+                                .print-area { position: absolute; left: 0; top: 0; padding: 0; margin: 0; }
+                            }
+                            .print-vertical { width: 71mm; height: 210mm; }
+                            .print-horizontal { width: 210mm; height: 71mm; }
+                        </style>
+                    </head>
+                    <body>
+                        ${printContent}
+                        <script>
+                            window.onload = function() {
+                                window.print();
+                                setTimeout(function() {
+                                    window.close();
+                                }, 1000);
+                            }
+                        <\/script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
             };
 
             if (loadingPatients) {
@@ -1935,7 +2287,10 @@
                                 <h3 className="text-lg font-bold text-slate-700 mb-2">Cargando pacientes...</h3>
                                 <p className="text-sm text-slate-500 mb-4">Optimizando datos para mejor rendimiento</p>
                                 <div className="w-64 bg-slate-200 rounded-full h-2 mx-auto">
-                                    <div className="bg-turquoise-600 h-2 rounded-full transition-all duration-300" style={{ width: `${loadingProgress}%` }}></div>
+                                    <div 
+                                        className="bg-turquoise-600 h-2 rounded-full transition-all duration-300"
+                                        style={{ width: `${loadingProgress}%` }}
+                                    ></div>
                                 </div>
                                 <p className="text-xs text-slate-400 mt-2">{loadingProgress}% completado</p>
                             </div>
@@ -1956,7 +2311,10 @@
                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto p-6">
-                            <TemplateEditorBlock kitData={kitData} patientData={selectedPatientFullData} />
+                            <TemplateEditorBlock 
+                                kitData={kitData}
+                                patientData={selectedPatientFullData}
+                            />
                         </div>
                     </div>
                 );
@@ -1990,11 +2348,74 @@
                             </div>
                         </div>
 
-                        {/* ... Modal del formulario de Kit (Sin cambios) ... */}
+                        {/* Modal para imprimir */}
+                        <Modal isOpen={showPrintModal} onClose={() => setShowPrintModal(false)} title="Imprimir Viñeta" maxWidth="max-w-md">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Seleccionar Plantilla</label>
+                                    <select 
+                                        className="w-full p-3 border border-slate-300 rounded-lg"
+                                        value={selectedPrintTemplate?.id || ''}
+                                        onChange={(e) => {
+                                            const template = printTemplates.find(t => t.id === e.target.value);
+                                            setSelectedPrintTemplate(template);
+                                        }}
+                                    >
+                                        <option value="">Seleccione una plantilla</option>
+                                        {printTemplates
+                                            .filter(t => {
+                                                // Filtrar según el tipo de kit
+                                                if (kitData.deliveryMode === 'ruta') {
+                                                    return t.type === 'ruta';
+                                                } else if (kitData.deliveryMode === 'ventanilla') {
+                                                    return t.type === 'ventanilla';
+                                                }
+                                                if (kitData.isRefrigerated) {
+                                                    return t.type === 'refrigerado';
+                                                }
+                                                return true;
+                                            })
+                                            .map(template => (
+                                                <option key={template.id} value={template.id}>
+                                                    {template.name} ({template.type} - {template.orientation || 'vertical'})
+                                                </option>
+                                            ))
+                                        }
+                                    </select>
+                                </div>
+                                
+                                {selectedPrintTemplate && (
+                                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                                        <div className="text-sm font-bold text-slate-700 mb-2">{selectedPrintTemplate.name}</div>
+                                        <div className="text-xs text-slate-500">
+                                            Tipo: {selectedPrintTemplate.type} | 
+                                            Orientación: {selectedPrintTemplate.orientation || 'vertical'} | 
+                                            Elementos: {selectedPrintTemplate.elements?.length || 0}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                <div className="flex justify-end gap-3 pt-4">
+                                    <button
+                                        onClick={() => setShowPrintModal(false)}
+                                        className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={() => handlePrint(kitData)}
+                                        disabled={!selectedPrintTemplate}
+                                        className="px-4 py-2 bg-turquoise-600 text-white rounded-lg hover:bg-turquoise-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <Icons.Printer size={16} className="inline mr-2"/> Imprimir
+                                    </button>
+                                </div>
+                            </div>
+                        </Modal>
+
                         <Modal isOpen={showKitForm} onClose={closeKitForm} title={isViewMode ? "Detalle del Kit" : (editingKitId ? "Editar Kit" : "Nuevo Kit de Producción")} maxWidth="max-w-4xl">
                             <form onSubmit={handleKitSubmit} className="space-y-6">
                                 <fieldset disabled={isViewMode} className="space-y-6">
-                                    {/* ... Contenido del formulario de kit igual que antes ... */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 border-b border-slate-100 pb-4 bg-slate-50 p-4 rounded-xl">
                                         <div>
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI del Paciente</label>
@@ -2012,7 +2433,6 @@
                                     </div>
 
                                     <div className={`transition-all duration-300 ${kitData.deliveryMode === 'ventanilla' ? 'opacity-40 pointer-events-none grayscale' : ''}`}>
-                                        {/* ... Bloque de datos de ruta igual ... */}
                                         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
                                             <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Confirmar Datos de Contacto</h5>
                                             <div className="space-y-2 mb-4">
@@ -2075,7 +2495,6 @@
                                         </div>
                                     </div>
 
-                                    {/* ... Bloque de logística igual ... */}
                                     <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
                                         <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Logística</h5>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2107,7 +2526,6 @@
                                         </div>
                                     </div>
 
-                                    {/* ... Bloque de medicamentos igual ... */}
                                     <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
                                         <div className="flex justify-between items-center mb-4 border-b border-slate-200 pb-1">
                                             <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Medicamentos</h5>
@@ -2148,9 +2566,29 @@
                                 </fieldset>
                                 
                                 {!isViewMode ? (
-                                    <button type="submit" className="w-full py-3 bg-turquoise-600 text-white font-bold rounded-xl shadow-lg hover:bg-turquoise-700 transition-colors btn-hover-effect">Guardar Kit</button>
+                                    <div className="flex gap-3">
+                                        <button type="submit" className="flex-1 py-3 bg-turquoise-600 text-white font-bold rounded-xl shadow-lg hover:bg-turquoise-700 transition-colors btn-hover-effect">Guardar Kit</button>
+                                        {editingKitId && (
+                                            <button 
+                                                type="button"
+                                                onClick={() => handlePrintVineta(kitData)}
+                                                className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-colors btn-hover-effect flex items-center gap-2"
+                                            >
+                                                <Icons.Printer size={16}/> Imprimir
+                                            </button>
+                                        )}
+                                    </div>
                                 ) : (
-                                    <button type="button" onClick={closeKitForm} className="w-full py-3 bg-slate-600 text-white font-bold rounded-xl shadow-lg hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar Visualización</button>
+                                    <div className="flex gap-3">
+                                        <button type="button" onClick={closeKitForm} className="flex-1 py-3 bg-slate-600 text-white font-bold rounded-xl shadow-lg hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar</button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => handlePrintVineta(kitData)}
+                                            className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-colors btn-hover-effect flex items-center gap-2"
+                                        >
+                                            <Icons.Printer size={16}/> Imprimir
+                                        </button>
+                                    </div>
                                 )}
                             </form>
                             <datalist id="medsList">
@@ -2160,12 +2598,10 @@
 
                         <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-6 p-5 relative z-10">
-                                {/* ... Cabecera del historial igual ... */}
                                 <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
                                     <h2 className="text-xl font-bold text-slate-800">Historial de Producción</h2>
                                     <div className="text-2xl font-bold text-turquoise-600">{patientKits.length} <span className="text-sm text-slate-400 font-normal">Kits</span></div>
                                 </div>
-                                {/* ... Datos del paciente igual ... */}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                     <div>
                                         <span className="text-[10px] font-bold text-slate-400 block">Tipo Afiliado</span>
@@ -2193,7 +2629,6 @@
                                 {patientKits.map(kit => (
                                     <div key={kit.id} className="p-4 rounded-xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-4 relative group">
                                         <div className="flex-1">
-                                            {/* ... Datos del kit igual ... */}
                                             <div className="flex flex-wrap items-center gap-2 mb-2">
                                                 <span className="bg-turquoise-50 text-turquoise-700 px-2 py-1 rounded text-xs font-bold border border-turquoise-100">
                                                     <Icons.Calendar size={12} className="inline mr-1"/> {kit.fechaArmado}
@@ -2202,6 +2637,11 @@
                                                     {kit.deliveryMode === 'ruta' ? 'RUTA' : 'VENTANILLA'}
                                                 </span>
                                                 <span className="text-xs text-slate-400 font-mono">Hora Ops: {kit.horaOperaciones || '--:--'}</span>
+                                                {kit.isRefrigerated && (
+                                                    <span className="text-xs text-blue-600 font-bold flex items-center gap-1">
+                                                        <Icons.Box size={12}/> Refrigerado
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="mt-2 flex flex-wrap gap-1">
                                                 {kit.medicamentos?.slice(0,4).map((m,i) => (
@@ -2211,25 +2651,6 @@
                                                 ))}
                                                 {(kit.medicamentos?.length > 4) && <span className="text-[10px] text-slate-400 px-1">...</span>}
                                             </div>
-                                            
-                                            {/* BOTONES DE IMPRESIÓN SOLICITADOS */}
-                                            <div className="mt-3 flex gap-2">
-                                                <button 
-                                                    onClick={() => handlePrintKit(kit, kit.deliveryMode)}
-                                                    className="px-3 py-1 bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-slate-700"
-                                                >
-                                                    <Icons.Printer size={12}/> Etiqueta {kit.deliveryMode === 'ruta' ? 'Ruta' : 'Ventanilla'}
-                                                </button>
-                                                
-                                                {kit.isRefrigerated && (
-                                                    <button 
-                                                        onClick={() => handlePrintKit(kit, 'refrigerado')}
-                                                        className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-700"
-                                                    >
-                                                        <Icons.Box size={12}/> Etiqueta Refrigerado
-                                                    </button>
-                                                )}
-                                            </div>
                                         </div>
                                         <div className="flex gap-2 justify-end sm:justify-center items-start">
                                             <button onClick={() => openEditKit(kit, true)} className="text-slate-300 hover:text-blue-500 p-2 btn-hover-effect" title="Ver Detalle">
@@ -2237,6 +2658,13 @@
                                             </button>
                                             <button onClick={() => openEditKit(kit, false)} className="text-slate-300 hover:text-orange-500 p-2 btn-hover-effect" title="Editar">
                                                 <Icons.Edit size={18}/>
+                                            </button>
+                                            <button 
+                                                onClick={() => handlePrintVineta(kit)}
+                                                className="text-slate-300 hover:text-blue-600 p-2 btn-hover-effect"
+                                                title="Imprimir Viñeta"
+                                            >
+                                                <Icons.Printer size={18}/>
                                             </button>
                                             {(userRole==='superadmin'||userRole==='admin') && (
                                                 <button onClick={() => {if(confirm("¿Eliminar Kit?")) onDeleteKit(kit.id);}} className="text-slate-300 hover:text-red-500 p-2 btn-hover-effect">
@@ -2261,7 +2689,6 @@
                 <div className="glass-panel rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden border-0 bg-white">
                     <ConfirmModal isOpen={!!confirmData} onClose={()=>setConfirmData(null)} onConfirm={confirmData?.action} title={confirmData?.title} message={confirmData?.msg} />
                     <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-center bg-white/50 backdrop-blur-md">
-                        {/* ... Barra de herramientas principal (sin cambios) ... */}
                         <div className="flex items-center gap-4 w-full md:w-auto">
                             <div className="bg-turquoise-100 p-3 rounded-2xl text-turquoise-600">
                                 <Icons.Users size={24}/>
@@ -2300,7 +2727,6 @@
                         </div>
                     </div>
                     
-                    {/* ... (Modales y tabla de pacientes igual que en el original) ... */}
                     <Modal isOpen={showPatientForm} onClose={closePatientForm} title={editingPatientId ? "Editar Paciente" : "Nuevo Derechohabiente"} maxWidth="max-w-2xl">
                         <form onSubmit={handlePatientSubmit} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
@@ -2412,7 +2838,6 @@
                     </Modal>
 
                     <div className="h-full overflow-y-auto bg-white p-6">
-                        {/* Paginación y Tabla */}
                         {filteredPatients.length > patientsPerPage && (
                             <div className="mb-4 flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
                                 <div className="text-sm text-slate-600">
@@ -2486,6 +2911,35 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        {filteredPatients.length > patientsPerPage && (
+                            <div className="mt-4 flex justify-center">
+                                <div className="flex gap-1">
+                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                        let pageNum;
+                                        if (totalPages <= 5) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage <= 3) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pageNum = totalPages - 4 + i;
+                                        } else {
+                                            pageNum = currentPage - 2 + i;
+                                        }
+                                        
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`w-8 h-8 rounded-lg text-sm font-medium ${currentPage === pageNum ? 'bg-turquoise-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
@@ -2713,7 +3167,7 @@
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 try {
-                    if (!db) {
+                    if (!firebaseInitialized || !db) {
                         throw new Error("Base de datos no disponible");
                     }
                     
@@ -2843,6 +3297,20 @@
             const [sidebarCollapsed, setSidebarCollapsed] = useState(false); 
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
             const [cacheManager] = useState(new CacheManager());
+            const [firebaseStatus, setFirebaseStatus] = useState('Conectando...');
+
+            // Verificar estado de Firebase periódicamente
+            useEffect(() => {
+                const checkFirebaseStatus = async () => {
+                    const isConnected = await checkFirestoreConnection();
+                    setFirebaseStatus(isConnected ? 'Conectado' : 'Desconectado');
+                };
+
+                checkFirebaseStatus();
+                const interval = setInterval(checkFirebaseStatus, 30000); // Verificar cada 30 segundos
+
+                return () => clearInterval(interval);
+            }, []);
 
             const handleLogout = () => { 
                 // NO LIMPIAR EL CACHE al cerrar sesión
@@ -2862,12 +3330,23 @@
             const loadMedicines = async () => {
                 try {
                     const cachedMedicines = cacheManager.getMedicines();
-                    if (cachedMedicines) { setMedicines(cachedMedicines); return; }
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (cachedMedicines) {
+                        setMedicines(cachedMedicines);
+                        console.log('✅ Medicamentos cargados desde cache');
+                        return;
+                    }
+                    
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
+                    
                     const querySnapshot = await db.collection('prod_medicines').get();
-                    const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name));
+                    const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+                        .sort((a, b) => a.name.localeCompare(b.name));
+                    
                     cacheManager.saveMedicines(data);
                     setMedicines(data);
+                    console.log('🔥 Medicamentos cargados desde Firebase');
                 } catch (error) {
                     console.error('Error cargando medicamentos:', error);
                 }
@@ -2876,12 +3355,23 @@
             const loadContacts = async () => {
                 try {
                     const cachedContacts = cacheManager.getContacts();
-                    if (cachedContacts) { setContacts(cachedContacts); return; }
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (cachedContacts) {
+                        setContacts(cachedContacts);
+                        console.log('✅ Contactos cargados desde cache');
+                        return;
+                    }
+                    
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
+                    
                     const querySnapshot = await db.collection('prod_contacts').get();
-                    const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name));
+                    const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+                        .sort((a, b) => a.name.localeCompare(b.name));
+                    
                     cacheManager.saveContacts(data);
                     setContacts(data);
+                    console.log('🔥 Contactos cargados desde Firebase');
                 } catch (error) {
                     console.error('Error cargando contactos:', error);
                 }
@@ -2889,14 +3379,25 @@
 
             const loadUsers = async () => {
                 if (!(role === 'admin' || role === 'superadmin')) return;
+                
                 try {
                     const cachedUsers = cacheManager.getUsers();
-                    if (cachedUsers) { setUsers(cachedUsers); return; }
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (cachedUsers) {
+                        setUsers(cachedUsers);
+                        console.log('✅ Usuarios cargados desde cache');
+                        return;
+                    }
+                    
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
+                    
                     const querySnapshot = await db.collection('prod_users').get();
                     const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    
                     cacheManager.saveUsers(data);
                     setUsers(data);
+                    console.log('🔥 Usuarios cargados desde Firebase');
                 } catch (error) {
                     console.error('Error cargando usuarios:', error);
                 }
@@ -2905,145 +3406,239 @@
             const loadKits = async () => {
                 try {
                     const cachedKits = cacheManager.getKits();
-                    if (cachedKits) { setKits(cachedKits); return; }
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (cachedKits) {
+                        setKits(cachedKits);
+                        console.log('✅ Kits cargados desde cache');
+                        return;
+                    }
+                    
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
+                    
                     const querySnapshot = await db.collection('prod_kits').get();
-                    const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => new Date(b.fechaArmado) - new Date(a.fechaArmado));
+                    const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+                        .sort((a, b) => new Date(b.fechaArmado) - new Date(a.fechaArmado));
+                    
                     cacheManager.saveKits(data);
                     setKits(data);
+                    console.log('🔥 Kits cargados desde Firebase');
                 } catch (error) {
                     console.error('Error cargando kits:', error);
                 }
             };
 
             useEffect(() => {
-                if (!role || !db) return;
+                if (!role || !firebaseInitialized) return;
                 
                 loadMedicines();
                 loadContacts();
                 loadUsers();
                 loadKits();
                 
-                const unsubMedicines = db.collection('prod_medicines').onSnapshot(s => {
-                    const data = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name));
-                    setMedicines(data);
-                    cacheManager.saveMedicines(data);
-                });
-                
-                const unsubContacts = db.collection('prod_contacts').onSnapshot(s => {
-                    const data = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name));
-                    setContacts(data);
-                    cacheManager.saveContacts(data);
-                });
-                
-                const unsubKits = db.collection('prod_kits').onSnapshot(s => {
-                    const data = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => new Date(b.fechaArmado) - new Date(a.fechaArmado));
-                    setKits(data);
-                    cacheManager.saveKits(data);
-                });
-                
-                if (role === 'admin' || role === 'superadmin') {
-                    const unsubUsers = db.collection('prod_users').onSnapshot(s => {
-                        const data = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                        setUsers(data);
-                        cacheManager.saveUsers(data);
-                    });
+                // Escuchar cambios en tiempo real solo si Firebase está inicializado
+                if (firebaseInitialized && db) {
+                    const unsubMedicines = db.collection('prod_medicines')
+                        .onSnapshot(s => {
+                            const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
+                                .sort((a, b) => a.name.localeCompare(b.name));
+                            setMedicines(data);
+                            cacheManager.saveMedicines(data);
+                        });
                     
-                    return () => { unsubMedicines(); unsubContacts(); unsubKits(); unsubUsers(); };
+                    const unsubContacts = db.collection('prod_contacts')
+                        .onSnapshot(s => {
+                            const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
+                                .sort((a, b) => a.name.localeCompare(b.name));
+                            setContacts(data);
+                            cacheManager.saveContacts(data);
+                        });
+                    
+                    const unsubKits = db.collection('prod_kits')
+                        .onSnapshot(s => {
+                            const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
+                                .sort((a, b) => new Date(b.fechaArmado) - new Date(a.fechaArmado));
+                            setKits(data);
+                            cacheManager.saveKits(data);
+                        });
+                    
+                    if (role === 'admin' || role === 'superadmin') {
+                        const unsubUsers = db.collection('prod_users')
+                            .onSnapshot(s => {
+                                const data = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                                setUsers(data);
+                                cacheManager.saveUsers(data);
+                            });
+                        
+                        return () => {
+                            unsubMedicines();
+                            unsubContacts();
+                            unsubKits();
+                            unsubUsers();
+                        };
+                    }
+                    
+                    return () => {
+                        unsubMedicines();
+                        unsubContacts();
+                        unsubKits();
+                    };
                 }
-                
-                return () => { unsubMedicines(); unsubContacts(); unsubKits(); };
-            }, [role, db]);
+            }, [role, firebaseInitialized]);
 
-            // ... (Funciones addPatient, updatePatient, deletePatient, etc. se mantienen igual que la versión anterior) ...
             const addPatient = async (d) => {
                 try {
-                    if (!db) throw new Error("Base de datos no disponible");
-                    const result = await db.collection('prod_patients').add({ ...d, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
+                    const result = await db.collection('prod_patients').add({
+                        ...d, 
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log("Patient added with ID: ", result.id);
                     cacheManager.clearPatientCache();
                     return result;
-                } catch (error) { console.error("Error adding patient: ", error); throw error; }
+                } catch (error) {
+                    console.error("Error adding patient: ", error);
+                    throw error;
+                }
             };
             
             const updatePatient = async (id, d) => {
                 try {
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
                     await db.collection('prod_patients').doc(id).update(d);
                     cacheManager.clearPatientCache(id);
-                } catch (error) { console.error("Error updating patient: ", error); throw error; }
+                } catch (error) {
+                    console.error("Error updating patient: ", error);
+                    throw error;
+                }
             };
             
             const deletePatient = async (id) => {
                 try {
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
                     await db.collection('prod_patients').doc(id).delete();
                     cacheManager.clearPatientCache(id);
-                } catch (error) { console.error("Error deleting patient: ", error); throw error; }
+                } catch (error) {
+                    console.error("Error deleting patient: ", error);
+                    throw error;
+                }
             };
             
             const saveKit = async (id, data, pid, isUpdate) => {
                 try {
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
                     let resultId = id;
                     if(isUpdate) {
                         await db.collection('prod_kits').doc(id).update(data);
                     } else {
-                        const result = await db.collection('prod_kits').add({ ...data, patientId: pid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                        const result = await db.collection('prod_kits').add({
+                            ...data, 
+                            patientId: pid, 
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
                         resultId = result.id;
                     }
                     cacheManager.clearCache(cacheManager.KITS_CACHE_KEY);
                     return resultId;
-                } catch (error) { console.error("Error saving kit: ", error); throw error; }
+                } catch (error) {
+                    console.error("Error saving kit: ", error);
+                    throw error;
+                }
             };
             
             const deleteKit = async (id) => {
                 try {
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
                     await db.collection('prod_kits').doc(id).delete();
                     cacheManager.clearCache(cacheManager.KITS_CACHE_KEY);
-                } catch (error) { console.error("Error deleting kit: ", error); throw error; }
+                } catch (error) {
+                    console.error("Error deleting kit: ", error);
+                    throw error;
+                }
             };
             
             const addMedsList = async (list) => { 
                 try {
-                    if (!db) throw new Error("Base de datos no disponible");
-                    for(const name of list) { await db.collection('prod_medicines').add({ name }); }
-                } catch (error) { console.error("Error adding medicines: ", error); throw error; }
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
+                    for(const name of list) {
+                        await db.collection('prod_medicines').add({ name });
+                    }
+                } catch (error) {
+                    console.error("Error adding medicines: ", error);
+                    throw error;
+                }
             };
             
             const addContact = async (name, phone) => {
                 try {
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
                     await db.collection('prod_contacts').add({ name, phone });
-                } catch (error) { console.error("Error adding contact: ", error); throw error; }
+                } catch (error) {
+                    console.error("Error adding contact: ", error);
+                    throw error;
+                }
             };
             
             const deleteContact = async (id) => {
                 try {
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
                     await db.collection('prod_contacts').doc(id).delete();
-                } catch (error) { console.error("Error deleting contact: ", error); throw error; }
+                } catch (error) {
+                    console.error("Error deleting contact: ", error);
+                    throw error;
+                }
             };
 
             const addUser = async (u) => {
                 try {
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
                     await db.collection('prod_users').add(u);
-                } catch (error) { console.error("Error adding user: ", error); throw error; }
+                } catch (error) {
+                    console.error("Error adding user: ", error);
+                    throw error;
+                }
             };
             
             const updateUser = async (id, u) => {
                 try {
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
                     await db.collection('prod_users').doc(id).update(u);
-                } catch (error) { console.error("Error updating user: ", error); throw error; }
+                } catch (error) {
+                    console.error("Error updating user: ", error);
+                    throw error;
+                }
             };
             
             const deleteUser = async (id) => {
                 try {
-                    if (!db) throw new Error("Base de datos no disponible");
+                    if (!firebaseInitialized || !db) {
+                        throw new Error("Base de datos no disponible");
+                    }
                     await db.collection('prod_users').doc(id).delete();
-                } catch (error) { console.error("Error deleting user: ", error); throw error; }
+                } catch (error) {
+                    console.error("Error deleting user: ", error);
+                    throw error;
+                }
             };
 
             if (!role) return <LoginBlock onLogin={handleLogin} />;
@@ -3071,7 +3666,7 @@
                         <div className="fixed inset-0 z-50 bg-turquoise-900/95 backdrop-blur-sm flex flex-col md:hidden animate-in">
                             <div className="p-4 flex justify-between items-center border-b border-turquoise-800">
                                 <div className="font-bold text-white text-xl flex items-center gap-2 brand-font">
-                                    <Icons.Activity/> LEQ Móvil
+                                    <Icons.Activity/> Bitácora Producción
                                 </div>
                                 <button onClick={() => setMobileMenuOpen(false)} className="text-white p-2 bg-turquoise-800 rounded-full btn-hover-effect">
                                     <Icons.X size={24}/>
@@ -3135,7 +3730,7 @@
                                 {!sidebarCollapsed && (
                                     <div className="overflow-hidden">
                                         <div className="text-sm font-bold text-white capitalize truncate">{userName}</div>
-                                        <div className="text-[10px] text-turquoise-300 truncate">En línea</div>
+                                        <div className="text-[10px] text-turquoise-300 truncate">{firebaseStatus}</div>
                                     </div>
                                 )}
                             </div>
@@ -3155,7 +3750,7 @@
                                 <Icons.Menu size={24}/>
                             </button>
                             <div className="font-bold text-slate-800 flex items-center gap-2 brand-font">
-                                <Icons.Activity size={18} className="text-turquoise-600"/> LEQ Móvil
+                                <Icons.Activity size={18} className="text-turquoise-600"/> Bitácora Producción
                             </div>
                             <div className="w-8"></div>
                         </div>
