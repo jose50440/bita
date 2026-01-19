@@ -123,6 +123,7 @@
         let firebaseInitialized = false;
         let firebaseConnectionError = null;
         let firebaseConnectionStatus = 'initializing';
+        let firebaseInitPromise = null; // Singleton promise para evitar doble inicialización
         
         // Smoke test para verificar conexión real a Firestore
         // Usa getDoc en lugar de limit(0) porque limit(0) no es válido en Firestore
@@ -161,115 +162,151 @@
             }
         };
         
-        // Función para inicializar Firebase cuando esté disponible
+        // Función para inicializar Firebase cuando esté disponible (singleton)
         const initializeFirebase = async () => {
-            try {
-                // Verificar que Firebase esté disponible
-                if (typeof firebase === 'undefined') {
-                    throw new Error("firebase object no está disponible. Verifica que los scripts se carguen correctamente.");
-                }
-                
-                // Verificar servicios necesarios
-                if (typeof firebase.initializeApp === 'undefined') {
-                    throw new Error("firebase.initializeApp no está disponible. Scripts incompletos.");
-                }
-                if (typeof firebase.firestore === 'undefined') {
-                    throw new Error("firebase.firestore no está disponible. Scripts incompletos.");
-                }
-                if (typeof firebase.auth === 'undefined') {
-                    throw new Error("firebase.auth no está disponible. Scripts incompletos.");
-                }
-                
-                // Verificar si ya existe una app inicializada (evitar doble inicialización)
-                let existingApp = null;
-                if (firebase.apps && Array.isArray(firebase.apps) && firebase.apps.length > 0) {
-                    existingApp = firebase.apps.find(a => a.name === '[DEFAULT]');
-                }
-                
-                // Inicializar o usar existente
-                if (existingApp) {
-                    app = existingApp;
-                    console.log("✅ Usando instancia existente de Firebase");
-                } else {
-                    app = firebase.initializeApp(firebaseConfig);
-                    console.log("🚀 Firebase app inicializada");
-                }
-                
-                // Obtener servicios
-                auth = firebase.auth();
-                db = firebase.firestore();
-                
-                if (!db) {
-                    throw new Error("Firestore no se pudo inicializar");
-                }
-                
-                // Smoke test: verificar conexión real
-                console.log("🔍 Ejecutando smoke test de Firestore...");
-                const smokeTest = await smokeTestFirestore(db);
-                
-                if (!smokeTest.success) {
-                    // Solo lanzar error si es un problema de red real
-                    if (smokeTest.isNetworkError) {
-                        throw new Error(`Error de red al conectar con Firestore: ${smokeTest.error?.code || 'network-error'}`);
+            // Si ya hay una inicialización en curso, retornar esa promise
+            if (firebaseInitPromise) {
+                return firebaseInitPromise;
+            }
+            
+            // Si ya está inicializado, retornar inmediatamente
+            if (firebaseInitialized && app && db && auth) {
+                return { app, auth, db };
+            }
+            
+            // Crear nueva promise de inicialización
+            firebaseInitPromise = (async () => {
+                try {
+                    // Verificar que Firebase esté disponible
+                    if (typeof firebase === 'undefined') {
+                        throw new Error("firebase object no está disponible. Verifica que los scripts se carguen correctamente.");
                     }
                     
-                    // Si el error NO es de red ni de permisos, verificar si Firebase está realmente inicializado
-                    if (!smokeTest.isPermissionDenied) {
-                        // Verificar si realmente tenemos acceso a Firebase
-                        if (typeof firebase === 'undefined' || !firebase.apps || firebase.apps.length === 0) {
-                            throw new Error("Firebase no está completamente inicializado. Los scripts pueden no haberse cargado correctamente.");
-                        }
-                        // Si Firebase está inicializado pero el smoke test falló por otra razón,
-                        // considerar como éxito (puede ser un problema temporal o de configuración)
-                        console.warn("⚠️ Smoke test falló pero Firebase está inicializado. Continuando...");
+                    // Verificar servicios necesarios
+                    if (typeof firebase.initializeApp === 'undefined') {
+                        throw new Error("firebase.initializeApp no está disponible. Scripts incompletos.");
                     }
+                    if (typeof firebase.firestore === 'undefined') {
+                        throw new Error("firebase.firestore no está disponible. Scripts incompletos.");
+                    }
+                    if (typeof firebase.auth === 'undefined') {
+                        throw new Error("firebase.auth no está disponible. Scripts incompletos.");
+                    }
+                    
+                    // Verificar si ya existe una app inicializada (evitar doble inicialización)
+                    let existingApp = null;
+                    if (firebase.apps && Array.isArray(firebase.apps) && firebase.apps.length > 0) {
+                        existingApp = firebase.apps.find(a => a.name === '[DEFAULT]');
+                    }
+                    
+                    // Inicializar o usar existente
+                    if (existingApp) {
+                        app = existingApp;
+                        console.log("✅ Usando instancia existente de Firebase");
+                    } else {
+                        app = firebase.initializeApp(firebaseConfig);
+                        console.log("🚀 Firebase app inicializada");
+                    }
+                    
+                    // Obtener servicios
+                    auth = firebase.auth();
+                    db = firebase.firestore();
+                    
+                    if (!db) {
+                        throw new Error("Firestore no se pudo inicializar");
+                    }
+                    
+                    // CRÍTICO: Habilitar persistencia ANTES de cualquier uso de Firestore
+                    // Esto debe hacerse inmediatamente después de crear db, antes de cualquier query
+                    console.log("📦 Habilitando persistencia offline...");
+                    if (db && db.enablePersistence) {
+                        try {
+                            await db.enablePersistence();
+                            console.log("✅ Persistencia offline habilitada");
+                        } catch (persistenceError) {
+                            // Manejar errores de persistencia sin tumbar la inicialización
+                            if (persistenceError.code === 'failed-precondition') {
+                                // Múltiples tabs abiertos - solo uno puede tener persistencia
+                                console.warn("⚠️ Persistencia offline no disponible: múltiples pestañas abiertas (normal)");
+                            } else if (persistenceError.code === 'unimplemented') {
+                                // Navegador no soporta IndexedDB
+                                console.warn("⚠️ Persistencia offline no disponible: navegador no soporta IndexedDB");
+                            } else {
+                                // Otro error de persistencia
+                                console.warn("⚠️ Persistencia offline no disponible:", persistenceError.code || persistenceError.message);
+                            }
+                            // NO lanzar error - la app puede funcionar sin persistencia
+                        }
+                    } else {
+                        console.warn("⚠️ enablePersistence no está disponible en esta versión de Firestore");
+                    }
+                    
+                    // AHORA SÍ: ejecutar smoke test DESPUÉS de habilitar persistencia
+                    console.log("🔍 Ejecutando smoke test de Firestore...");
+                    const smokeTest = await smokeTestFirestore(db);
+                    
+                    if (!smokeTest.success) {
+                        // Solo lanzar error si es un problema de red real
+                        if (smokeTest.isNetworkError) {
+                            throw new Error(`Error de red al conectar con Firestore: ${smokeTest.error?.code || 'network-error'}`);
+                        }
+                        
+                        // Si el error NO es de red ni de permisos, verificar si Firebase está realmente inicializado
+                        if (!smokeTest.isPermissionDenied) {
+                            // Verificar si realmente tenemos acceso a Firebase
+                            if (typeof firebase === 'undefined' || !firebase.apps || firebase.apps.length === 0) {
+                                throw new Error("Firebase no está completamente inicializado. Los scripts pueden no haberse cargado correctamente.");
+                            }
+                            // Si Firebase está inicializado pero el smoke test falló por otra razón,
+                            // considerar como éxito (puede ser un problema temporal o de configuración)
+                            console.warn("⚠️ Smoke test falló pero Firebase está inicializado. Continuando...");
+                        }
+                    }
+                    
+                    // Si es permission-denied, mostrar advertencia pero continuar (éxito)
+                    if (smokeTest.isPermissionDenied) {
+                        console.warn("⚠️ Firestore conectado pero reglas de seguridad bloquean acceso. Esto es normal si las reglas están restringidas.");
+                    }
+                    
+                    // Si llegamos aquí, el smoke test pasó o fue no crítico
+                    console.log("✅ Smoke test completado exitosamente");
+                    
+                    // Si llegamos aquí, Firebase está completamente conectado
+                    firebaseInitialized = true;
+                    firebaseConnectionStatus = 'connected';
+                    firebaseConnectionError = null;
+                    console.log("✅ Firebase completamente inicializado y conectado");
+                    console.log("✅ Auth:", !!auth);
+                    console.log("✅ Firestore:", !!db);
+                    
+                    // Disparar evento personalizado
+                    window.dispatchEvent(new CustomEvent('firebaseInitialized', { 
+                        detail: { app, auth, db } 
+                    }));
+                    
+                    return { app, auth, db };
+                    
+                } catch (error) {
+                    console.error("❌ Error al inicializar Firebase:", error);
+                    firebaseInitialized = false;
+                    firebaseConnectionStatus = 'error';
+                    firebaseConnectionError = {
+                        code: error.code || 'initialization-error',
+                        message: error.message || 'Error desconocido al inicializar Firebase',
+                        details: error.toString()
+                    };
+                    
+                    window.dispatchEvent(new CustomEvent('firebaseError', { 
+                        detail: firebaseConnectionError 
+                    }));
+                    
+                    // Limpiar promise para permitir reintento
+                    firebaseInitPromise = null;
+                    throw error;
                 }
-                
-                // Si es permission-denied, mostrar advertencia pero continuar (éxito)
-                if (smokeTest.isPermissionDenied) {
-                    console.warn("⚠️ Firestore conectado pero reglas de seguridad bloquean acceso. Esto es normal si las reglas están restringidas.");
-                }
-                
-                // Si llegamos aquí, el smoke test pasó o fue no crítico
-                console.log("✅ Smoke test completado exitosamente");
-                
-                // Si llegamos aquí, Firebase está completamente conectado
-                firebaseInitialized = true;
-                firebaseConnectionStatus = 'connected';
-                firebaseConnectionError = null;
-                console.log("✅ Firebase completamente inicializado y conectado");
-                console.log("✅ Auth:", !!auth);
-                console.log("✅ Firestore:", !!db);
-                
-                // Configurar persistencia offline (opcional, puede fallar en algunos navegadores)
-                if (db && db.enablePersistence) {
-                    db.enablePersistence()
-                        .then(() => console.log("📦 Persistencia offline habilitada"))
-                        .catch(err => {
-                            // No es crítico si falla
-                            console.warn("⚠️ Persistencia offline no disponible:", err.code);
-                        });
-                }
-                
-                // Disparar evento personalizado
-                window.dispatchEvent(new CustomEvent('firebaseInitialized', { 
-                    detail: { app, auth, db } 
-                }));
-                
-            } catch (error) {
-                console.error("❌ Error al inicializar Firebase:", error);
-                firebaseInitialized = false;
-                firebaseConnectionStatus = 'error';
-                firebaseConnectionError = {
-                    code: error.code || 'initialization-error',
-                    message: error.message || 'Error desconocido al inicializar Firebase',
-                    details: error.toString()
-                };
-                
-                window.dispatchEvent(new CustomEvent('firebaseError', { 
-                    detail: firebaseConnectionError 
-                }));
-            }
+            })();
+            
+            return firebaseInitPromise;
         };
         
         // Función de diagnóstico para detectar problemas de carga
@@ -416,6 +453,8 @@
             retryCount = 0;
             firebaseConnectionStatus = 'initializing';
             firebaseConnectionError = null;
+            firebaseInitPromise = null; // Limpiar promise para permitir reinicialización
+            firebaseInitialized = false; // Resetear estado
             startFirebaseInit();
         };
         
