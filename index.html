@@ -195,7 +195,9 @@
                 return false;
             }
             
-            // Firebase está listo - las colecciones se crearán automáticamente al escribir datos
+            // Con las reglas configuradas correctamente, si Firebase está inicializado
+            // y db está disponible, entonces está conectado
+            // Las colecciones se crearán automáticamente al escribir datos
             return true;
         };
 
@@ -1241,7 +1243,8 @@
                         const isConnected = await checkFirestoreConnection();
                         if (isConnected) {
                             setFirebaseStatus('Conectado');
-                            console.log("✅ Firebase conectado - Las colecciones se crearán automáticamente al guardar datos");
+                            console.log("✅ Firebase conectado correctamente");
+                            console.log("ℹ️ Las colecciones se crearán automáticamente al guardar datos");
                             isChecking = false;
                         } else {
                             setFirebaseStatus('Conectando...');
@@ -1314,7 +1317,12 @@
                     }
                 } catch (err) { 
                     console.error('Error en login:', err);
-                    setError(`Error de conexión: ${err.message}`); 
+                    // Manejar errores de permisos en modo producción
+                    if (err.code === 'permission-denied') {
+                        setError('Error: Permisos insuficientes. Verifica las reglas de seguridad de Firestore en modo producción.'); 
+                    } else {
+                        setError(`Error de conexión: ${err.message}`); 
+                    }
                     setLoading(false); 
                 }
             };
@@ -3550,11 +3558,15 @@
                         ...d, 
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                    console.log("Patient added with ID: ", result.id);
+                    console.log("✅ Paciente guardado con ID: ", result.id);
                     cacheManager.clearPatientCache();
                     return result;
                 } catch (error) {
-                    console.error("Error adding patient: ", error);
+                    console.error("❌ Error guardando paciente: ", error);
+                    // Manejar errores de permisos específicamente
+                    if (error.code === 'permission-denied') {
+                        throw new Error("Permisos insuficientes. Verifica las reglas de seguridad de Firestore.");
+                    }
                     throw error;
                 }
             };
@@ -3593,6 +3605,7 @@
                     let resultId = id;
                     if(isUpdate) {
                         await db.collection('prod_kits').doc(id).update(data);
+                        console.log("✅ Kit actualizado: ", id);
                     } else {
                         const result = await db.collection('prod_kits').add({
                             ...data, 
@@ -3600,11 +3613,15 @@
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                         resultId = result.id;
+                        console.log("✅ Kit guardado con ID: ", resultId);
                     }
                     cacheManager.clearCache(cacheManager.KITS_CACHE_KEY);
                     return resultId;
                 } catch (error) {
-                    console.error("Error saving kit: ", error);
+                    console.error("❌ Error guardando kit: ", error);
+                    if (error.code === 'permission-denied') {
+                        throw new Error("Permisos insuficientes. Verifica las reglas de seguridad de Firestore.");
+                    }
                     throw error;
                 }
             };
