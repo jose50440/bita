@@ -25,7 +25,6 @@
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js"></script>
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -109,18 +108,18 @@
     <div id="root" class="h-full"></div>
 
     <script type="text/babel" data-type="module">
-        // CONFIGURACIÓN MEJORADA DE FIREBASE - NUEVA BASE DE DATOS
+        // CONFIGURACIÓN DE FIREBASE - NUEVA BASE DE DATOS
         const firebaseConfig = {
-            apiKey: "AIzaSyChbdbjQaPkoSj7wXhUrO_ZDG0cJ_RYfFk",
-            authDomain: "operacionesbita.firebaseapp.com",
-            projectId: "operacionesbita",
-            storageBucket: "operacionesbita.firebasestorage.app",
-            messagingSenderId: "734557088994",
-            appId: "1:734557088994:web:113a9e29320568760602bb"
+            apiKey: "AIzaSyBJYFlJFJgrGNKuxshG79zvMifPn57m5X8",
+            authDomain: "dataoperativa-c0c3e.firebaseapp.com",
+            projectId: "dataoperativa-c0c3e",
+            storageBucket: "dataoperativa-c0c3e.firebasestorage.app",
+            messagingSenderId: "1041657828353",
+            appId: "1:1041657828353:web:99b67aaedd93e583f51c00"
         };
 
         // Inicializar Firebase con manejo de errores mejorado
-        let app, auth, db, storage;
+        let app, auth, db;
         let firebaseInitialized = false;
         let firebaseConnectionError = null;
         let firebaseConnectionStatus = 'initializing'; // 'initializing', 'connected', 'error', 'timeout'
@@ -162,9 +161,6 @@
                 if (typeof firebase.auth === 'undefined') {
                     throw new Error("firebase.auth no está disponible");
                 }
-                if (typeof firebase.storage === 'undefined') {
-                    throw new Error("firebase.storage no está disponible");
-                }
                 
                 console.log("✅ Todos los servicios de Firebase están disponibles");
                 
@@ -195,7 +191,6 @@
                     // Inicializar servicios
                     auth = firebase.auth();
                     db = firebase.firestore();
-                    storage = firebase.storage();
                     
                     // Verificar que los servicios estén disponibles
                     if (!db) {
@@ -208,11 +203,11 @@
                     console.log("✅ Firebase completamente inicializado");
                     console.log("✅ auth:", !!auth);
                     console.log("✅ db:", !!db);
-                    console.log("✅ storage:", !!storage);
+                    console.log("ℹ️ Storage no configurado (por ahora)");
                     
                     // Disparar evento personalizado para notificar que Firebase está listo
                     window.dispatchEvent(new CustomEvent('firebaseInitialized', { 
-                        detail: { app, auth, db, storage } 
+                        detail: { app, auth, db } 
                     }));
                     
                     // Configurar persistencia offline (opcional, puede fallar en algunos navegadores)
@@ -258,8 +253,7 @@
             const scripts = {
                 'firebase-app': typeof firebase !== 'undefined',
                 'firebase-auth': typeof firebase !== 'undefined' && typeof firebase.auth === 'function',
-                'firebase-firestore': typeof firebase !== 'undefined' && typeof firebase.firestore === 'function',
-                'firebase-storage': typeof firebase !== 'undefined' && typeof firebase.storage === 'function'
+                'firebase-firestore': typeof firebase !== 'undefined' && typeof firebase.firestore === 'function'
             };
             
             const missing = Object.entries(scripts)
@@ -279,8 +273,7 @@
                 const scriptsToLoad = [
                     { name: 'firebase-app', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js' },
                     { name: 'firebase-auth', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js' },
-                    { name: 'firebase-firestore', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js' },
-                    { name: 'firebase-storage', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js' }
+                    { name: 'firebase-firestore', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js' }
                 ];
                 
                 let loadedCount = 0;
@@ -646,6 +639,10 @@
             };
 
             const loadUploadedImages = async () => {
+                // Storage deshabilitado temporalmente
+                return;
+                
+                /* Código comentado - Storage no disponible por ahora
                 try {
                     if (!firebaseInitialized || !db) {
                         console.warn('Firebase no disponible para cargar imágenes');
@@ -663,6 +660,7 @@
                 } catch (error) {
                     console.error('Error cargando imágenes:', error);
                 }
+                */
             };
 
             const handleDragStart = (e, type) => {
@@ -740,42 +738,22 @@
             };
 
             const handleImageUpload = async (e) => {
+                // Storage deshabilitado temporalmente
+                alert('La carga de imágenes está deshabilitada temporalmente. Storage no está configurado.');
+                return;
+                
+                /* Código comentado - Storage no disponible por ahora
                 const file = e.target.files[0];
                 if (!file) return;
                 
                 setImageUploading(true);
                 try {
-                    if (!firebaseInitialized || !storage) {
-                        throw new Error("Firebase Storage no disponible");
+                    if (!firebaseInitialized) {
+                        throw new Error("Firebase no disponible");
                     }
                     
-                    const storageRef = storage.ref();
-                    const imageRef = storageRef.child(`templates/${Date.now()}_${file.name}`);
-                    await imageRef.put(file);
-                    const downloadURL = await imageRef.getDownloadURL();
-                    
-                    // Guardar referencia en Firestore
-                    await db.collection('prod_images').add({
-                        name: file.name,
-                        url: downloadURL,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    
-                    // Agregar como elemento de imagen
-                    const newElement = {
-                        id: Date.now().toString(),
-                        type: 'image',
-                        x: 50,
-                        y: 50,
-                        width: 100,
-                        height: 100,
-                        url: downloadURL,
-                        alt: file.name
-                    };
-                    
-                    setElements([...elements, newElement]);
-                    setSelectedElement(newElement);
-                    loadUploadedImages();
+                    // TODO: Implementar cuando Storage esté disponible
+                    alert('Storage no está configurado aún');
                     
                 } catch (error) {
                     console.error('Error subiendo imagen:', error);
@@ -783,6 +761,7 @@
                 } finally {
                     setImageUploading(false);
                 }
+                */
             };
 
             const saveTemplate = async () => {
