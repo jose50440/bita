@@ -118,358 +118,62 @@
             appId: "1:1041657828353:web:99b67aaedd93e583f51c00"
         };
 
-        // Inicializar Firebase con manejo de errores mejorado
+        // Inicializar Firebase - Versión simplificada y funcional
         let app, auth, db;
         let firebaseInitialized = false;
         let firebaseConnectionError = null;
-        let firebaseConnectionStatus = 'initializing'; // 'initializing', 'connected', 'error', 'timeout'
+        let firebaseConnectionStatus = 'initializing';
         
-        // Función para inicializar Firebase
-        const initializeFirebase = () => {
-            try {
-                console.log("🔍 Intentando inicializar Firebase...");
-                
-                // Verificar scripts primero
-                const scriptStatus = checkFirebaseScripts();
-                if (!scriptStatus.allLoaded) {
-                    console.error("❌ Scripts de Firebase no están completamente cargados:", scriptStatus.missing);
-                    throw new Error(`Scripts faltantes: ${scriptStatus.missing.join(', ')}`);
-                }
-                
-                console.log("✅ Todos los scripts de Firebase están cargados");
-                console.log("🔍 typeof firebase:", typeof firebase);
-                console.log("🔍 firebase disponible:", typeof firebase !== 'undefined');
-                
-                // Verificar que Firebase esté completamente disponible
-                if (typeof firebase === 'undefined') {
-                    console.warn("⚠️ Firebase aún no está cargado, reintentando en 500ms...");
-                    setTimeout(initializeFirebase, 500);
-                    return;
-                }
-                
-                // Verificar que firebase.initializeApp esté disponible
-                if (typeof firebase.initializeApp === 'undefined') {
-                    console.warn("⚠️ firebase.initializeApp no está disponible, reintentando...");
-                    setTimeout(initializeFirebase, 500);
-                    return;
-                }
-                
-                // Verificar que todos los servicios estén disponibles
-                if (typeof firebase.firestore === 'undefined') {
-                    throw new Error("firebase.firestore no está disponible");
-                }
-                if (typeof firebase.auth === 'undefined') {
-                    throw new Error("firebase.auth no está disponible");
-                }
-                
-                console.log("✅ Todos los servicios de Firebase están disponibles");
-                
-                // Verificar si ya existe una instancia
-                let existingApp = null;
-                if (firebase.apps && Array.isArray(firebase.apps)) {
-                    existingApp = firebase.apps.find(a => a.name === '[DEFAULT]');
-                }
-                
-                if (existingApp) {
-                    app = existingApp;
-                    console.log("✅ Usando instancia existente de Firebase");
-                } else {
-                    try {
-                        app = firebase.initializeApp(firebaseConfig);
-                        console.log("🚀 Firebase inicializado correctamente");
-                    } catch (initError) {
-                        if (initError.code === 'app/already-exists') {
-                            app = firebase.app();
-                            console.log("✅ Firebase ya estaba inicializado, usando instancia existente");
-                        } else {
-                            throw initError;
-                        }
-                    }
-                }
-                
-                if (app) {
-                    // Inicializar servicios
-                    auth = firebase.auth();
-                    db = firebase.firestore();
-                    
-                    // Verificar que los servicios estén disponibles
-                    if (!db) {
-                        throw new Error("Firestore no está disponible");
-                    }
-                    
-                    firebaseInitialized = true;
-                    firebaseConnectionStatus = 'connected';
-                    firebaseConnectionError = null;
-                    console.log("✅ Firebase completamente inicializado");
-                    console.log("✅ auth:", !!auth);
-                    console.log("✅ db:", !!db);
-                    console.log("ℹ️ Storage no configurado (por ahora)");
-                    
-                    // Disparar evento personalizado para notificar que Firebase está listo
-                    window.dispatchEvent(new CustomEvent('firebaseInitialized', { 
-                        detail: { app, auth, db } 
-                    }));
-                    
-                    // Configurar persistencia offline (opcional, puede fallar en algunos navegadores)
-                    if (db && db.enablePersistence) {
-                        db.enablePersistence()
-                            .then(() => console.log("📦 Persistencia offline habilitada"))
-                            .catch(err => {
-                                // No es crítico si falla
-                                console.warn("⚠️ Persistencia offline no disponible:", err.code);
-                            });
-                    }
-                } else {
-                    throw new Error("No se pudo crear o obtener la app de Firebase");
-                }
-            } catch (error) {
-                console.error("❌ Error crítico al inicializar Firebase:", error);
-                console.error("❌ Error code:", error.code);
-                console.error("❌ Error message:", error.message);
-                firebaseInitialized = false;
-                firebaseConnectionStatus = 'error';
-                firebaseConnectionError = {
-                    code: error.code || 'unknown',
-                    message: error.message || 'Error desconocido',
-                    details: error.toString()
-                };
-                
-                // Disparar evento de error
-                window.dispatchEvent(new CustomEvent('firebaseError', { 
-                    detail: firebaseConnectionError 
-                }));
-                
-                // Reintentar después de un segundo (máximo 3 intentos)
-                const retryCount = window.firebaseRetryCount || 0;
-                if (retryCount < 3) {
-                    window.firebaseRetryCount = retryCount + 1;
-                    setTimeout(initializeFirebase, 1000);
-                }
-            }
-        };
-        
-        // Verificar que los scripts de Firebase se hayan cargado
-        const checkFirebaseScripts = () => {
-            const scripts = {
-                'firebase-app': typeof firebase !== 'undefined',
-                'firebase-auth': typeof firebase !== 'undefined' && typeof firebase.auth === 'function',
-                'firebase-firestore': typeof firebase !== 'undefined' && typeof firebase.firestore === 'function'
-            };
-            
-            const missing = Object.entries(scripts)
-                .filter(([name, loaded]) => !loaded)
-                .map(([name]) => name);
-            
-            return {
-                allLoaded: missing.length === 0,
-                missing: missing,
-                details: scripts
-            };
-        };
-        
-        // Cargar scripts de Firebase dinámicamente si no se cargaron
-        const loadFirebaseScripts = () => {
-            return new Promise((resolve, reject) => {
-                const scriptsToLoad = [
-                    { name: 'firebase-app', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js' },
-                    { name: 'firebase-auth', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js' },
-                    { name: 'firebase-firestore', url: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js' }
-                ];
-                
-                let loadedCount = 0;
-                const errors = [];
-                const loadedScripts = [];
-                
-                // Primero verificar cuáles scripts ya existen
-                scriptsToLoad.forEach(scriptInfo => {
-                    const existingScript = document.querySelector(`script[src*="${scriptInfo.name}"]`);
-                    if (existingScript) {
-                        loadedCount++;
-                        loadedScripts.push(scriptInfo.name);
-                    }
-                });
-                
-                // Si todos ya existen, solo verificar
-                if (loadedCount === scriptsToLoad.length) {
-                    setTimeout(() => {
-                        const status = checkFirebaseScripts();
-                        if (status.allLoaded) {
-                            resolve(true);
-                        } else {
-                            reject(new Error(`Scripts existentes pero no funcionando. Faltantes: ${status.missing.join(', ')}`));
-                        }
-                    }, 500);
-                    return;
-                }
-                
-                // Cargar scripts que faltan en orden secuencial
-                const loadScript = (index) => {
-                    if (index >= scriptsToLoad.length) {
-                        // Todos los scripts cargados
-                        setTimeout(() => {
-                            const status = checkFirebaseScripts();
-                            if (status.allLoaded) {
-                                resolve(true);
-                            } else {
-                                reject(new Error(`Scripts cargados pero no funcionando. Faltantes: ${status.missing.join(', ')}`));
-                            }
-                        }, 1000);
-                        return;
-                    }
-                    
-                    const scriptInfo = scriptsToLoad[index];
-                    
-                    // Si ya existe, pasar al siguiente
-                    if (loadedScripts.includes(scriptInfo.name)) {
-                        loadScript(index + 1);
-                        return;
-                    }
-                    
-                    const script = document.createElement('script');
-                    script.src = scriptInfo.url;
-                    script.async = false;
-                    script.type = 'text/javascript';
-                    
-                    script.onload = () => {
-                        console.log(`✅ Script cargado: ${scriptInfo.name}`);
-                        loadedCount++;
-                        // Cargar el siguiente script
-                        loadScript(index + 1);
-                    };
-                    
-                    script.onerror = () => {
-                        errors.push(scriptInfo.name);
-                        console.error(`❌ Error cargando script: ${scriptInfo.name}`);
-                        reject(new Error(`Error cargando scripts: ${errors.join(', ')}`));
-                    };
-                    
-                    document.head.appendChild(script);
-                };
-                
-                // Empezar a cargar desde el primero
-                loadScript(0);
-            });
-        };
-        
-        // Esperar a que la ventana esté completamente cargada
-        const startInitialization = async () => {
-            // Resetear contador de reintentos
-            window.firebaseRetryCount = 0;
-            firebaseConnectionStatus = 'initializing';
-            
-            // Esperar un poco para que los scripts del HTML se carguen
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Verificar scripts
-            let scriptStatus = checkFirebaseScripts();
-            console.log("🔍 Estado inicial de scripts:", scriptStatus);
-            
-            // Si los scripts no están cargados, intentar cargarlos dinámicamente
-            if (!scriptStatus.allLoaded) {
-                console.log("⚠️ Scripts no detectados, intentando cargar dinámicamente...");
-                try {
-                    await loadFirebaseScripts();
-                    scriptStatus = checkFirebaseScripts();
-                    console.log("✅ Scripts cargados dinámicamente:", scriptStatus);
-                } catch (loadError) {
-                    console.error("❌ Error al cargar scripts dinámicamente:", loadError);
-                    // Continuar con el flujo normal para verificar si se cargaron de otra forma
-                }
+        // Inicializar Firebase
+        try {
+            if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length === 0) {
+                app = firebase.initializeApp(firebaseConfig);
+                console.log("🚀 Firebase inicializando...");
+            } else if (firebase.apps && firebase.apps.length > 0) {
+                app = firebase.app();
             }
             
-            // Verificar scripts periódicamente
-            let scriptCheckCount = 0;
-            const checkScriptsInterval = setInterval(() => {
-                scriptCheckCount++;
-                scriptStatus = checkFirebaseScripts();
+            if (app) {
+                auth = firebase.auth();
+                db = firebase.firestore();
+                firebaseInitialized = true;
+                firebaseConnectionStatus = 'connected';
+                console.log("✅ Firebase inicializado correctamente");
                 
-                if (scriptStatus.allLoaded) {
-                    clearInterval(checkScriptsInterval);
-                    console.log("✅ Todos los scripts están cargados");
-                    initializeFirebase();
-                } else if (scriptCheckCount >= 40) {
-                    // Después de 8 segundos de verificación, intentar cargar dinámicamente si aún no están
-                    clearInterval(checkScriptsInterval);
-                    console.warn("⚠️ Scripts aún no cargados después de esperar, intentando cargar...");
-                    
-                    loadFirebaseScripts()
-                        .then(() => {
-                            console.log("✅ Scripts cargados dinámicamente con éxito");
-                            scriptStatus = checkFirebaseScripts();
-                            if (scriptStatus.allLoaded) {
-                                initializeFirebase();
-                            } else {
-                                throw new Error(`Scripts cargados pero aún faltantes: ${scriptStatus.missing.join(', ')}`);
-                            }
-                        })
-                        .catch((error) => {
-                            console.error("❌ Error definitivo al cargar scripts:", error);
-                            firebaseConnectionStatus = 'error';
-                            firebaseConnectionError = {
-                                code: 'scripts-not-loaded',
-                                message: 'Los scripts de Firebase no se pudieron cargar',
-                                details: `Scripts faltantes: ${scriptStatus.missing.join(', ')}\n\nError: ${error.message}\n\nPosibles causas:\n• Bloqueador de anuncios bloqueando gstatic.com\n• Problemas de conexión a internet\n• Firewall o proxy bloqueando los scripts\n• Scripts bloqueados por política CORS\n\nSolución:\n1. Desactiva bloqueadores de anuncios (uBlock, AdBlock, etc.)\n2. Verifica tu conexión a internet\n3. Intenta en modo incógnito\n4. Verifica la consola (F12) para ver errores específicos`
-                            };
-                            window.dispatchEvent(new CustomEvent('firebaseError', { 
-                                detail: firebaseConnectionError 
-                            }));
+                // Configurar persistencia offline para reducir lecturas
+                if (db) {
+                    db.enablePersistence()
+                        .then(() => console.log("📦 Persistencia offline habilitada"))
+                        .catch(err => {
+                            console.warn("⚠️ Persistencia offline no disponible:", err.code);
                         });
-                } else {
-                    console.warn(`⚠️ Scripts faltantes (intento ${scriptCheckCount}/40):`, scriptStatus.missing);
                 }
-            }, 200);
+                
+                // Disparar evento personalizado
+                window.dispatchEvent(new CustomEvent('firebaseInitialized', { 
+                    detail: { app, auth, db } 
+                }));
+            }
+        } catch (error) {
+            console.error("❌ Error al inicializar Firebase:", error);
+            firebaseInitialized = false;
+            firebaseConnectionStatus = 'error';
+            firebaseConnectionError = {
+                code: error.code || 'unknown',
+                message: error.message || 'Error desconocido',
+                details: error.toString()
+            };
             
-            // Timeout de 25 segundos (aumentado para dar tiempo a cargar scripts dinámicamente)
-            setTimeout(() => {
-                if (!firebaseInitialized && firebaseConnectionStatus === 'initializing') {
-                    clearInterval(checkScriptsInterval);
-                    scriptStatus = checkFirebaseScripts();
-                    firebaseConnectionStatus = 'timeout';
-                    firebaseConnectionError = {
-                        code: 'timeout',
-                        message: 'Tiempo de espera agotado. Firebase no se pudo inicializar en 25 segundos.',
-                        details: scriptStatus.allLoaded 
-                            ? 'Los scripts están cargados pero la inicialización falló. Verifica la consola del navegador (F12) para más detalles.'
-                            : `Scripts faltantes: ${scriptStatus.missing.join(', ')}\n\nVerifica:\n• Tu conexión a internet\n• Que no haya bloqueadores de anuncios activos\n• Que los scripts de Firebase se estén cargando (F12 → Network)\n• Intenta desactivar extensiones del navegador`
-                    };
-                    window.dispatchEvent(new CustomEvent('firebaseError', { 
-                        detail: firebaseConnectionError 
-                    }));
-                }
-            }, 25000);
-        };
-        
-        // Inicializar cuando todo esté listo
-        if (document.readyState === 'loading') {
-            window.addEventListener('load', startInitialization);
-        } else {
-            startInitialization();
+            window.dispatchEvent(new CustomEvent('firebaseError', { 
+                detail: firebaseConnectionError 
+            }));
         }
 
         // Verificar conexión a Firestore
         const checkFirestoreConnection = async () => {
-            // Esperar hasta que Firebase esté inicializado (máximo 5 segundos)
-            let attempts = 0;
-            while (!firebaseInitialized && attempts < 50) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                attempts++;
-            }
-            
-            // Verificar que Firebase esté inicializado y db esté disponible
-            if (!firebaseInitialized) {
-                console.warn("⚠️ Firebase aún no está inicializado después de esperar");
-                return false;
-            }
-            
-            if (!db || db === null || db === undefined) {
-                console.warn("⚠️ Firestore (db) no está disponible");
-                return false;
-            }
-            
-            // Con las reglas configuradas correctamente, si Firebase está inicializado
-            // y db está disponible, entonces está conectado
+            // Solo verificar que Firebase esté inicializado y db esté disponible
             // Las colecciones se crearán automáticamente al escribir datos
-            return true;
+            return firebaseInitialized && db !== null && db !== undefined;
         };
 
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
@@ -1481,7 +1185,6 @@
         const FirebaseConnectionScreen = () => {
             const [status, setStatus] = useState(firebaseConnectionStatus);
             const [error, setError] = useState(firebaseConnectionError);
-            const [retryCount, setRetryCount] = useState(0);
             
             useEffect(() => {
                 const handleInitialized = () => {
@@ -1497,60 +1200,19 @@
                 window.addEventListener('firebaseInitialized', handleInitialized);
                 window.addEventListener('firebaseError', handleError);
                 
-                // Verificar estado periódicamente
-                const checkInterval = setInterval(() => {
-                    if (firebaseInitialized) {
-                        setStatus('connected');
-                    } else if (firebaseConnectionStatus !== 'initializing') {
-                        setStatus(firebaseConnectionStatus);
-                        setError(firebaseConnectionError);
-                    }
-                }, 500);
+                // Verificar estado inicial
+                if (firebaseInitialized) {
+                    setStatus('connected');
+                }
                 
                 return () => {
                     window.removeEventListener('firebaseInitialized', handleInitialized);
                     window.removeEventListener('firebaseError', handleError);
-                    clearInterval(checkInterval);
                 };
             }, []);
             
-            const handleRetry = () => {
-                setRetryCount(prev => prev + 1);
-                // Recargar la página para reiniciar completamente
-                window.location.reload();
-            };
-            
-            const getErrorMessage = () => {
-                if (!error) return 'Error desconocido';
-                
-                switch (error.code) {
-                    case 'timeout':
-                        return '⏱️ Tiempo de espera agotado';
-                    case 'scripts-not-loaded':
-                        return '📦 Scripts de Firebase no cargados';
-                    case 'permission-denied':
-                        return '🔒 Error de permisos';
-                    case 'unavailable':
-                        return '🌐 Servicio no disponible';
-                    case 'failed-precondition':
-                        return '⚠️ Condición previa fallida';
-                    default:
-                        return '❌ Error de conexión';
-                }
-            };
-            
-            const getErrorDetails = () => {
-                if (!error) return '';
-                
-                if (error.code === 'timeout') {
-                    return 'Firebase no se pudo inicializar en 15 segundos. Posibles causas:\n• Conexión a internet lenta o intermitente\n• Scripts de Firebase bloqueados por el navegador\n• Problemas con el firewall o proxy';
-                }
-                
-                return error.details || error.message || 'Error desconocido al conectar con Firebase';
-            };
-            
             if (status === 'connected') {
-                return null; // No mostrar nada si está conectado
+                return null;
             }
             
             return (
@@ -1571,7 +1233,7 @@
                             </h1>
                             <p className="text-sm text-slate-500">
                                 {status === 'initializing' 
-                                    ? 'Inicializando Firebase y verificando conexión' 
+                                    ? 'Inicializando Firebase...' 
                                     : 'No se pudo conectar con la base de datos'}
                             </p>
                         </div>
@@ -1590,75 +1252,24 @@
                         {status === 'error' && error && (
                             <div className="space-y-4 text-left">
                                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                                    <div className="font-bold text-red-700 mb-2">{getErrorMessage()}</div>
-                                    <div className="text-xs text-red-600 whitespace-pre-line">{getErrorDetails()}</div>
+                                    <div className="font-bold text-red-700 mb-2">❌ Error de conexión</div>
+                                    <div className="text-xs text-red-600 whitespace-pre-line">
+                                        {error.message || error.details || 'Error desconocido'}
+                                    </div>
                                 </div>
                                 
                                 {error.code && (
                                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
                                         <div className="text-xs font-mono text-slate-600">
                                             <div><strong>Código:</strong> {error.code}</div>
-                                            {error.message && <div className="mt-1"><strong>Mensaje:</strong> {error.message}</div>}
                                         </div>
                                     </div>
                                 )}
                                 
                                 <div className="flex gap-3 pt-2">
                                     <button 
-                                        onClick={handleRetry}
-                                        className="flex-1 bg-gradient-to-r from-turquoise-500 to-clinical-400 text-white px-6 py-3 rounded-xl font-bold text-sm hover:shadow-lg transition-all hover:scale-105"
-                                    >
-                                        🔄 Reintentar
-                                    </button>
-                                    <button 
                                         onClick={() => window.location.reload()}
-                                        className="flex-1 bg-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-300 transition-all"
-                                    >
-                                        🔃 Recargar
-                                    </button>
-                                </div>
-                                
-                                {retryCount > 0 && (
-                                    <p className="text-xs text-slate-500 text-center">
-                                        Reintentos: {retryCount}
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                        
-                        {status === 'timeout' && (
-                            <div className="space-y-4 text-left">
-                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                                    <div className="font-bold text-orange-700 mb-2">⏱️ Tiempo de espera agotado</div>
-                                    <div className="text-xs text-orange-600 whitespace-pre-line">
-                                        Firebase no se pudo inicializar en 20 segundos.
-                                        
-                                        Pasos para diagnosticar:
-                                        1. Abre la consola del navegador (F12)
-                                        2. Ve a la pestaña "Network" (Red)
-                                        3. Recarga la página
-                                        4. Busca archivos que empiecen con "firebase"
-                                        5. Verifica si hay errores (rojos) al cargar
-                                        
-                                        Posibles soluciones:
-                                        • Verifica tu conexión a internet
-                                        • Desactiva bloqueadores de anuncios (uBlock, AdBlock, etc.)
-                                        • Verifica que gstatic.com no esté bloqueado
-                                        • Intenta en modo incógnito
-                                        • Verifica la consola (F12) para ver errores específicos
-                                    </div>
-                                </div>
-                                
-                                <div className="flex gap-3 pt-2">
-                                    <button 
-                                        onClick={handleRetry}
-                                        className="flex-1 bg-gradient-to-r from-turquoise-500 to-clinical-400 text-white px-6 py-3 rounded-xl font-bold text-sm hover:shadow-lg transition-all hover:scale-105"
-                                    >
-                                        🔄 Reintentar
-                                    </button>
-                                    <button 
-                                        onClick={() => window.location.reload()}
-                                        className="flex-1 bg-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-300 transition-all"
+                                        className="flex-1 bg-gradient-to-r from-turquoise-500 to-clinical-400 text-white px-6 py-3 rounded-xl font-bold text-sm hover:shadow-lg transition-all"
                                     >
                                         🔃 Recargar Página
                                     </button>
