@@ -21,10 +21,10 @@
     <!-- SheetJS (Para Excel) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 
-    <!-- Firebase (Versión CDN completa) -->
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
+    <!-- Firebase (Versión COMPAT - Compatible con API global firebase.*) -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -129,15 +129,16 @@
             try {
                 // Intentar leer una colección con limit(0) para verificar permisos sin crear datos
                 await firestoreDb.collection('prod_test_connection').limit(0).get();
-                return { success: true, error: null };
+                return { success: true, error: null, isPermissionDenied: false };
             } catch (error) {
                 // Si es error de permisos, Firebase está conectado pero las reglas bloquean
                 // Esto es aceptable - las colecciones se crearán automáticamente al escribir
                 if (error.code === 'permission-denied') {
                     console.warn("⚠️ Smoke test: Permisos restringidos (normal en modo prueba)");
-                    return { success: true, error: null }; // Consideramos éxito porque Firebase está conectado
+                    return { success: true, error: null, isPermissionDenied: true }; // Consideramos éxito porque Firebase está conectado
                 }
-                return { success: false, error };
+                // Si es otro error, puede ser de red o scripts no cargados
+                return { success: false, error, isPermissionDenied: false };
             }
         };
         
@@ -188,7 +189,19 @@
                 const smokeTest = await smokeTestFirestore(db);
                 
                 if (!smokeTest.success) {
+                    // Si el error NO es de permisos, puede ser que los scripts no estén realmente cargados
+                    if (!smokeTest.isPermissionDenied) {
+                        // Verificar si realmente tenemos acceso a Firebase
+                        if (typeof firebase === 'undefined' || !firebase.apps || firebase.apps.length === 0) {
+                            throw new Error("Firebase no está completamente inicializado. Los scripts pueden no haberse cargado correctamente.");
+                        }
+                    }
                     throw smokeTest.error || new Error("Smoke test falló");
+                }
+                
+                // Si es permission-denied, mostrar advertencia pero continuar
+                if (smokeTest.isPermissionDenied) {
+                    console.warn("⚠️ Firestore conectado pero reglas de seguridad bloquean acceso. Esto es normal si las reglas están restringidas.");
                 }
                 
                 // Si llegamos aquí, Firebase está completamente conectado
@@ -230,42 +243,131 @@
             }
         };
         
-        // Esperar a que los scripts se carguen con timeout máximo
-        let waitAttempts = 0;
-        const MAX_WAIT_ATTEMPTS = 50; // 5 segundos máximo (50 * 100ms)
+        // Función de diagnóstico para detectar problemas de carga
+        const runFirebaseDiagnostics = async () => {
+            const diagnostics = {
+                online: navigator.onLine,
+                firebaseGlobal: typeof firebase !== 'undefined',
+                firebaseApps: typeof firebase !== 'undefined' && firebase.apps ? firebase.apps.length : 0,
+                scriptsLoaded: [],
+                networkTest: null,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Verificar recursos de Firebase cargados
+            try {
+                const resources = performance.getEntriesByType('resource');
+                const firebaseResources = resources.filter(r => 
+                    r.name.includes('firebasejs') || r.name.includes('gstatic.com/firebasejs')
+                );
+                diagnostics.scriptsLoaded = firebaseResources.map(r => ({
+                    url: r.name,
+                    duration: r.duration,
+                    status: r.responseStatus || 'unknown',
+                    loaded: r.duration > 0
+                }));
+            } catch (e) {
+                diagnostics.scriptsLoaded = [{ error: 'No se pudo verificar recursos' }];
+            }
+            
+            // Test de red a gstatic.com
+            try {
+                const testStart = performance.now();
+                const response = await fetch('https://www.gstatic.com/firebasejs/', { 
+                    method: 'HEAD',
+                    mode: 'no-cors',
+                    cache: 'no-cache'
+                });
+                diagnostics.networkTest = {
+                    success: true,
+                    duration: performance.now() - testStart
+                };
+            } catch (e) {
+                diagnostics.networkTest = {
+                    success: false,
+                    error: e.message || 'Error de red'
+                };
+            }
+            
+            return diagnostics;
+        };
         
-        const waitForFirebase = () => {
+        // Función mejorada para esperar Firebase con timeout robusto y reintento
+        let waitAttempts = 0;
+        let retryCount = 0;
+        const MAX_WAIT_ATTEMPTS = 120; // 12 segundos (120 * 100ms)
+        const MAX_RETRIES = 1; // 1 reintento adicional
+        
+        const waitForFirebase = async (isRetry = false) => {
             waitAttempts++;
             
-            // Verificar que Firebase esté disponible
-            if (typeof firebase !== 'undefined' && 
+            // Verificar que Firebase esté disponible (COMPAT API)
+            const isFirebaseReady = typeof firebase !== 'undefined' && 
                 typeof firebase.initializeApp !== 'undefined' && 
                 typeof firebase.firestore !== 'undefined' &&
-                typeof firebase.auth !== 'undefined') {
-                // Firebase está listo, inicializar
-                initializeFirebase();
-            } else if (waitAttempts >= MAX_WAIT_ATTEMPTS) {
-                // Timeout alcanzado
+                typeof firebase.auth !== 'undefined' &&
+                firebase.apps !== undefined;
+            
+            if (isFirebaseReady) {
+                // Verificar que firebase.apps esté disponible
+                if (firebase.apps && Array.isArray(firebase.apps)) {
+                    console.log("✅ Firebase scripts detectados correctamente");
+                    // Firebase está listo, inicializar
+                    await initializeFirebase();
+                    return;
+                }
+            }
+            
+            if (waitAttempts >= MAX_WAIT_ATTEMPTS) {
+                // Timeout alcanzado - intentar reintento si no es un reintento
+                if (!isRetry && retryCount < MAX_RETRIES) {
+                    retryCount++;
+                    waitAttempts = 0;
+                    console.log(`🔄 Reintentando carga de Firebase (intento ${retryCount + 1}/${MAX_RETRIES + 1})...`);
+                    setTimeout(() => waitForFirebase(true), 1000);
+                    return;
+                }
+                
+                // Timeout final - ejecutar diagnóstico
                 console.error("❌ Timeout esperando scripts de Firebase");
+                const diagnostics = await runFirebaseDiagnostics();
+                console.error("📊 Diagnóstico:", diagnostics);
+                
+                // Determinar causa del error
+                let errorMessage = 'Los scripts de Firebase no se cargaron en el tiempo esperado';
+                let errorDetails = 'Verifica tu conexión a internet y que los scripts se estén cargando correctamente desde gstatic.com';
+                
+                if (!diagnostics.online) {
+                    errorMessage = 'Sin conexión a internet';
+                    errorDetails = 'Tu dispositivo no está conectado a internet. Verifica tu conexión de red.';
+                } else if (diagnostics.networkTest && !diagnostics.networkTest.success) {
+                    errorMessage = 'Error de red al conectar con Firebase';
+                    errorDetails = `No se pudo conectar con los servidores de Firebase (gstatic.com). Posibles causas:\n- Bloqueador de anuncios activo\n- Firewall o proxy bloqueando\n- DNS no resuelve gstatic.com\n\nPrueba en ventana incógnito o desactiva bloqueadores de anuncios.`;
+                } else if (diagnostics.scriptsLoaded.length === 0) {
+                    errorMessage = 'Scripts de Firebase no se cargaron';
+                    errorDetails = 'Los scripts de Firebase no aparecen en los recursos cargados. Verifica la consola del navegador para errores de red.';
+                }
+                
                 firebaseConnectionStatus = 'error';
                 firebaseConnectionError = {
                     code: 'scripts-timeout',
-                    message: 'Los scripts de Firebase no se cargaron en 5 segundos',
-                    details: 'Verifica tu conexión a internet y que los scripts se estén cargando correctamente desde gstatic.com'
+                    message: errorMessage,
+                    details: errorDetails,
+                    diagnostics: diagnostics
                 };
                 window.dispatchEvent(new CustomEvent('firebaseError', { 
                     detail: firebaseConnectionError 
                 }));
             } else {
                 // Reintentar
-                setTimeout(waitForFirebase, 100);
+                setTimeout(() => waitForFirebase(isRetry), 100);
             }
         };
         
         // Iniciar cuando el DOM esté listo
         const startFirebaseInit = () => {
             // Esperar un poco para que los scripts se carguen
-            setTimeout(waitForFirebase, 500);
+            setTimeout(() => waitForFirebase(false), 500);
         };
         
         if (document.readyState === 'loading') {
@@ -273,6 +375,18 @@
         } else {
             startFirebaseInit();
         }
+        
+        // Función global para reintentar manualmente
+        window.retryFirebaseConnection = () => {
+            waitAttempts = 0;
+            retryCount = 0;
+            firebaseConnectionStatus = 'initializing';
+            firebaseConnectionError = null;
+            startFirebaseInit();
+        };
+        
+        // Función global para ejecutar diagnóstico
+        window.runFirebaseDiagnostics = runFirebaseDiagnostics;
 
         // Verificar conexión a Firestore (smoke test real)
         const checkFirestoreConnection = async () => {
@@ -1391,10 +1505,53 @@
                                     </div>
                                 )}
                                 
+                                {error.diagnostics && (
+                                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-48 overflow-y-auto">
+                                        <div className="text-xs font-mono text-slate-600">
+                                            <div className="font-bold mb-2">📊 Diagnóstico:</div>
+                                            <div><strong>Online:</strong> {error.diagnostics.online ? '✅ Sí' : '❌ No'}</div>
+                                            <div><strong>Firebase Global:</strong> {error.diagnostics.firebaseGlobal ? '✅ Sí' : '❌ No'}</div>
+                                            <div><strong>Apps Inicializadas:</strong> {error.diagnostics.firebaseApps}</div>
+                                            <div><strong>Scripts Cargados:</strong> {error.diagnostics.scriptsLoaded.length}</div>
+                                            {error.diagnostics.networkTest && (
+                                                <div><strong>Test de Red:</strong> {error.diagnostics.networkTest.success ? '✅ OK' : '❌ Falló'}</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                
                                 <div className="flex gap-3 pt-2">
                                     <button 
-                                        onClick={() => window.location.reload()}
+                                        onClick={() => {
+                                            if (window.retryFirebaseConnection) {
+                                                window.retryFirebaseConnection();
+                                            } else {
+                                                window.location.reload();
+                                            }
+                                        }}
                                         className="flex-1 bg-gradient-to-r from-turquoise-500 to-clinical-400 text-white px-6 py-3 rounded-xl font-bold text-sm hover:shadow-lg transition-all"
+                                    >
+                                        🔄 Reintentar
+                                    </button>
+                                    <button 
+                                        onClick={async () => {
+                                            if (window.runFirebaseDiagnostics) {
+                                                const diag = await window.runFirebaseDiagnostics();
+                                                console.log("📊 Diagnóstico completo:", diag);
+                                                alert(`Diagnóstico:\n\nOnline: ${diag.online ? 'Sí' : 'No'}\nFirebase Global: ${diag.firebaseGlobal ? 'Sí' : 'No'}\nScripts Cargados: ${diag.scriptsLoaded.length}\nTest de Red: ${diag.networkTest?.success ? 'OK' : 'Falló'}\n\nVer consola para más detalles.`);
+                                            } else {
+                                                alert("Función de diagnóstico no disponible. Ver consola del navegador.");
+                                            }
+                                        }}
+                                        className="flex-1 bg-gradient-to-r from-slate-500 to-slate-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:shadow-lg transition-all"
+                                    >
+                                        🔍 Diagnóstico
+                                    </button>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button 
+                                        onClick={() => window.location.reload()}
+                                        className="flex-1 bg-slate-200 text-slate-700 px-6 py-2 rounded-xl font-bold text-xs hover:bg-slate-300 transition-all"
                                     >
                                         🔃 Recargar Página
                                     </button>
