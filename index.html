@@ -118,69 +118,109 @@
             appId: "1:1041657828353:web:99b67aaedd93e583f51c00"
         };
 
-        // Inicializar Firebase - Versión simplificada y funcional
+        // Inicializar Firebase - Versión robusta y funcional
         let app, auth, db;
         let firebaseInitialized = false;
         let firebaseConnectionError = null;
         let firebaseConnectionStatus = 'initializing';
         
+        // Smoke test para verificar conexión real a Firestore
+        const smokeTestFirestore = async (firestoreDb) => {
+            try {
+                // Intentar leer una colección con limit(0) para verificar permisos sin crear datos
+                await firestoreDb.collection('prod_test_connection').limit(0).get();
+                return { success: true, error: null };
+            } catch (error) {
+                // Si es error de permisos, Firebase está conectado pero las reglas bloquean
+                // Esto es aceptable - las colecciones se crearán automáticamente al escribir
+                if (error.code === 'permission-denied') {
+                    console.warn("⚠️ Smoke test: Permisos restringidos (normal en modo prueba)");
+                    return { success: true, error: null }; // Consideramos éxito porque Firebase está conectado
+                }
+                return { success: false, error };
+            }
+        };
+        
         // Función para inicializar Firebase cuando esté disponible
-        const initializeFirebase = () => {
+        const initializeFirebase = async () => {
             try {
                 // Verificar que Firebase esté disponible
                 if (typeof firebase === 'undefined') {
-                    console.warn("⚠️ Firebase aún no está disponible, reintentando...");
-                    setTimeout(initializeFirebase, 200);
-                    return;
+                    throw new Error("firebase object no está disponible. Verifica que los scripts se carguen correctamente.");
                 }
                 
-                // Verificar que los servicios estén disponibles
+                // Verificar servicios necesarios
                 if (typeof firebase.initializeApp === 'undefined') {
-                    console.warn("⚠️ firebase.initializeApp no está disponible, reintentando...");
-                    setTimeout(initializeFirebase, 200);
-                    return;
+                    throw new Error("firebase.initializeApp no está disponible. Scripts incompletos.");
+                }
+                if (typeof firebase.firestore === 'undefined') {
+                    throw new Error("firebase.firestore no está disponible. Scripts incompletos.");
+                }
+                if (typeof firebase.auth === 'undefined') {
+                    throw new Error("firebase.auth no está disponible. Scripts incompletos.");
                 }
                 
-                // Inicializar Firebase
-                if (firebase.apps && firebase.apps.length === 0) {
-                    app = firebase.initializeApp(firebaseConfig);
-                    console.log("🚀 Firebase inicializando...");
-                } else if (firebase.apps && firebase.apps.length > 0) {
-                    app = firebase.app();
+                // Verificar si ya existe una app inicializada (evitar doble inicialización)
+                let existingApp = null;
+                if (firebase.apps && Array.isArray(firebase.apps) && firebase.apps.length > 0) {
+                    existingApp = firebase.apps.find(a => a.name === '[DEFAULT]');
+                }
+                
+                // Inicializar o usar existente
+                if (existingApp) {
+                    app = existingApp;
                     console.log("✅ Usando instancia existente de Firebase");
+                } else {
+                    app = firebase.initializeApp(firebaseConfig);
+                    console.log("🚀 Firebase app inicializada");
                 }
                 
-                if (app) {
-                    auth = firebase.auth();
-                    db = firebase.firestore();
-                    firebaseInitialized = true;
-                    firebaseConnectionStatus = 'connected';
-                    firebaseConnectionError = null;
-                    console.log("✅ Firebase inicializado correctamente");
-                    
-                    // Configurar persistencia offline para reducir lecturas
-                    if (db && db.enablePersistence) {
-                        db.enablePersistence()
-                            .then(() => console.log("📦 Persistencia offline habilitada"))
-                            .catch(err => {
-                                console.warn("⚠️ Persistencia offline no disponible:", err.code);
-                            });
-                    }
-                    
-                    // Disparar evento personalizado
-                    window.dispatchEvent(new CustomEvent('firebaseInitialized', { 
-                        detail: { app, auth, db } 
-                    }));
-                } else {
-                    throw new Error("No se pudo crear la app de Firebase");
+                // Obtener servicios
+                auth = firebase.auth();
+                db = firebase.firestore();
+                
+                if (!db) {
+                    throw new Error("Firestore no se pudo inicializar");
                 }
+                
+                // Smoke test: verificar conexión real
+                console.log("🔍 Ejecutando smoke test de Firestore...");
+                const smokeTest = await smokeTestFirestore(db);
+                
+                if (!smokeTest.success) {
+                    throw smokeTest.error || new Error("Smoke test falló");
+                }
+                
+                // Si llegamos aquí, Firebase está completamente conectado
+                firebaseInitialized = true;
+                firebaseConnectionStatus = 'connected';
+                firebaseConnectionError = null;
+                console.log("✅ Firebase completamente inicializado y conectado");
+                console.log("✅ Auth:", !!auth);
+                console.log("✅ Firestore:", !!db);
+                
+                // Configurar persistencia offline (opcional, puede fallar en algunos navegadores)
+                if (db && db.enablePersistence) {
+                    db.enablePersistence()
+                        .then(() => console.log("📦 Persistencia offline habilitada"))
+                        .catch(err => {
+                            // No es crítico si falla
+                            console.warn("⚠️ Persistencia offline no disponible:", err.code);
+                        });
+                }
+                
+                // Disparar evento personalizado
+                window.dispatchEvent(new CustomEvent('firebaseInitialized', { 
+                    detail: { app, auth, db } 
+                }));
+                
             } catch (error) {
                 console.error("❌ Error al inicializar Firebase:", error);
                 firebaseInitialized = false;
                 firebaseConnectionStatus = 'error';
                 firebaseConnectionError = {
-                    code: error.code || 'unknown',
-                    message: error.message || 'Error desconocido',
+                    code: error.code || 'initialization-error',
+                    message: error.message || 'Error desconocido al inicializar Firebase',
                     details: error.toString()
                 };
                 
@@ -190,30 +230,75 @@
             }
         };
         
-        // Esperar a que los scripts se carguen antes de inicializar
+        // Esperar a que los scripts se carguen con timeout máximo
+        let waitAttempts = 0;
+        const MAX_WAIT_ATTEMPTS = 50; // 5 segundos máximo (50 * 100ms)
+        
         const waitForFirebase = () => {
-            if (typeof firebase !== 'undefined' && typeof firebase.initializeApp !== 'undefined') {
+            waitAttempts++;
+            
+            // Verificar que Firebase esté disponible
+            if (typeof firebase !== 'undefined' && 
+                typeof firebase.initializeApp !== 'undefined' && 
+                typeof firebase.firestore !== 'undefined' &&
+                typeof firebase.auth !== 'undefined') {
+                // Firebase está listo, inicializar
                 initializeFirebase();
+            } else if (waitAttempts >= MAX_WAIT_ATTEMPTS) {
+                // Timeout alcanzado
+                console.error("❌ Timeout esperando scripts de Firebase");
+                firebaseConnectionStatus = 'error';
+                firebaseConnectionError = {
+                    code: 'scripts-timeout',
+                    message: 'Los scripts de Firebase no se cargaron en 5 segundos',
+                    details: 'Verifica tu conexión a internet y que los scripts se estén cargando correctamente desde gstatic.com'
+                };
+                window.dispatchEvent(new CustomEvent('firebaseError', { 
+                    detail: firebaseConnectionError 
+                }));
             } else {
-                // Reintentar después de 100ms
+                // Reintentar
                 setTimeout(waitForFirebase, 100);
             }
         };
         
         // Iniciar cuando el DOM esté listo
+        const startFirebaseInit = () => {
+            // Esperar un poco para que los scripts se carguen
+            setTimeout(waitForFirebase, 500);
+        };
+        
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                setTimeout(waitForFirebase, 300);
-            });
+            window.addEventListener('load', startFirebaseInit);
         } else {
-            setTimeout(waitForFirebase, 300);
+            startFirebaseInit();
         }
 
-        // Verificar conexión a Firestore
+        // Verificar conexión a Firestore (smoke test real)
         const checkFirestoreConnection = async () => {
-            // Solo verificar que Firebase esté inicializado y db esté disponible
-            // Las colecciones se crearán automáticamente al escribir datos
-            return firebaseInitialized && db !== null && db !== undefined;
+            // Esperar hasta que Firebase esté inicializado (máximo 3 segundos)
+            let attempts = 0;
+            while (!firebaseInitialized && attempts < 30) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            
+            if (!firebaseInitialized || !db) {
+                return false;
+            }
+            
+            // Smoke test real: intentar leer una colección
+            try {
+                await db.collection('prod_test_connection').limit(0).get();
+                return true;
+            } catch (error) {
+                // Si es error de permisos, Firebase está conectado (las reglas están funcionando)
+                if (error.code === 'permission-denied') {
+                    return true; // Consideramos conectado, las reglas funcionan
+                }
+                console.warn("⚠️ Smoke test falló:", error.code);
+                return false;
+            }
         };
 
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
@@ -1452,12 +1537,19 @@
                         setLoading(false); 
                     }
                 } catch (err) { 
-                    console.error('Error en login:', err);
-                    // Manejar errores de permisos en modo producción
+                    console.error('❌ Error en login:', err);
+                    console.error('Error code:', err.code);
+                    console.error('Error message:', err.message);
+                    
+                    // Manejar errores específicos sin congelar la app
                     if (err.code === 'permission-denied') {
-                        setError('Error: Permisos insuficientes. Verifica las reglas de seguridad de Firestore en modo producción.'); 
+                        setError('⚠️ Error de permisos: Las reglas de seguridad de Firestore están bloqueando el acceso. Verifica las reglas en Firebase Console.'); 
+                    } else if (err.code === 'unavailable' || err.code === 'deadline-exceeded') {
+                        setError('⚠️ Error de conexión: No se pudo conectar con Firebase. Verifica tu conexión a internet.'); 
+                    } else if (err.code === 'failed-precondition') {
+                        setError('⚠️ Error: La base de datos no está disponible en este momento.'); 
                     } else {
-                        setError(`Error de conexión: ${err.message}`); 
+                        setError(`⚠️ Error de conexión: ${err.message || 'Error desconocido'}`); 
                     }
                     setLoading(false); 
                 }
@@ -3622,6 +3714,10 @@
                     console.log('🔥 Usuarios cargados desde Firebase');
                 } catch (error) {
                     console.error('Error cargando usuarios:', error);
+                    // No congelar la app - mostrar error pero continuar
+                    if (error.code === 'permission-denied') {
+                        console.warn('⚠️ Permisos insuficientes para cargar usuarios');
+                    }
                 }
             };
 
@@ -3660,37 +3756,56 @@
                 
                 // Escuchar cambios en tiempo real solo si Firebase está inicializado
                 if (firebaseInitialized && db) {
+                    const handleSnapshotError = (error, collectionName) => {
+                        console.error(`❌ Error en snapshot de ${collectionName}:`, error);
+                        if (error.code === 'permission-denied') {
+                            console.warn(`⚠️ Permisos insuficientes para ${collectionName}`);
+                        }
+                    };
+                    
                     const unsubMedicines = db.collection('prod_medicines')
-                        .onSnapshot(s => {
-                            const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
-                                .sort((a, b) => a.name.localeCompare(b.name));
-                            setMedicines(data);
-                            cacheManager.saveMedicines(data);
-                        });
+                        .onSnapshot(
+                            s => {
+                                const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
+                                    .sort((a, b) => a.name.localeCompare(b.name));
+                                setMedicines(data);
+                                cacheManager.saveMedicines(data);
+                            },
+                            error => handleSnapshotError(error, 'medicines')
+                        );
                     
                     const unsubContacts = db.collection('prod_contacts')
-                        .onSnapshot(s => {
-                            const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
-                                .sort((a, b) => a.name.localeCompare(b.name));
-                            setContacts(data);
-                            cacheManager.saveContacts(data);
-                        });
+                        .onSnapshot(
+                            s => {
+                                const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
+                                    .sort((a, b) => a.name.localeCompare(b.name));
+                                setContacts(data);
+                                cacheManager.saveContacts(data);
+                            },
+                            error => handleSnapshotError(error, 'contacts')
+                        );
                     
                     const unsubKits = db.collection('prod_kits')
-                        .onSnapshot(s => {
-                            const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
-                                .sort((a, b) => new Date(b.fechaArmado) - new Date(a.fechaArmado));
-                            setKits(data);
-                            cacheManager.saveKits(data);
-                        });
+                        .onSnapshot(
+                            s => {
+                                const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
+                                    .sort((a, b) => new Date(b.fechaArmado) - new Date(a.fechaArmado));
+                                setKits(data);
+                                cacheManager.saveKits(data);
+                            },
+                            error => handleSnapshotError(error, 'kits')
+                        );
                     
                     if (role === 'admin' || role === 'superadmin') {
                         const unsubUsers = db.collection('prod_users')
-                            .onSnapshot(s => {
-                                const data = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                                setUsers(data);
-                                cacheManager.saveUsers(data);
-                            });
+                            .onSnapshot(
+                                s => {
+                                    const data = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                                    setUsers(data);
+                                    cacheManager.saveUsers(data);
+                                },
+                                error => handleSnapshotError(error, 'users')
+                            );
                         
                         return () => {
                             unsubMedicines();
