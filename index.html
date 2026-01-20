@@ -5008,7 +5008,7 @@
                 }
             };
 
-            // Helper para construir ventana de impresión
+            // Helper para construir ventana de impresión (refactorizada: un solo template literal)
             const buildPrintWindow = (html, css, title = 'Imprimir Viñeta', onAfterPrintClose = true) => {
                 const printWindow = window.open('', '_blank');
                 if (!printWindow) {
@@ -5016,39 +5016,35 @@
                     return null;
                 }
                 
-                // Construir HTML usando concatenación de strings (evita problemas con Babel)
-                const fullHtmlParts = [];
-                fullHtmlParts.push('<!DOCTYPE html>');
-                fullHtmlParts.push('<html>');
-                fullHtmlParts.push('<head>');
-                fullHtmlParts.push('<meta charset="UTF-8">');
-                fullHtmlParts.push('<title>' + escapeHtml(title) + '</title>');
-                fullHtmlParts.push('<style>' + css + '</style>');
-                fullHtmlParts.push('</head>');
-                fullHtmlParts.push('<body>');
-                fullHtmlParts.push(html);
-                fullHtmlParts.push('<script>');
-                fullHtmlParts.push('(function() {');
-                fullHtmlParts.push('try {');
-                fullHtmlParts.push('if (window.opener && window.opener !== window && window.opener.location) {');
-                fullHtmlParts.push('window.addEventListener("load", function() {');
-                fullHtmlParts.push('setTimeout(function() {');
-                fullHtmlParts.push('window.print();');
-                fullHtmlParts.push('}, 500);');
-                if (onAfterPrintClose) {
-                    fullHtmlParts.push('setTimeout(function() { window.close(); }, 2000);');
-                }
-                fullHtmlParts.push('});');
-                fullHtmlParts.push('}');
-                fullHtmlParts.push('} catch(e) {');
-                fullHtmlParts.push('console.log("Print error:", e);');
-                fullHtmlParts.push('}');
-                fullHtmlParts.push('})();');
-                fullHtmlParts.push('</script>');
-                fullHtmlParts.push('</body>');
-                fullHtmlParts.push('</html>');
-                
-                const fullHtml = fullHtmlParts.join('\n');
+                // Construir HTML completo en un solo template literal
+                const closeScript = onAfterPrintClose ? 'setTimeout(function() { window.close(); }, 2000);' : '';
+                const fullHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(title)}</title>
+<style>${css}</style>
+</head>
+<body>
+${html}
+<script>
+(function() {
+try {
+if (window.opener && window.opener !== window && window.opener.location) {
+window.addEventListener("load", function() {
+setTimeout(function() {
+window.print();
+}, 500);
+${closeScript}
+});
+}
+} catch(e) {
+console.log("Print error:", e);
+}
+})();
+</script>
+</body>
+</html>`;
                 
                 printWindow.document.open();
                 printWindow.document.write(fullHtml);
@@ -5409,27 +5405,12 @@
                 }
             };
 
-            // Función para renderizar plantilla a HTML
+            // Función para renderizar plantilla a HTML (refactorizada: un solo template literal)
             const renderRutaTemplateToHTML = (template, resolvedData) => {
                 if (!template || !template.elements) return '';
                 
-                const htmlParts = [];
-                htmlParts.push('<!DOCTYPE html>');
-                htmlParts.push('<html>');
-                htmlParts.push('<head>');
-                htmlParts.push('<meta charset="UTF-8">');
-                htmlParts.push('<title>Viñeta Ruta</title>');
-                htmlParts.push('<style>');
-                htmlParts.push('@page { size: 210mm 71mm landscape; margin: 0.1cm; }');
-                htmlParts.push('html, body { width: 210mm; height: 71mm; margin: 0; padding: 0; overflow: hidden; }');
-                htmlParts.push('.ticket { width: 210mm; height: 71mm; position: relative; overflow: hidden; background: #fff; }');
-                htmlParts.push('* { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; text-transform: uppercase; }');
-                htmlParts.push('.cell { position: absolute; overflow: hidden; word-wrap: break-word; }');
-                htmlParts.push('</style>');
-                htmlParts.push('</head>');
-                htmlParts.push('<body>');
-                htmlParts.push('<div class="ticket">');
-                
+                // Construir elementos HTML
+                let elementsHtml = '';
                 template.elements.forEach(element => {
                     const text = element.tokenKey ? (resolvedData[element.tokenKey] || '') : (element.text || '');
                     const style = element.style || {};
@@ -5437,36 +5418,48 @@
                     const align = style.align || 'left';
                     const fontSize = style.fontSize || '2mm';
                     const border = element.border ? 'border: 0.5px solid #000;' : '';
-                    
-                    const cellStyle = 'left: ' + element.xMm + 'mm; top: ' + element.yMm + 'mm; width: ' + element.wMm + 'mm; height: ' + element.hMm + 'mm; ' + border + ' ' + isBold + ' text-align: ' + align + '; font-size: ' + fontSize + '; padding: 0.5mm;';
-                    htmlParts.push('<div class="cell" style="' + cellStyle + '">' + escapeHtml(text) + '</div>');
+                    const cellStyle = `left: ${element.xMm}mm; top: ${element.yMm}mm; width: ${element.wMm}mm; height: ${element.hMm}mm; ${border} ${isBold} text-align: ${align}; font-size: ${fontSize}; padding: 0.5mm;`;
+                    elementsHtml += `<div class="cell" style="${cellStyle}">${escapeHtml(text)}</div>`;
                 });
                 
                 // QR Code si existe
+                let qrContainerHtml = '';
+                let qrScriptHtml = '';
                 if (resolvedData.QR_MAPS) {
                     const qrElement = template.elements.find(e => e.tokenKey === 'QR_MAPS');
                     if (qrElement) {
-                        const qrStyle = 'left: ' + qrElement.xMm + 'mm; top: ' + qrElement.yMm + 'mm; width: ' + qrElement.wMm + 'mm; height: ' + qrElement.hMm + 'mm; text-align: center; padding: 1mm;';
-                        htmlParts.push('<div class="cell" id="qr-container" style="' + qrStyle + '"></div>');
+                        const qrStyle = `left: ${qrElement.xMm}mm; top: ${qrElement.yMm}mm; width: ${qrElement.wMm}mm; height: ${qrElement.hMm}mm; text-align: center; padding: 1mm;`;
+                        qrContainerHtml = `<div class="cell" id="qr-container" style="${qrStyle}"></div>`;
+                        const qrUrl = JSON.stringify(resolvedData.QR_MAPS);
+                        // Construir script QR sin template literals anidados para evitar problemas
+                        qrScriptHtml = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script><script>(function(){if(typeof QRCode !== "undefined"){var qrContainer = document.getElementById("qr-container");if(qrContainer){QRCode.toDataURL(' + qrUrl + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img = document.createElement("img");img.src = url;img.style.maxWidth = "100%";img.style.height = "auto";qrContainer.appendChild(img);}});}}})();</script>';
                     }
                 }
                 
-                htmlParts.push('</div>');
+                // Construir HTML completo en un solo template literal
+                const printHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Viñeta Ruta</title>
+<style>
+@page { size: 210mm 71mm landscape; margin-left: 0.1cm; margin-right: 0.1cm; }
+html, body { width: 210mm; height: 71mm; margin: 0; padding: 0; overflow: hidden; }
+.ticket { width: 210mm; height: 71mm; position: relative; overflow: hidden; background: #fff; }
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; text-transform: uppercase; }
+.cell { position: absolute; overflow: hidden; word-wrap: break-word; }
+</style>
+</head>
+<body>
+<div class="ticket">
+${elementsHtml}
+${qrContainerHtml}
+</div>
+${qrScriptHtml}
+</body>
+</html>`;
                 
-                // Script para generar QR si existe
-                if (resolvedData.QR_MAPS) {
-                    htmlParts.push('<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>');
-                    const qrUrl = resolvedData.QR_MAPS;
-                    const qrScript = '(function(){if(typeof QRCode !== "undefined"){var qrContainer = document.getElementById("qr-container");if(qrContainer){QRCode.toDataURL(' + JSON.stringify(qrUrl) + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img = document.createElement("img");img.src = url;img.style.maxWidth = "100%";img.style.height = "auto";qrContainer.appendChild(img);}});}}})();';
-                    htmlParts.push('<script>');
-                    htmlParts.push(qrScript);
-                    htmlParts.push('</script>');
-                }
-                
-                htmlParts.push('</body>');
-                htmlParts.push('</html>');
-                
-                return htmlParts.join('');
+                return printHtml;
             };
 
             // Función para auto-fit texto
@@ -6508,76 +6501,58 @@
                     printedAt: printedAt.toUpperCase()
                 };
                 
-                const logo1Url = LOGO1_URL;
-                const logo2Url = LOGO2_URL;
+                // Asegurar URLs de logos bien formadas (usar rutas absolutas si son locales)
+                const logo1Url = LOGO1_URL || '/assets/logo1.png';
+                const logo2Url = LOGO2_URL || '/assets/logo2.png';
                 
-                // Construir HTML usando concatenación de strings (evita problemas con Babel)
-                const htmlParts = [];
-                htmlParts.push('<div class="sheet">');
-                htmlParts.push('<div class="header">');
-                htmlParts.push('<div class="header-logos">');
-                const logo1Img = '<img src="' + escapeHtml(logo1Url) + '" alt="Logo 1" class="header-logo" onerror="this.style.display=\'none\'"/>';
-                const logo2Img = '<img src="' + escapeHtml(logo2Url) + '" alt="Logo 2" class="header-logo" onerror="this.style.display=\'none\'"/>';
-                htmlParts.push(logo1Img);
-                htmlParts.push(logo2Img);
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>');
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="banner">ENTREGA EN VENTANILLA</div>');
-                htmlParts.push('<div class="section">');
-                htmlParts.push('<div class="section-title">INFORMACIÓN DEL DERECHOHABIENTE</div>');
-                htmlParts.push('<div class="field-row">');
-                htmlParts.push('<div class="field-label">NOMBRE COMPLETO:</div>');
-                htmlParts.push('<div class="field-value-extra-large">' + escapeHtml(data.nombre) + '</div>');
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="field-row">');
-                htmlParts.push('<div class="field-label">DNI / AFILIACIÓN:</div>');
-                htmlParts.push('<div class="field-value-large">' + escapeHtml(data.dni) + '</div>');
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="field-row">');
-                htmlParts.push('<div class="field-label">FECHA ENTREGA:</div>');
-                htmlParts.push('<div class="field-value">' + escapeHtml(data.fechaEntrega) + '</div>');
-                htmlParts.push('</div>');
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="section">');
-                htmlParts.push('<div class="section-title">CONTACTO Y SEGUIMIENTO</div>');
-                htmlParts.push('<div class="field-row">');
-                htmlParts.push('<div class="field-label">TELÉFONO:</div>');
-                htmlParts.push('<div class="field-value-large">' + escapeHtml(data.telefonoPrincipal || '—') + '</div>');
-                htmlParts.push('</div>');
-                if (data.telefonoRef) {
-                    htmlParts.push('<div class="field-row">');
-                    htmlParts.push('<div class="field-label">TEL. REFERENCIA:</div>');
-                    htmlParts.push('<div class="field-value">' + escapeHtml(data.telefonoRef) + '</div>');
-                    htmlParts.push('</div>');
-                }
-                htmlParts.push('<div class="field-row">');
-                htmlParts.push('<div class="field-label">MEDICAMENTOS:</div>');
-                htmlParts.push('<div class="field-value-large" style="font-size: 5mm;">' + escapeHtml(data.medicamentos) + '</div>');
-                htmlParts.push('</div>');
-                if (data.contactCenter) {
-                    htmlParts.push('<div class="field-row">');
-                    htmlParts.push('<div class="field-label">CONTACT CENTER:</div>');
-                    htmlParts.push('<div class="field-value">' + escapeHtml(data.contactCenter) + '</div>');
-                    htmlParts.push('</div>');
-                }
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="dashed-box">VENTANILLA</div>');
-                if (data.observaciones) {
-                    htmlParts.push('<div class="section">');
-                    htmlParts.push('<div class="section-title">OBSERVACIONES</div>');
-                    htmlParts.push('<div class="field-value" style="font-size: 2.8mm; line-height: 1.4; word-wrap: break-word; min-height: 8mm;">' + escapeHtml(data.observaciones) + '</div>');
-                    htmlParts.push('</div>');
-                }
-                if (data.refrigerado) {
-                    htmlParts.push('<div class="refrigerado-box">');
-                    htmlParts.push('<strong>❄ CONTIENE REFRIGERADO</strong> - CANTIDAD: ' + escapeHtml(data.cantRefrigerados) + '');
-                    htmlParts.push('</div>');
-                }
-                htmlParts.push('<div class="footer">OP: ' + escapeHtml(data.operatorName) + ' | ' + escapeHtml(data.printedAt) + '</div>');
-                htmlParts.push('</div>');
+                // Construir HTML en un solo template literal
+                const telefonoRefHtml = data.telefonoRef ? `<div class="field-row"><div class="field-label">TEL. REFERENCIA:</div><div class="field-value">${escapeHtml(data.telefonoRef)}</div></div>` : '';
+                const contactCenterHtml = data.contactCenter ? `<div class="field-row"><div class="field-label">CONTACT CENTER:</div><div class="field-value">${escapeHtml(data.contactCenter)}</div></div>` : '';
+                const observacionesHtml = data.observaciones ? `<div class="section"><div class="section-title">OBSERVACIONES</div><div class="field-value" style="font-size: 2.8mm; line-height: 1.4; word-wrap: break-word; min-height: 8mm;">${escapeHtml(data.observaciones)}</div></div>` : '';
+                const refrigeradoHtml = data.refrigerado ? `<div class="refrigerado-box"><strong>❄ CONTIENE REFRIGERADO</strong> - CANTIDAD: ${escapeHtml(data.cantRefrigerados)}</div>` : '';
                 
-                const html = htmlParts.join('');
+                const html = `<div class="sheet">
+<div class="header">
+<div class="header-logos">
+<img src="${escapeHtml(logo1Url)}" alt="Logo 1" class="header-logo" onerror="this.style.display='none'"/>
+<img src="${escapeHtml(logo2Url)}" alt="Logo 2" class="header-logo" onerror="this.style.display='none'"/>
+</div>
+<div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>
+</div>
+<div class="banner">ENTREGA EN VENTANILLA</div>
+<div class="section">
+<div class="section-title">INFORMACIÓN DEL DERECHOHABIENTE</div>
+<div class="field-row">
+<div class="field-label">NOMBRE COMPLETO:</div>
+<div class="field-value-extra-large">${escapeHtml(data.nombre)}</div>
+</div>
+<div class="field-row">
+<div class="field-label">DNI / AFILIACIÓN:</div>
+<div class="field-value-large">${escapeHtml(data.dni)}</div>
+</div>
+<div class="field-row">
+<div class="field-label">FECHA ENTREGA:</div>
+<div class="field-value">${escapeHtml(data.fechaEntrega)}</div>
+</div>
+</div>
+<div class="section">
+<div class="section-title">CONTACTO Y SEGUIMIENTO</div>
+<div class="field-row">
+<div class="field-label">TELÉFONO:</div>
+<div class="field-value-large">${escapeHtml(data.telefonoPrincipal || '—')}</div>
+</div>
+${telefonoRefHtml}
+<div class="field-row">
+<div class="field-label">MEDICAMENTOS:</div>
+<div class="field-value-large" style="font-size: 5mm;">${escapeHtml(data.medicamentos)}</div>
+</div>
+${contactCenterHtml}
+</div>
+<div class="dashed-box">VENTANILLA</div>
+${observacionesHtml}
+${refrigeradoHtml}
+<div class="footer">OP: ${escapeHtml(data.operatorName)} | ${escapeHtml(data.printedAt)}</div>
+</div>`;
                 
                 buildPrintWindow(html, getPrintVignetteCSSVertical(), 'Imprimir Viñeta Ventanilla');
             };
@@ -6603,46 +6578,40 @@
                     printedAt: printedAt.toUpperCase()
                 };
                 
-                const logo1Url = LOGO1_URL;
-                const logo2Url = LOGO2_URL;
+                // Asegurar URLs de logos bien formadas (usar rutas absolutas si son locales)
+                const logo1Url = LOGO1_URL || '/assets/logo1.png';
+                const logo2Url = LOGO2_URL || '/assets/logo2.png';
                 
-                // Construir HTML usando concatenación de strings (evita problemas con Babel)
-                const htmlParts = [];
-                htmlParts.push('<div class="sheet">');
-                htmlParts.push('<div class="header">');
-                htmlParts.push('<div class="header-logos">');
-                const logo1Img = '<img src="' + escapeHtml(logo1Url) + '" alt="Logo 1" class="header-logo" onerror="this.style.display=\'none\'"/>';
-                const logo2Img = '<img src="' + escapeHtml(logo2Url) + '" alt="Logo 2" class="header-logo" onerror="this.style.display=\'none\'"/>';
-                htmlParts.push(logo1Img);
-                htmlParts.push(logo2Img);
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>');
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="banner">');
-                htmlParts.push('❄ PRODUCTO REFRIGERADO ❄');
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="info-grid">');
-                htmlParts.push('<div class="info-box">');
-                htmlParts.push('<div class="info-box-title">NOMBRE COMPLETO</div>');
-                htmlParts.push('<div class="info-box-content-large">' + escapeHtml(data.nombre) + '</div>');
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="info-box">');
-                htmlParts.push('<div class="info-box-title">DNI / AFILIACIÓN</div>');
-                htmlParts.push('<div class="info-box-content">' + escapeHtml(data.dni) + '</div>');
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="info-box">');
-                htmlParts.push('<div class="info-box-title">FECHA DESPACHO</div>');
-                htmlParts.push('<div class="info-box-content-date">' + escapeHtml(data.fechaEntrega) + '</div>');
-                htmlParts.push('</div>');
-                htmlParts.push('<div style="margin-top: 1mm;">');
-                htmlParts.push('<div class="cantidad-label">CANTIDAD DE REFRIGERADOS</div>');
-                htmlParts.push('<div class="cantidad-box">' + escapeHtml(data.cantRefrigerados) + '</div>');
-                htmlParts.push('</div>');
-                htmlParts.push('</div>');
-                htmlParts.push('<div class="footer">OP: ' + escapeHtml(data.operatorName) + ' | ' + escapeHtml(data.printedAt) + '</div>');
-                htmlParts.push('</div>');
-                
-                const html = htmlParts.join('');
+                // Construir HTML en un solo template literal
+                const html = `<div class="sheet">
+<div class="header">
+<div class="header-logos">
+<img src="${escapeHtml(logo1Url)}" alt="Logo 1" class="header-logo" onerror="this.style.display='none'"/>
+<img src="${escapeHtml(logo2Url)}" alt="Logo 2" class="header-logo" onerror="this.style.display='none'"/>
+</div>
+<div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>
+</div>
+<div class="banner">❄ PRODUCTO REFRIGERADO ❄</div>
+<div class="info-grid">
+<div class="info-box">
+<div class="info-box-title">NOMBRE COMPLETO</div>
+<div class="info-box-content-large">${escapeHtml(data.nombre)}</div>
+</div>
+<div class="info-box">
+<div class="info-box-title">DNI / AFILIACIÓN</div>
+<div class="info-box-content">${escapeHtml(data.dni)}</div>
+</div>
+<div class="info-box">
+<div class="info-box-title">FECHA DESPACHO</div>
+<div class="info-box-content-date">${escapeHtml(data.fechaEntrega)}</div>
+</div>
+<div style="margin-top: 1mm;">
+<div class="cantidad-label">CANTIDAD DE REFRIGERADOS</div>
+<div class="cantidad-box">${escapeHtml(data.cantRefrigerados)}</div>
+</div>
+</div>
+<div class="footer">OP: ${escapeHtml(data.operatorName)} | ${escapeHtml(data.printedAt)}</div>
+</div>`;
                 
                 buildPrintWindow(html, getPrintVignetteCSSRefrigerado(), 'Imprimir Viñeta Refrigerado');
             };
