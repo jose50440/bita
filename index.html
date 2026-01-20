@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
     <title>Bitácora de Producción - Operaciones</title>
     
     <!-- Tailwind CSS -->
@@ -5008,52 +5009,43 @@
                 }
             };
 
-            // Helper para construir ventana de impresión (refactorizada: un solo template literal)
+            // Helper para construir ventana de impresión (SIN <script> embebido para evitar cortar el <script type="text/babel">)
             const buildPrintWindow = (html, css, title = 'Imprimir Viñeta', onAfterPrintClose = true) => {
-                const printWindow = window.open('', '_blank');
+                // Mejor compatibilidad + menos bloqueos
+                const printWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
                 if (!printWindow) {
                     alert('No se pudo abrir la ventana de impresión. Por favor, permite ventanas emergentes.');
                     return null;
                 }
-                
-                // Construir HTML completo en un solo template literal
-                const closeScript = onAfterPrintClose ? 'setTimeout(function() { window.close(); }, 2000);' : '';
+
                 const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>${escapeHtml(title)}</title>
-<style>${css}</style>
+  <meta charset="UTF-8">
+  <title>${escapeHtml(title)}</title>
+  <style>${css}</style>
 </head>
 <body>
-${html}
-<script>
-(function() {
-try {
-if (window.opener && window.opener !== window && window.opener.location) {
-window.addEventListener("load", function() {
-setTimeout(function() {
-window.print();
-}, 500);
-${closeScript}
-});
-}
-} catch(e) {
-console.log("Print error:", e);
-}
-})();
-</script>
+  ${html}
 </body>
 </html>`;
-                
+
                 printWindow.document.open();
                 printWindow.document.write(fullHtml);
                 printWindow.document.close();
-                
-                if (printWindow && !printWindow.closed) {
-                    printWindow.focus();
-                }
-                
+
+                // Disparar impresión desde el opener (aquí), NO desde un <script> dentro del string
+                try { printWindow.focus(); } catch (e) {}
+
+                setTimeout(() => {
+                    try { printWindow.print(); } catch (e) {}
+                    if (onAfterPrintClose) {
+                        setTimeout(() => {
+                            try { printWindow.close(); } catch (e) {}
+                        }, 2000);
+                    }
+                }, 500);
+
                 return printWindow;
             };
 
