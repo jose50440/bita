@@ -4180,7 +4180,8 @@
                 otherPhone: '',
                 addressConfirmed: true, 
                 secondaryAddress: '',
-                gpsStatus: 'SIN GPS', 
+                gpsStatus: 'SIN GPS',
+                gpsValue: '', 
                 observationsEnabled: false,
                 observations: '',
                 isRefrigerated: false, 
@@ -4700,7 +4701,8 @@
                     otherPhone: '',
                     addressConfirmed: true, 
                     secondaryAddress: '',
-                    gpsStatus: 'SIN GPS', 
+                    gpsStatus: 'SIN GPS',
+                    gpsValue: '',
                     observationsEnabled: false,
                     observations: '',
                     isRefrigerated: false, 
@@ -4731,7 +4733,8 @@
                     otherPhone: '',
                     addressConfirmed: true, 
                     secondaryAddress: '',
-                    gpsStatus: 'SIN GPS', 
+                    gpsStatus: 'SIN GPS',
+                    gpsValue: '',
                     observationsEnabled: false,
                     observations: '',
                     isRefrigerated: false, 
@@ -4742,7 +4745,7 @@
             };
             
             const openEditKit = (k, viewOnly = false) => { 
-                setKitData({...k, otherPhoneEnabled: !!k.otherPhone}); 
+                setKitData({...k, otherPhoneEnabled: !!k.otherPhone, gpsValue: k.gpsValue || ''}); 
                 setEditingKitId(k.id); 
                 setIsViewMode(viewOnly);
                 setShowKitForm(true); 
@@ -6144,19 +6147,54 @@
                                                 )}
                                                 
                                                 <div>
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">GPS</label>
-                                                    <div className="flex items-center gap-4">
-                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                            <input type="checkbox" checked={kitData.gpsStatus === 'TIENE GPS'} onChange={e=>setKitData({...kitData, gpsStatus: e.target.checked ? 'TIENE GPS' : 'SIN GPS'})} />
-                                                            <span className="text-sm font-bold text-green-600">TIENE GPS</span>
-                                                        </label>
-                                                        {kitData.gpsStatus !== 'TIENE GPS' && (
-                                                            <select className="flex-1 p-2 border rounded text-sm bg-white font-bold text-slate-700" value={kitData.gpsStatus} onChange={e=>setKitData({...kitData, gpsStatus:e.target.value})}>
-                                                                <option value="SIN GPS">SIN GPS</option>
-                                                                <option value="GPS PENDIENTE">GPS PENDIENTE</option>
-                                                            </select>
-                                                        )}
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">GPS</label>
+                                                    
+                                                    {/* Toggle Button Sí/No con animación */}
+                                                    <div className="relative inline-flex items-center mb-3 bg-slate-100 rounded-full p-1 shadow-inner w-full max-w-xs overflow-hidden">
+                                                        <div 
+                                                            className="absolute inset-y-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out"
+                                                            style={{
+                                                                left: kitData.gpsStatus === 'TIENE GPS' ? 'calc(50% + 0.125rem)' : '0.25rem',
+                                                                width: 'calc(50% - 0.25rem)',
+                                                                backgroundColor: kitData.gpsStatus === 'TIENE GPS' ? '#dcfce7' : '#ffffff'
+                                                            }}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const newStatus = kitData.gpsStatus === 'TIENE GPS' ? 'SIN GPS' : 'TIENE GPS';
+                                                                setKitData({
+                                                                    ...kitData,
+                                                                    gpsStatus: newStatus,
+                                                                    gpsValue: newStatus === 'SIN GPS' ? '' : kitData.gpsValue
+                                                                });
+                                                            }}
+                                                            className={`
+                                                                relative z-10 flex-1 px-6 py-2.5 text-sm font-bold uppercase rounded-full transition-colors duration-300 ease-in-out
+                                                                ${kitData.gpsStatus === 'TIENE GPS'
+                                                                    ? 'text-green-700'
+                                                                    : 'text-slate-600'
+                                                                }
+                                                                focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2
+                                                            `}
+                                                        >
+                                                            {kitData.gpsStatus === 'TIENE GPS' ? '✓ SÍ' : '✗ NO'}
+                                                        </button>
                                                     </div>
+                                                    
+                                                    {/* Campo de texto para GPS cuando está en SÍ */}
+                                                    {kitData.gpsStatus === 'TIENE GPS' && (
+                                                        <div className="mt-2 animate-in slide-in-from-top-2 duration-300">
+                                                            <input
+                                                                type="text"
+                                                                className="w-full p-2.5 border-2 border-green-300 rounded-lg text-sm bg-green-50 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-500 transition-all duration-200"
+                                                                value={kitData.gpsValue || ''}
+                                                                onChange={e => setKitData({...kitData, gpsValue: e.target.value})}
+                                                                placeholder="Ingrese coordenadas GPS o referencia..."
+                                                                autoFocus
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div>
