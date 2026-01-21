@@ -4151,7 +4151,7 @@
         };
 
         // --- BLOCK: PACIENTES ---
-        const PatientManagementBlock = ({ medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts }) => {
+        const PatientManagementBlock = ({ medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts, printRutaVignette }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
             const [selectedPatientFullData, setSelectedPatientFullData] = useState(null);
@@ -4444,7 +4444,7 @@
                 loadPatients();
                 loadKits();
                 loadPrintTemplates();
-                loadRutaTemplateCurrent();
+                // loadRutaTemplateCurrent() se carga dentro de App
             }, []);
 
             useEffect(() => {
@@ -5011,38 +5011,97 @@
 
             // Helper para construir ventana de impresión (SIN <script> embebido para evitar cortar el <script type="text/babel">)
             const buildPrintWindow = (html, css, title = 'Imprimir Viñeta', onAfterPrintClose = true) => {
-                // Mejor compatibilidad + menos bloqueos
-                const printWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
+                let printWindow = null;
+                
+                // Intentar múltiples métodos para abrir ventana (evita bloqueos)
+                try {
+                    printWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
+                } catch (e) {
+                    console.error('Error abriendo ventana:', e);
+                }
+                
+                // Si falla, intentar sin especificar target
+                if (!printWindow || printWindow.closed || typeof printWindow.closed === 'undefined') {
+                    try {
+                        printWindow = window.open();
+                    } catch (e) {
+                        console.error('Error en segundo intento:', e);
+                    }
+                }
+                
+                // Si aún falla, usar iframe como fallback
+                if (!printWindow || printWindow.closed || typeof printWindow.closed === 'undefined') {
+                    try {
+                        const iframe = document.createElement('iframe');
+                        iframe.style.position = 'fixed';
+                        iframe.style.right = '0';
+                        iframe.style.bottom = '0';
+                        iframe.style.width = '0';
+                        iframe.style.height = '0';
+                        iframe.style.border = 'none';
+                        document.body.appendChild(iframe);
+                        printWindow = iframe.contentWindow;
+                    } catch (e) {
+                        console.error('Error creando iframe:', e);
+                    }
+                }
+                
                 if (!printWindow) {
-                    alert('No se pudo abrir la ventana de impresión. Por favor, permite ventanas emergentes.');
+                    alert('No se pudo abrir la ventana de impresión. Por favor:\n\n1. Desactive el bloqueador de ventanas emergentes\n2. Permita ventanas emergentes para este sitio\n3. Intente nuevamente');
                     return null;
                 }
 
-                const fullHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>${escapeHtml(title)}</title>
-  <style>${css}</style>
-</head>
-<body>
-  ${html}
-</body>
-</html>`;
+                // Construir HTML usando concatenación (evita problemas con Babel)
+                const escapedTitle = escapeHtml(title);
+                const fullHtml = '<!DOCTYPE html>' +
+'<html>' +
+'<head>' +
+'<meta charset="UTF-8">' +
+'<title>' + escapedTitle + '</title>' +
+'<style>' + css + '</style>' +
+'</head>' +
+'<body>' +
+html +
+'</body>' +
+'</html>';
 
-                printWindow.document.open();
-                printWindow.document.write(fullHtml);
-                printWindow.document.close();
+                try {
+                    printWindow.document.open();
+                    printWindow.document.write(fullHtml);
+                    printWindow.document.close();
+                } catch (e) {
+                    console.error('Error escribiendo en ventana:', e);
+                    alert('Error al preparar la impresión: ' + e.message);
+                    return null;
+                }
 
                 // Disparar impresión desde el opener (aquí), NO desde un <script> dentro del string
-                try { printWindow.focus(); } catch (e) {}
+                try { 
+                    if (printWindow && !printWindow.closed) {
+                        printWindow.focus(); 
+                    }
+                } catch (e) {
+                    console.error('Error enfocando ventana:', e);
+                }
 
                 setTimeout(() => {
-                    try { printWindow.print(); } catch (e) {}
-                    if (onAfterPrintClose) {
-                        setTimeout(() => {
-                            try { printWindow.close(); } catch (e) {}
-                        }, 2000);
+                    try {
+                        if (printWindow && !printWindow.closed) {
+                            printWindow.print();
+                        }
+                        if (onAfterPrintClose) {
+                            setTimeout(() => {
+                                try {
+                                    if (printWindow && !printWindow.closed) {
+                                        printWindow.close();
+                                    }
+                                } catch (e) {
+                                    console.error('Error cerrando ventana:', e);
+                                }
+                            }, 2000);
+                        }
+                    } catch (e) {
+                        console.error('Error imprimiendo:', e);
                     }
                 }, 500);
 
@@ -5057,402 +5116,11 @@
             // SISTEMA DE PLANTILLAS RUTA DESDE EXCEL
             // ============================================================
 
-            // Estado para plantilla RUTA actual
-            const [rutaTemplateCurrent, setRutaTemplateCurrent] = useState(null);
-            const [rutaTemplateHistory, setRutaTemplateHistory] = useState([]);
+            // Estado para plantilla RUTA actual (movido dentro de App más abajo)
+            // const [rutaTemplateCurrent, setRutaTemplateCurrent] = useState(null);
+            // const [rutaTemplateHistory, setRutaTemplateHistory] = useState([]);
 
-            // Función para detectar si GPS está habilitado (robusto)
-            const getGpsEnabled = (kitData) => {
-                if (!kitData) return false;
-                // Detectar boolean
-                if (kitData.gpsEnabled === true || kitData.gpsEnabled === 'true' || kitData.gpsEnabled === 1) return true;
-                if (kitData.gpsEnabled === false || kitData.gpsEnabled === 'false' || kitData.gpsEnabled === 0) return false;
-                // Detectar strings
-                const gpsStr = String(kitData.gpsEnabled || kitData.tieneGps || kitData.gps || kitData.hasGps || '').toUpperCase();
-                if (gpsStr === 'SI' || gpsStr === 'SÍ' || gpsStr === 'TRUE' || gpsStr === '1' || gpsStr === 'YES') return true;
-                if (gpsStr === 'NO' || gpsStr === 'FALSE' || gpsStr === '0') return false;
-                // Fallback: si existe gpsStatus antiguo
-                if (kitData.gpsStatus === 'TIENE GPS') return true;
-                return false;
-            };
-
-            // Función para obtener coordenadas GPS (robusto)
-            const getGpsCoords = (kitData) => {
-                if (!kitData) return null;
-                let lat = null, lng = null;
-                // Intentar diferentes estructuras
-                if (kitData.gpsCoords) {
-                    lat = kitData.gpsCoords.lat || kitData.gpsCoords.latitude;
-                    lng = kitData.gpsCoords.lng || kitData.gpsCoords.longitude || kitData.gpsCoords.lon;
-                } else if (kitData.gpsCoordinates) {
-                    lat = kitData.gpsCoordinates.latitude || kitData.gpsCoordinates.lat;
-                    lng = kitData.gpsCoordinates.longitude || kitData.gpsCoordinates.lng || kitData.gpsCoordinates.lon;
-                } else if (kitData.coordenadasGps) {
-                    lat = kitData.coordenadasGps.lat || kitData.coordenadasGps.latitude;
-                    lng = kitData.coordenadasGps.lng || kitData.coordenadasGps.longitude || kitData.coordenadasGps.lon;
-                } else if (kitData.lat !== undefined && kitData.lng !== undefined) {
-                    lat = kitData.lat;
-                    lng = kitData.lng;
-                } else if (kitData.latitude !== undefined && kitData.longitude !== undefined) {
-                    lat = kitData.latitude;
-                    lng = kitData.longitude;
-                } else if (kitData.gpsValue) {
-                    // Parsear string "lat,lng"
-                    const parts = String(kitData.gpsValue).split(',');
-                    if (parts.length >= 2) {
-                        lat = parseFloat(parts[0].trim());
-                        lng = parseFloat(parts[1].trim());
-                    }
-                }
-                // Validar
-                if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
-                    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-                        return { lat, lng };
-                    }
-                }
-                return null;
-            };
-
-            // Función para resolver dirección de entrega (CORRECCIÓN CRÍTICA)
-            const resolveDeliveryAddressRuta = (kitData, patientData) => {
-                // Detectar flag de confirmación
-                const addressConfirmed = kitData.addressConfirmed !== false && 
-                                       kitData.ubicacionConfirmada !== false && 
-                                       kitData.confirmoUbicacion !== false;
-                
-                // Si NO está confirmada, usar dirección secundaria/nueva del KIT
-                if (!addressConfirmed) {
-                    const secondaryAddr = kitData.secondaryAddress || 
-                                         kitData.direccionSecundaria || 
-                                         kitData.direccionNueva || 
-                                         kitData.deliveryAddressText || 
-                                         kitData.direccionEntrega || 
-                                         kitData.secondaryDeliveryAddress || '';
-                    if (secondaryAddr && String(secondaryAddr).trim()) {
-                        return String(secondaryAddr).trim();
-                    }
-                }
-                
-                // Si está confirmada o no hay secundaria, usar dirección del KIT o paciente
-                return kitData.direccionEntrega || 
-                       kitData.direccion || 
-                       patientData?.direccion || 
-                       '';
-            };
-
-            // Función para resolver todos los placeholders/tokens
-            const resolveRutaPlaceholders = (kitData, patientData) => {
-                const gpsEnabled = getGpsEnabled(kitData);
-                const gpsCoords = getGpsCoords(kitData);
-                const direccionEntrega = resolveDeliveryAddressRuta(kitData, patientData);
-                
-                // Teléfonos
-                const phones = [];
-                if (kitData.selectedPhones && Array.isArray(kitData.selectedPhones)) {
-                    phones.push(...kitData.selectedPhones);
-                }
-                if (kitData.otherPhoneEnabled && kitData.otherPhone) {
-                    phones.push(kitData.otherPhone);
-                }
-                const telefonosText = phones.length > 0 ? phones.join(' / ') : '';
-                
-                // Contact Center
-                let contactCenter = '';
-                if (kitData.contactCenter) {
-                    const contactStr = String(kitData.contactCenter);
-                    contactCenter = contactStr.split(' --- ')[0].trim();
-                }
-                
-                // Fecha Entrega
-                let fechaEntrega = '';
-                if (kitData.fechaEntregaKit) {
-                    const date = new Date(kitData.fechaEntregaKit);
-                    if (!isNaN(date.getTime())) {
-                        fechaEntrega = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                    }
-                } else if (kitData.fechaArmado) {
-                    const date = new Date(kitData.fechaArmado);
-                    if (!isNaN(date.getTime())) {
-                        fechaEntrega = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                    }
-                }
-                
-                // Medicamentos count
-                let medsCount = '0';
-                if (kitData.triggerMeds && String(kitData.triggerMeds).trim()) {
-                    medsCount = String(kitData.triggerMeds);
-                } else if (kitData.medicamentos && Array.isArray(kitData.medicamentos)) {
-                    medsCount = String(kitData.medicamentos.length);
-                }
-                
-                return {
-                    NOMBRE: (kitData.nombre || patientData?.nombre || '').toUpperCase(),
-                    DNI: (kitData.dni || patientData?.dni || '').toUpperCase(),
-                    GPS_STATUS: gpsEnabled ? 'TIENE GPS' : '',
-                    TELEFONOS: telefonosText.toUpperCase(),
-                    MEDS_COUNT: medsCount.toUpperCase(),
-                    DIRECCION_ENTREGA: direccionEntrega.toUpperCase(),
-                    OBSERVACIONES: (kitData.observations || kitData.observacionesEntrega || kitData.obsRuta || '').toUpperCase(),
-                    CONTACT_CENTER: contactCenter.toUpperCase() || '—',
-                    FECHA_ENTREGA: fechaEntrega || '—',
-                    REFRIGERADO: (kitData.refrigerado === true || kitData.isRefrigerated === true) ? 'REFRIGERADO' : '',
-                    QR_MAPS: (gpsEnabled && gpsCoords) ? `https://www.google.com/maps?q=${gpsCoords.lat},${gpsCoords.lng}` : null
-                };
-            };
-
-            // Función para importar Excel y convertir a plantilla JSON
-            const importRutaTemplateFromExcel = async (file) => {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        try {
-                            const data = new Uint8Array(e.target.result);
-                            const workbook = XLSX.read(data, { type: 'array' });
-                            
-                            // Buscar hoja "RUTA" o usar la primera
-                            let worksheet = workbook.Sheets['RUTA'] || workbook.Sheets[workbook.SheetNames[0]];
-                            if (!worksheet) {
-                                reject(new Error('No se encontró ninguna hoja en el archivo Excel'));
-                                return;
-                            }
-                            
-                            // Obtener rango y merges
-                            const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:Z100');
-                            const merges = worksheet['!merges'] || [];
-                            
-                            // Dimensiones objetivo: 210mm x 71mm
-                            const targetWidthMm = 210;
-                            const targetHeightMm = 71;
-                            const marginMm = 1; // 0.1cm = 1mm
-                            const usableWidthMm = targetWidthMm - (marginMm * 2);
-                            const usableHeightMm = targetHeightMm - (marginMm * 2);
-                            
-                            // Calcular ancho de columna promedio (asumiendo columnas uniformes)
-                            const numCols = range.e.c - range.s.c + 1;
-                            const numRows = range.e.r - range.s.r + 1;
-                            const colWidthMm = usableWidthMm / numCols;
-                            const rowHeightMm = usableHeightMm / numRows;
-                            
-                            const elements = [];
-                            const processedCells = new Set();
-                            
-                            // Procesar merges primero
-                            merges.forEach(merge => {
-                                const startCell = XLSX.utils.encode_cell({ r: merge.s.r, c: merge.s.c });
-                                const endCell = XLSX.utils.encode_cell({ r: merge.e.r, c: merge.e.c });
-                                const cell = worksheet[startCell];
-                                
-                                if (cell && cell.v !== undefined) {
-                                    const xMm = marginMm + (merge.s.c * colWidthMm);
-                                    const yMm = marginMm + (merge.s.r * rowHeightMm);
-                                    const wMm = (merge.e.c - merge.s.c + 1) * colWidthMm;
-                                    const hMm = (merge.e.r - merge.s.r + 1) * rowHeightMm;
-                                    
-                                    // Detectar token
-                                    const text = String(cell.v);
-                                    let tokenKey = null;
-                                    const tokenMatch = text.match(/\{\{(\w+)\}\}/);
-                                    if (tokenMatch) {
-                                        tokenKey = tokenMatch[1];
-                                    }
-                                    
-                                    // Estilos básicos
-                                    const style = {
-                                        bold: cell.s?.font?.bold || false,
-                                        align: cell.s?.alignment?.horizontal || 'left',
-                                        fontSize: cell.s?.font?.sz ? (cell.s.font.sz * 0.35) + 'mm' : '2mm'
-                                    };
-                                    
-                                    elements.push({
-                                        id: `cell_${merge.s.r}_${merge.s.c}`,
-                                        xMm,
-                                        yMm,
-                                        wMm,
-                                        hMm,
-                                        text: tokenKey ? null : text,
-                                        tokenKey: tokenKey,
-                                        style: style,
-                                        border: true
-                                    });
-                                    
-                                    // Marcar celdas procesadas
-                                    for (let r = merge.s.r; r <= merge.e.r; r++) {
-                                        for (let c = merge.s.c; c <= merge.e.c; c++) {
-                                            processedCells.add(`${r}_${c}`);
-                                        }
-                                    }
-                                }
-                            });
-                            
-                            // Procesar celdas no mergeadas
-                            for (let r = range.s.r; r <= range.e.r; r++) {
-                                for (let c = range.s.c; c <= range.e.c; c++) {
-                                    const key = `${r}_${c}`;
-                                    if (!processedCells.has(key)) {
-                                        const cellAddr = XLSX.utils.encode_cell({ r, c });
-                                        const cell = worksheet[cellAddr];
-                                        
-                                        if (cell && cell.v !== undefined) {
-                                            const xMm = marginMm + (c * colWidthMm);
-                                            const yMm = marginMm + (r * rowHeightMm);
-                                            
-                                            const text = String(cell.v);
-                                            let tokenKey = null;
-                                            const tokenMatch = text.match(/\{\{(\w+)\}\}/);
-                                            if (tokenMatch) {
-                                                tokenKey = tokenMatch[1];
-                                            }
-                                            
-                                            const style = {
-                                                bold: cell.s?.font?.bold || false,
-                                                align: cell.s?.alignment?.horizontal || 'left',
-                                                fontSize: cell.s?.font?.sz ? (cell.s.font.sz * 0.35) + 'mm' : '2mm'
-                                            };
-                                            
-                                            elements.push({
-                                                id: `cell_${r}_${c}`,
-                                                xMm,
-                                                yMm,
-                                                wMm: colWidthMm,
-                                                hMm: rowHeightMm,
-                                                text: tokenKey ? null : text,
-                                                tokenKey: tokenKey,
-                                                style: style,
-                                                border: true
-                                            });
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            resolve({
-                                elements: elements,
-                                metadata: {
-                                    importedAt: new Date().toISOString(),
-                                    sourceFile: file.name,
-                                    dimensions: { width: targetWidthMm, height: targetHeightMm }
-                                }
-                            });
-                        } catch (error) {
-                            reject(error);
-                        }
-                    };
-                    reader.onerror = () => reject(new Error('Error leyendo el archivo'));
-                    reader.readAsArrayBuffer(file);
-                });
-            };
-
-            // Función para guardar plantilla RUTA
-            const saveRutaTemplate = async (templateData, isCurrent = true) => {
-                try {
-                    if (!firebaseInitialized || !db || !storage) {
-                        throw new Error('Firebase no disponible');
-                    }
-                    
-                    const versionId = Date.now().toString();
-                    const timestamp = new Date().toISOString();
-                    
-                    // Guardar JSON en Firestore
-                    const templateRef = db.collection('prod_templates_ruta').doc(isCurrent ? 'current' : versionId);
-                    await templateRef.set({
-                        ...templateData,
-                        versionId: isCurrent ? 'current' : versionId,
-                        savedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        savedBy: currentUser?.name || currentUser?.email || 'unknown'
-                    });
-                    
-                    // Si es current, también guardar en historial
-                    if (isCurrent) {
-                        await db.collection('prod_templates_ruta').doc(versionId).set({
-                            ...templateData,
-                            versionId: versionId,
-                            savedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            savedBy: currentUser?.name || currentUser?.email || 'unknown'
-                        });
-                    }
-                    
-                    // Cargar plantilla actual
-                    if (isCurrent) {
-                        await loadRutaTemplateCurrent();
-                    }
-                    
-                    return { success: true, versionId };
-                } catch (error) {
-                    console.error('Error guardando plantilla RUTA:', error);
-                    throw error;
-                }
-            };
-
-            // Función para cargar plantilla RUTA actual
-            const loadRutaTemplateCurrent = async () => {
-                try {
-                    if (!firebaseInitialized || !db) return;
-                    
-                    const doc = await db.collection('prod_templates_ruta').doc('current').get();
-                    if (doc.exists) {
-                        setRutaTemplateCurrent(doc.data());
-                    }
-                } catch (error) {
-                    console.error('Error cargando plantilla RUTA:', error);
-                }
-            };
-
-            // Función para renderizar plantilla a HTML (refactorizada: un solo template literal)
-            const renderRutaTemplateToHTML = (template, resolvedData) => {
-                if (!template || !template.elements) return '';
-                
-                // Construir elementos HTML
-                let elementsHtml = '';
-                template.elements.forEach(element => {
-                    const text = element.tokenKey ? (resolvedData[element.tokenKey] || '') : (element.text || '');
-                    const style = element.style || {};
-                    const isBold = style.bold ? 'font-weight: 900;' : '';
-                    const align = style.align || 'left';
-                    const fontSize = style.fontSize || '2mm';
-                    const border = element.border ? 'border: 0.5px solid #000;' : '';
-                    const cellStyle = `left: ${element.xMm}mm; top: ${element.yMm}mm; width: ${element.wMm}mm; height: ${element.hMm}mm; ${border} ${isBold} text-align: ${align}; font-size: ${fontSize}; padding: 0.5mm;`;
-                    elementsHtml += `<div class="cell" style="${cellStyle}">${escapeHtml(text)}</div>`;
-                });
-                
-                // QR Code si existe
-                let qrContainerHtml = '';
-                let qrScriptHtml = '';
-                if (resolvedData.QR_MAPS) {
-                    const qrElement = template.elements.find(e => e.tokenKey === 'QR_MAPS');
-                    if (qrElement) {
-                        const qrStyle = `left: ${qrElement.xMm}mm; top: ${qrElement.yMm}mm; width: ${qrElement.wMm}mm; height: ${qrElement.hMm}mm; text-align: center; padding: 1mm;`;
-                        qrContainerHtml = `<div class="cell" id="qr-container" style="${qrStyle}"></div>`;
-                        const qrUrl = JSON.stringify(resolvedData.QR_MAPS);
-                        // Construir script QR sin template literals anidados para evitar problemas
-                        qrScriptHtml = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script><script>(function(){if(typeof QRCode !== "undefined"){var qrContainer = document.getElementById("qr-container");if(qrContainer){QRCode.toDataURL(' + qrUrl + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img = document.createElement("img");img.src = url;img.style.maxWidth = "100%";img.style.height = "auto";qrContainer.appendChild(img);}});}}})();</script>';
-                    }
-                }
-                
-                // Construir HTML completo en un solo template literal
-                const printHtml = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Viñeta Ruta</title>
-<style>
-@page { size: 210mm 71mm landscape; margin-left: 0.1cm; margin-right: 0.1cm; }
-html, body { width: 210mm; height: 71mm; margin: 0; padding: 0; overflow: hidden; }
-.ticket { width: 210mm; height: 71mm; position: relative; overflow: hidden; background: #fff; }
-* { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; text-transform: uppercase; }
-.cell { position: absolute; overflow: hidden; word-wrap: break-word; }
-</style>
-</head>
-<body>
-<div class="ticket">
-${elementsHtml}
-${qrContainerHtml}
-</div>
-${qrScriptHtml}
-</body>
-</html>`;
-                
-                return printHtml;
-            };
+            // Funciones movidas dentro de App - ver más abajo en el componente App
 
             // Función para auto-fit texto
             const fitText = (element, wMm, hMm, maxFont = 12, minFont = 7) => {
@@ -6397,78 +6065,40 @@ ${qrScriptHtml}
             };
 
 
-            // Función para imprimir viñeta RUTA (NUEVO SISTEMA - sin IMPRE.html)
-            const printRutaVignette = async (kit, patient) => {
-                try {
-                    const patientData = patient || selectedPatientFullData || {};
-                    
-                    // Cargar plantilla actual si no está cargada
-                    if (!rutaTemplateCurrent) {
-                        await loadRutaTemplateCurrent();
-                    }
-                    
-                    // Si no hay plantilla, usar una por defecto
-                    let template = rutaTemplateCurrent;
-                    if (!template) {
-                        alert('No hay plantilla RUTA configurada. Por favor, suba una plantilla Excel en Configuración → Plantilla RUTA.');
-                        return;
-                    }
-                    
-                    // Resolver placeholders
-                    const resolvedData = resolveRutaPlaceholders(kit, patientData);
-                    
-                    // Renderizar a HTML
-                    const htmlDoc = renderRutaTemplateToHTML(template, resolvedData);
-                    
-                    // Imprimir usando iframe oculto (evita bloqueos de popups)
-                    const iframe = document.createElement('iframe');
-                    iframe.style.position = 'fixed';
-                    iframe.style.right = '0';
-                    iframe.style.bottom = '0';
-                    iframe.style.width = '0';
-                    iframe.style.height = '0';
-                    iframe.style.border = 'none';
-                    document.body.appendChild(iframe);
-                    
-                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                    iframeDoc.open();
-                    iframeDoc.write(htmlDoc);
-                    iframeDoc.close();
-                    
-                    // Esperar a que cargue y luego imprimir
-                    iframe.onload = function() {
-                        setTimeout(() => {
-                            iframe.contentWindow.focus();
-                            iframe.contentWindow.print();
-                            // Remover iframe después de imprimir
-                            setTimeout(() => {
-                                document.body.removeChild(iframe);
-                            }, 2000);
-                        }, 300);
-                    };
-                    
-                    // Fallback si onload no se dispara
-                    setTimeout(() => {
-                        if (iframe.parentNode) {
-                            iframe.contentWindow.focus();
-                            iframe.contentWindow.print();
-                            setTimeout(() => {
-                                if (iframe.parentNode) {
-                                    document.body.removeChild(iframe);
-                                }
-                            }, 2000);
-                        }
-                    }, 500);
-                    
-                } catch (error) {
-                    console.error('Error imprimiendo viñeta RUTA:', error);
-                    alert('Error al imprimir: ' + error.message);
-                }
-            };
+            // Función para imprimir viñeta RUTA (movida dentro de App - ver más abajo)
 
             // Función para imprimir viñeta VENTANILLA
-            const printVentanillaVignette = (kit, patient) => {
-                const patientData = patient || selectedPatientFullData || {};
+            const printVentanillaVignette = async (kit, patient) => {
+                // Obtener datos actualizados de la base de datos antes de imprimir
+                let updatedKit = kit;
+                let updatedPatient = patient || selectedPatientFullData || {};
+                
+                if (kit && kit.id && firebaseInitialized && db) {
+                    try {
+                        const kitDoc = await db.collection('prod_kits').doc(kit.id).get();
+                        if (kitDoc.exists) {
+                            updatedKit = { id: kitDoc.id, ...kitDoc.data() };
+                            console.log('✅ Kit actualizado desde base de datos (Ventanilla):', updatedKit);
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ No se pudo obtener kit actualizado, usando datos locales:', error);
+                    }
+                }
+                
+                // Obtener datos actualizados del paciente si hay patientId
+                if (updatedKit && updatedKit.patientId && firebaseInitialized && db) {
+                    try {
+                        const patientDoc = await db.collection('prod_patients').doc(updatedKit.patientId).get();
+                        if (patientDoc.exists) {
+                            updatedPatient = { id: patientDoc.id, ...patientDoc.data() };
+                            console.log('✅ Paciente actualizado desde base de datos (Ventanilla)');
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ No se pudo obtener paciente actualizado, usando datos locales:', error);
+                    }
+                }
+                
+                const patientData = updatedPatient;
                 const operatorName = currentUser?.name || currentUser?.email || auth?.currentUser?.email || 'OPERADOR';
                 const printedAt = new Date().toLocaleString('es-ES', { 
                     year: 'numeric', 
@@ -6478,17 +6108,25 @@ ${qrScriptHtml}
                     minute: '2-digit' 
                 });
                 
+                // Usar triggerMeds si existe, sino usar medicamentos.length
+                let medicamentosCount = '0';
+                if (updatedKit.triggerMeds && String(updatedKit.triggerMeds).trim()) {
+                    medicamentosCount = String(updatedKit.triggerMeds);
+                } else if (updatedKit.medicamentos && Array.isArray(updatedKit.medicamentos)) {
+                    medicamentosCount = String(updatedKit.medicamentos.length);
+                }
+                
                 const data = {
-                    nombre: (kit.nombre || patientData.nombre || '').toUpperCase(),
-                    dni: (kit.dni || patientData.dni || '').toUpperCase(),
-                    fechaEntrega: kit.fechaArmado || '',
+                    nombre: (updatedKit.nombre || patientData.nombre || '').toUpperCase(),
+                    dni: (updatedKit.dni || patientData.dni || '').toUpperCase(),
+                    fechaEntrega: updatedKit.fechaArmado || '',
                     telefonoPrincipal: (patientData.telefono || '').toUpperCase(),
                     telefonoRef: (patientData.telefonoFamiliar || '').toUpperCase(),
-                    medicamentos: `${kit.medicamentos?.length || 0}`,
-                    contactCenter: (kit.contactCenter || '').toUpperCase(),
-                    observaciones: (kit.observations || '').toUpperCase(),
-                    refrigerado: kit.isRefrigerated || false,
-                    cantRefrigerados: kit.isRefrigerated ? (kit.cantRefriGlobal || 1) : 0,
+                    medicamentos: medicamentosCount,
+                    contactCenter: (updatedKit.contactCenter || '').toUpperCase(),
+                    observaciones: (updatedKit.observations || updatedKit.observacionesEntrega || '').toUpperCase(),
+                    refrigerado: updatedKit.isRefrigerated || false,
+                    cantRefrigerados: updatedKit.isRefrigerated ? (updatedKit.cantRefriGlobal || 1) : 0,
                     operatorName: operatorName.toUpperCase(),
                     printedAt: printedAt.toUpperCase()
                 };
@@ -6503,55 +6141,88 @@ ${qrScriptHtml}
                 const observacionesHtml = data.observaciones ? `<div class="section"><div class="section-title">OBSERVACIONES</div><div class="field-value" style="font-size: 2.8mm; line-height: 1.4; word-wrap: break-word; min-height: 8mm;">${escapeHtml(data.observaciones)}</div></div>` : '';
                 const refrigeradoHtml = data.refrigerado ? `<div class="refrigerado-box"><strong>❄ CONTIENE REFRIGERADO</strong> - CANTIDAD: ${escapeHtml(data.cantRefrigerados)}</div>` : '';
                 
-                const html = `<div class="sheet">
-<div class="header">
-<div class="header-logos">
-<img src="${escapeHtml(logo1Url)}" alt="Logo 1" class="header-logo" onerror="this.style.display='none'"/>
-<img src="${escapeHtml(logo2Url)}" alt="Logo 2" class="header-logo" onerror="this.style.display='none'"/>
-</div>
-<div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>
-</div>
-<div class="banner">ENTREGA EN VENTANILLA</div>
-<div class="section">
-<div class="section-title">INFORMACIÓN DEL DERECHOHABIENTE</div>
-<div class="field-row">
-<div class="field-label">NOMBRE COMPLETO:</div>
-<div class="field-value-extra-large">${escapeHtml(data.nombre)}</div>
-</div>
-<div class="field-row">
-<div class="field-label">DNI / AFILIACIÓN:</div>
-<div class="field-value-large">${escapeHtml(data.dni)}</div>
-</div>
-<div class="field-row">
-<div class="field-label">FECHA ENTREGA:</div>
-<div class="field-value">${escapeHtml(data.fechaEntrega)}</div>
-</div>
-</div>
-<div class="section">
-<div class="section-title">CONTACTO Y SEGUIMIENTO</div>
-<div class="field-row">
-<div class="field-label">TELÉFONO:</div>
-<div class="field-value-large">${escapeHtml(data.telefonoPrincipal || '—')}</div>
-</div>
-${telefonoRefHtml}
-<div class="field-row">
-<div class="field-label">MEDICAMENTOS:</div>
-<div class="field-value-large" style="font-size: 5mm;">${escapeHtml(data.medicamentos)}</div>
-</div>
-${contactCenterHtml}
-</div>
-<div class="dashed-box">VENTANILLA</div>
-${observacionesHtml}
-${refrigeradoHtml}
-<div class="footer">OP: ${escapeHtml(data.operatorName)} | ${escapeHtml(data.printedAt)}</div>
-</div>`;
+                // Construir URLs de logos de forma segura
+                const logo1Src = escapeHtml(logo1Url);
+                const logo2Src = escapeHtml(logo2Url);
+                
+                const html = '<div class="sheet">' +
+'<div class="header">' +
+'<div class="header-logos">' +
+'<img src="' + logo1Src + '" alt="Logo 1" class="header-logo" onerror="this.style.display=\'none\'"/>' +
+'<img src="' + logo2Src + '" alt="Logo 2" class="header-logo" onerror="this.style.display=\'none\'"/>' +
+'</div>' +
+'<div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>' +
+'</div>' +
+'<div class="banner">ENTREGA EN VENTANILLA</div>' +
+'<div class="section">' +
+'<div class="section-title">INFORMACIÓN DEL DERECHOHABIENTE</div>' +
+'<div class="field-row">' +
+'<div class="field-label">NOMBRE COMPLETO:</div>' +
+'<div class="field-value-extra-large">' + escapeHtml(data.nombre) + '</div>' +
+'</div>' +
+'<div class="field-row">' +
+'<div class="field-label">DNI / AFILIACIÓN:</div>' +
+'<div class="field-value-large">' + escapeHtml(data.dni) + '</div>' +
+'</div>' +
+'<div class="field-row">' +
+'<div class="field-label">FECHA ENTREGA:</div>' +
+'<div class="field-value">' + escapeHtml(data.fechaEntrega) + '</div>' +
+'</div>' +
+'</div>' +
+'<div class="section">' +
+'<div class="section-title">CONTACTO Y SEGUIMIENTO</div>' +
+'<div class="field-row">' +
+'<div class="field-label">TELÉFONO:</div>' +
+'<div class="field-value-large">' + escapeHtml(data.telefonoPrincipal || '—') + '</div>' +
+'</div>' +
+telefonoRefHtml +
+'<div class="field-row">' +
+'<div class="field-label">MEDICAMENTOS:</div>' +
+'<div class="field-value-large" style="font-size: 5mm;">' + escapeHtml(data.medicamentos) + '</div>' +
+'</div>' +
+contactCenterHtml +
+'</div>' +
+'<div class="dashed-box">VENTANILLA</div>' +
+observacionesHtml +
+refrigeradoHtml +
+'<div class="footer">OP: ' + escapeHtml(data.operatorName) + ' | ' + escapeHtml(data.printedAt) + '</div>' +
+'</div>';
                 
                 buildPrintWindow(html, getPrintVignetteCSSVertical(), 'Imprimir Viñeta Ventanilla');
             };
 
             // Función para imprimir viñeta REFRIGERADO
-            const printRefrigeradoVignette = (kit, patient) => {
-                const patientData = patient || selectedPatientFullData || {};
+            const printRefrigeradoVignette = async (kit, patient) => {
+                // Obtener datos actualizados de la base de datos antes de imprimir
+                let updatedKit = kit;
+                let updatedPatient = patient || selectedPatientFullData || {};
+                
+                if (kit && kit.id && firebaseInitialized && db) {
+                    try {
+                        const kitDoc = await db.collection('prod_kits').doc(kit.id).get();
+                        if (kitDoc.exists) {
+                            updatedKit = { id: kitDoc.id, ...kitDoc.data() };
+                            console.log('✅ Kit actualizado desde base de datos (Refrigerado):', updatedKit);
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ No se pudo obtener kit actualizado, usando datos locales:', error);
+                    }
+                }
+                
+                // Obtener datos actualizados del paciente si hay patientId
+                if (updatedKit && updatedKit.patientId && firebaseInitialized && db) {
+                    try {
+                        const patientDoc = await db.collection('prod_patients').doc(updatedKit.patientId).get();
+                        if (patientDoc.exists) {
+                            updatedPatient = { id: patientDoc.id, ...patientDoc.data() };
+                            console.log('✅ Paciente actualizado desde base de datos (Refrigerado)');
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ No se pudo obtener paciente actualizado, usando datos locales:', error);
+                    }
+                }
+                
+                const patientData = updatedPatient;
                 const operatorName = currentUser?.name || currentUser?.email || auth?.currentUser?.email || 'OPERADOR';
                 const printedAt = new Date().toLocaleString('es-ES', { 
                     year: 'numeric', 
@@ -6562,10 +6233,10 @@ ${refrigeradoHtml}
                 });
                 
                 const data = {
-                    nombre: (kit.nombre || patientData.nombre || '').toUpperCase(),
-                    dni: (kit.dni || patientData.dni || '').toUpperCase(),
-                    fechaEntrega: kit.fechaArmado || '',
-                    cantRefrigerados: kit.isRefrigerated ? (kit.cantRefriGlobal || 1) : 0,
+                    nombre: (updatedKit.nombre || patientData.nombre || '').toUpperCase(),
+                    dni: (updatedKit.dni || patientData.dni || '').toUpperCase(),
+                    fechaEntrega: updatedKit.fechaArmado || '',
+                    cantRefrigerados: updatedKit.isRefrigerated ? (updatedKit.cantRefriGlobal || 1) : 0,
                     operatorName: operatorName.toUpperCase(),
                     printedAt: printedAt.toUpperCase()
                 };
@@ -6574,36 +6245,40 @@ ${refrigeradoHtml}
                 const logo1Url = LOGO1_URL || '/assets/logo1.png';
                 const logo2Url = LOGO2_URL || '/assets/logo2.png';
                 
-                // Construir HTML en un solo template literal
-                const html = `<div class="sheet">
-<div class="header">
-<div class="header-logos">
-<img src="${escapeHtml(logo1Url)}" alt="Logo 1" class="header-logo" onerror="this.style.display='none'"/>
-<img src="${escapeHtml(logo2Url)}" alt="Logo 2" class="header-logo" onerror="this.style.display='none'"/>
-</div>
-<div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>
-</div>
-<div class="banner">❄ PRODUCTO REFRIGERADO ❄</div>
-<div class="info-grid">
-<div class="info-box">
-<div class="info-box-title">NOMBRE COMPLETO</div>
-<div class="info-box-content-large">${escapeHtml(data.nombre)}</div>
-</div>
-<div class="info-box">
-<div class="info-box-title">DNI / AFILIACIÓN</div>
-<div class="info-box-content">${escapeHtml(data.dni)}</div>
-</div>
-<div class="info-box">
-<div class="info-box-title">FECHA DESPACHO</div>
-<div class="info-box-content-date">${escapeHtml(data.fechaEntrega)}</div>
-</div>
-<div style="margin-top: 1mm;">
-<div class="cantidad-label">CANTIDAD DE REFRIGERADOS</div>
-<div class="cantidad-box">${escapeHtml(data.cantRefrigerados)}</div>
-</div>
-</div>
-<div class="footer">OP: ${escapeHtml(data.operatorName)} | ${escapeHtml(data.printedAt)}</div>
-</div>`;
+                // Construir URLs de logos de forma segura
+                const logo1Src = escapeHtml(logo1Url);
+                const logo2Src = escapeHtml(logo2Url);
+                
+                // Construir HTML usando concatenación (evita problemas con Babel y template literals)
+                const html = '<div class="sheet">' +
+'<div class="header">' +
+'<div class="header-logos">' +
+'<img src="' + logo1Src + '" alt="Logo 1" class="header-logo" onerror="this.style.display=\'none\'"/>' +
+'<img src="' + logo2Src + '" alt="Logo 2" class="header-logo" onerror="this.style.display=\'none\'"/>' +
+'</div>' +
+'<div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>' +
+'</div>' +
+'<div class="banner">❄ PRODUCTO REFRIGERADO ❄</div>' +
+'<div class="info-grid">' +
+'<div class="info-box">' +
+'<div class="info-box-title">NOMBRE COMPLETO</div>' +
+'<div class="info-box-content-large">' + escapeHtml(data.nombre) + '</div>' +
+'</div>' +
+'<div class="info-box">' +
+'<div class="info-box-title">DNI / AFILIACIÓN</div>' +
+'<div class="info-box-content">' + escapeHtml(data.dni) + '</div>' +
+'</div>' +
+'<div class="info-box">' +
+'<div class="info-box-title">FECHA DESPACHO</div>' +
+'<div class="info-box-content-date">' + escapeHtml(data.fechaEntrega) + '</div>' +
+'</div>' +
+'<div style="margin-top: 1mm;">' +
+'<div class="cantidad-label">CANTIDAD DE REFRIGERADOS</div>' +
+'<div class="cantidad-box">' + escapeHtml(data.cantRefrigerados) + '</div>' +
+'</div>' +
+'</div>' +
+'<div class="footer">OP: ' + escapeHtml(data.operatorName) + ' | ' + escapeHtml(data.printedAt) + '</div>' +
+'</div>';
                 
                 buildPrintWindow(html, getPrintVignetteCSSRefrigerado(), 'Imprimir Viñeta Refrigerado');
             };
@@ -6814,7 +6489,10 @@ ${refrigeradoHtml}
                                     
                                     <button
                                         onClick={() => {
-                                            printVentanillaVignette(kitData, selectedPatientFullData);
+                                            printVentanillaVignette(kitData, selectedPatientFullData).catch(err => {
+                                                console.error('Error al imprimir viñeta Ventanilla:', err);
+                                                alert('Error al generar la viñeta. Por favor, intente nuevamente.');
+                                            });
                                         }}
                                         disabled={kitData.deliveryMode !== 'ventanilla'}
                                         className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -6824,7 +6502,10 @@ ${refrigeradoHtml}
                                     
                                     <button
                                         onClick={() => {
-                                            printRefrigeradoVignette(kitData, selectedPatientFullData);
+                                            printRefrigeradoVignette(kitData, selectedPatientFullData).catch(err => {
+                                                console.error('Error al imprimir viñeta Refrigerado:', err);
+                                                alert('Error al generar la viñeta. Por favor, intente nuevamente.');
+                                            });
                                         }}
                                         disabled={!kitData.isRefrigerated && !(kitData.cantRefriGlobal && parseInt(kitData.cantRefriGlobal) > 0)}
                                         className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -7419,12 +7100,25 @@ ${refrigeradoHtml}
         };
 
         // --- BLOCK: CONFIGURACION ---
-        const ConfigBlock = ({ medicines, onAddList, contacts, onAddContact, onDeleteContact }) => {
+        const ConfigBlock = ({ medicines, onAddList, contacts, onAddContact, onDeleteContact, rutaTemplateCurrent, importRutaTemplateFromExcel, saveRutaTemplate, loadRutaTemplateCurrent }) => {
             const [rawText, setRawText] = useState('');
             const [newMed, setNewMed] = useState(''); 
             const [cName, setCName] = useState('');
             const [cPhone, setCPhone] = useState('');
             const [activeTab, setActiveTab] = useState('medicamentos');
+            const [localRutaTemplate, setLocalRutaTemplate] = useState(rutaTemplateCurrent);
+            
+            // Sincronizar con prop cuando cambie
+            useEffect(() => {
+                setLocalRutaTemplate(rutaTemplateCurrent);
+            }, [rutaTemplateCurrent]);
+            
+            // Cargar plantilla al montar
+            useEffect(() => {
+                if (loadRutaTemplateCurrent) {
+                    loadRutaTemplateCurrent();
+                }
+            }, []);
 
             const processText = () => {
                 const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
@@ -7607,14 +7301,43 @@ ${refrigeradoHtml}
 
                         {activeTab === 'plantillas' && (
                             <div>
-                                <h4 className="font-bold text-slate-700 mb-4 text-xs uppercase tracking-wider flex items-center gap-2 border-b pb-2">
-                                    <Icons.Layout size={16}/> Plantilla RUTA
-                                </h4>
+                                <div className="flex items-center justify-between mb-4 border-b pb-2">
+                                    <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center gap-2">
+                                        <Icons.Layout size={16}/> Plantilla RUTA
+                                    </h4>
+                                    <button
+                                        onClick={async () => {
+                                            if (loadRutaTemplateCurrent) {
+                                                try {
+                                                    await loadRutaTemplateCurrent();
+                                                    alert('✅ Plantilla recargada desde la base de datos');
+                                                } catch (error) {
+                                                    console.error('Error recargando plantilla:', error);
+                                                    alert('⚠️ Error al recargar plantilla: ' + error.message);
+                                                }
+                                            }
+                                        }}
+                                        className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold transition flex items-center gap-1"
+                                        title="Recargar plantilla desde la base de datos"
+                                    >
+                                        <Icons.RefreshCw size={12}/> Recargar
+                                    </button>
+                                </div>
                                 <div className="space-y-6">
+                                    {/* Estado de conexión */}
+                                    <div className={`p-3 rounded-xl border ${firebaseInitialized && db ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full ${firebaseInitialized && db ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                            <span className={`text-xs font-bold ${firebaseInitialized && db ? 'text-green-700' : 'text-red-700'}`}>
+                                                {firebaseInitialized && db ? '✅ Conectado a la base de datos' : '⚠️ Sin conexión a la base de datos'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
                                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                                         <h5 className="font-bold text-slate-700 mb-3 text-xs uppercase">Subir Plantilla desde Excel</h5>
                                         <p className="text-xs text-slate-500 mb-4">
-                                            Diseña tu viñeta en Excel (.xlsx) con celdas combinadas, bordes y tokens como {{NOMBRE}}, {{DNI}}, {{DIRECCION_ENTREGA}}, etc.
+                                            Diseña tu viñeta en Excel (.xlsx) con celdas combinadas, bordes y tokens como {'{'}{'{'}NOMBRE{'}'}{'}'}, {'{'}{'{'}DNI{'}'}{'}'}, {'{'}{'{'}DIRECCION_ENTREGA{'}'}{'}'}, etc.
                                         </p>
                                         <input 
                                             type="file" 
@@ -7625,13 +7348,20 @@ ${refrigeradoHtml}
                                                 const file = e.target.files[0];
                                                 if (!file) return;
                                                 try {
+                                                    if (!firebaseInitialized || !db) {
+                                                        throw new Error('No hay conexión a la base de datos. Por favor, verifique su conexión.');
+                                                    }
                                                     const templateData = await importRutaTemplateFromExcel(file);
                                                     await saveRutaTemplate(templateData, true);
-                                                    alert('Plantilla RUTA importada y guardada correctamente.');
+                                                    // Recargar plantilla después de guardar
+                                                    if (loadRutaTemplateCurrent) {
+                                                        await loadRutaTemplateCurrent();
+                                                    }
+                                                    alert('✅ Plantilla RUTA importada y guardada correctamente en la base de datos.');
                                                     e.target.value = '';
                                                 } catch (error) {
                                                     console.error('Error importando plantilla:', error);
-                                                    alert('Error al importar plantilla: ' + error.message);
+                                                    alert('❌ Error al importar plantilla: ' + error.message);
                                                     e.target.value = '';
                                                 }
                                             }}
@@ -7644,20 +7374,21 @@ ${refrigeradoHtml}
                                         </button>
                                     </div>
                                     
-                                    {rutaTemplateCurrent && (
+                                    {(localRutaTemplate || rutaTemplateCurrent) && (
                                         <div className="bg-green-50 p-4 rounded-xl border border-green-200">
                                             <div className="flex items-center justify-between mb-2">
                                                 <h5 className="font-bold text-green-700 text-xs uppercase">Plantilla Actual Activa</h5>
                                                 <span className="bg-green-500 text-white text-[10px] px-2 py-1 rounded-full font-bold">ACTIVA</span>
                                             </div>
-                                            <p className="text-xs text-green-600">
-                                                Archivo: {rutaTemplateCurrent.metadata?.sourceFile || 'N/A'}<br/>
-                                                Importada: {rutaTemplateCurrent.metadata?.importedAt ? new Date(rutaTemplateCurrent.metadata.importedAt).toLocaleString('es-ES') : 'N/A'}
+                                            <p className="text-xs text-green-600 mb-2">
+                                                <strong>Archivo:</strong> {(localRutaTemplate || rutaTemplateCurrent)?.metadata?.sourceFile || 'N/A'}<br/>
+                                                <strong>Importada:</strong> {(localRutaTemplate || rutaTemplateCurrent)?.metadata?.importedAt ? new Date((localRutaTemplate || rutaTemplateCurrent).metadata.importedAt).toLocaleString('es-ES') : 'N/A'}<br/>
+                                                <strong>Elementos:</strong> {((localRutaTemplate || rutaTemplateCurrent)?.elements?.length || 0)} celdas configuradas
                                             </p>
                                         </div>
                                     )}
                                     
-                                    {!rutaTemplateCurrent && (
+                                    {!localRutaTemplate && !rutaTemplateCurrent && (
                                         <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
                                             <p className="text-xs text-yellow-700">
                                                 ⚠️ No hay plantilla RUTA configurada. Suba un archivo Excel para comenzar.
@@ -7668,17 +7399,17 @@ ${refrigeradoHtml}
                                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                                         <h5 className="font-bold text-slate-700 mb-3 text-xs uppercase">Tokens Disponibles</h5>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{{NOMBRE}}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{{DNI}}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{{GPS_STATUS}}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{{TELEFONOS}}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{{MEDS_COUNT}}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{{DIRECCION_ENTREGA}}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{{OBSERVACIONES}}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{{CONTACT_CENTER}}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{{FECHA_ENTREGA}}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{{REFRIGERADO}}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{{QR_MAPS}}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}NOMBRE{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}DNI{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}GPS_STATUS{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}TELEFONOS{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}MEDS_COUNT{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}DIRECCION_ENTREGA{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}OBSERVACIONES{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}CONTACT_CENTER{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}FECHA_ENTREGA{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}REFRIGERADO{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}QR_MAPS{'}'}</code></div>
                                         </div>
                                         <p className="text-xs text-slate-500 mt-3">
                                             Escribe estos tokens exactamente en las celdas de Excel donde quieras que aparezcan los datos.
@@ -7851,6 +7582,492 @@ ${refrigeradoHtml}
             const [cacheManager] = useState(new CacheManager());
             const [firebaseStatus, setFirebaseStatus] = useState('Conectando...');
             const [isFirebaseReady, setIsFirebaseReady] = useState(firebaseInitialized);
+            
+            // Estado para plantilla RUTA actual (movido aquí desde fuera de App)
+            const [rutaTemplateCurrent, setRutaTemplateCurrent] = useState(null);
+            const [rutaTemplateHistory, setRutaTemplateHistory] = useState([]);
+            
+            // Función para cargar plantilla RUTA actual (movida dentro de App)
+            const loadRutaTemplateCurrent = async () => {
+                try {
+                    if (!firebaseInitialized || !db) return;
+                    
+                    const doc = await db.collection('prod_templates_ruta').doc('current').get();
+                    if (doc.exists) {
+                        setRutaTemplateCurrent(doc.data());
+                    }
+                } catch (error) {
+                    console.error('Error cargando plantilla RUTA:', error);
+                }
+            };
+            
+            // Funciones auxiliares para plantilla RUTA (movidas dentro de App)
+            // Función helper para escapar HTML (definida dentro de App)
+            const escapeHtml = (str) => {
+                if (!str) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            };
+            
+            const getGpsEnabled = (kitData) => {
+                if (!kitData) return false;
+                if (kitData.gpsEnabled === true || kitData.gpsEnabled === 'true' || kitData.gpsEnabled === 1) return true;
+                if (kitData.gpsEnabled === false || kitData.gpsEnabled === 'false' || kitData.gpsEnabled === 0) return false;
+                const gpsStr = String(kitData.gpsEnabled || kitData.tieneGps || kitData.gps || kitData.hasGps || '').toUpperCase();
+                if (gpsStr === 'SI' || gpsStr === 'SÍ' || gpsStr === 'TRUE' || gpsStr === '1' || gpsStr === 'YES') return true;
+                if (gpsStr === 'NO' || gpsStr === 'FALSE' || gpsStr === '0') return false;
+                if (kitData.gpsStatus === 'TIENE GPS') return true;
+                return false;
+            };
+            
+            const getGpsCoords = (kitData) => {
+                if (!kitData) return null;
+                let lat = null, lng = null;
+                if (kitData.gpsCoords) {
+                    lat = kitData.gpsCoords.lat || kitData.gpsCoords.latitude;
+                    lng = kitData.gpsCoords.lng || kitData.gpsCoords.longitude || kitData.gpsCoords.lon;
+                } else if (kitData.gpsCoordinates) {
+                    lat = kitData.gpsCoordinates.latitude || kitData.gpsCoordinates.lat;
+                    lng = kitData.gpsCoordinates.longitude || kitData.gpsCoordinates.lng || kitData.gpsCoordinates.lon;
+                } else if (kitData.coordenadasGps) {
+                    lat = kitData.coordenadasGps.lat || kitData.coordenadasGps.latitude;
+                    lng = kitData.coordenadasGps.lng || kitData.coordenadasGps.longitude || kitData.coordenadasGps.lon;
+                } else if (kitData.lat !== undefined && kitData.lng !== undefined) {
+                    lat = kitData.lat;
+                    lng = kitData.lng;
+                } else if (kitData.latitude !== undefined && kitData.longitude !== undefined) {
+                    lat = kitData.latitude;
+                    lng = kitData.longitude;
+                } else if (kitData.gpsValue) {
+                    const parts = String(kitData.gpsValue).split(',');
+                    if (parts.length >= 2) {
+                        lat = parseFloat(parts[0].trim());
+                        lng = parseFloat(parts[1].trim());
+                    }
+                }
+                if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+                    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                        return { lat, lng };
+                    }
+                }
+                return null;
+            };
+            
+            const resolveDeliveryAddressRuta = (kitData, patientData) => {
+                const addressConfirmed = kitData.addressConfirmed !== false && 
+                                       kitData.ubicacionConfirmada !== false && 
+                                       kitData.confirmoUbicacion !== false;
+                if (!addressConfirmed) {
+                    const secondaryAddr = kitData.secondaryAddress || 
+                                         kitData.direccionSecundaria || 
+                                         kitData.direccionNueva || 
+                                         kitData.deliveryAddressText || 
+                                         kitData.direccionEntrega || 
+                                         kitData.secondaryDeliveryAddress || '';
+                    if (secondaryAddr && String(secondaryAddr).trim()) {
+                        return String(secondaryAddr).trim();
+                    }
+                }
+                return kitData.direccionEntrega || 
+                       kitData.direccion || 
+                       patientData?.direccion || 
+                       '';
+            };
+            
+            const resolveRutaPlaceholders = (kitData, patientData) => {
+                const gpsEnabled = getGpsEnabled(kitData);
+                const gpsCoords = getGpsCoords(kitData);
+                const direccionEntrega = resolveDeliveryAddressRuta(kitData, patientData);
+                const phones = [];
+                if (kitData.selectedPhones && Array.isArray(kitData.selectedPhones)) {
+                    phones.push(...kitData.selectedPhones);
+                }
+                if (kitData.otherPhoneEnabled && kitData.otherPhone) {
+                    phones.push(kitData.otherPhone);
+                }
+                const telefonosText = phones.length > 0 ? phones.join(' / ') : '';
+                let contactCenter = '';
+                if (kitData.contactCenter) {
+                    const contactStr = String(kitData.contactCenter);
+                    contactCenter = contactStr.split(' --- ')[0].trim();
+                }
+                let fechaEntrega = '';
+                if (kitData.fechaEntregaKit) {
+                    const date = new Date(kitData.fechaEntregaKit);
+                    if (!isNaN(date.getTime())) {
+                        fechaEntrega = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    }
+                } else if (kitData.fechaArmado) {
+                    const date = new Date(kitData.fechaArmado);
+                    if (!isNaN(date.getTime())) {
+                        fechaEntrega = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    }
+                }
+                let medsCount = '0';
+                if (kitData.triggerMeds && String(kitData.triggerMeds).trim()) {
+                    medsCount = String(kitData.triggerMeds);
+                } else if (kitData.medicamentos && Array.isArray(kitData.medicamentos)) {
+                    medsCount = String(kitData.medicamentos.length);
+                }
+                return {
+                    NOMBRE: (kitData.nombre || patientData?.nombre || '').toUpperCase(),
+                    DNI: (kitData.dni || patientData?.dni || '').toUpperCase(),
+                    GPS_STATUS: gpsEnabled ? 'TIENE GPS' : '',
+                    TELEFONOS: telefonosText.toUpperCase(),
+                    MEDS_COUNT: medsCount.toUpperCase(),
+                    DIRECCION_ENTREGA: direccionEntrega.toUpperCase(),
+                    OBSERVACIONES: (kitData.observations || kitData.observacionesEntrega || kitData.obsRuta || '').toUpperCase(),
+                    CONTACT_CENTER: contactCenter.toUpperCase() || '—',
+                    FECHA_ENTREGA: fechaEntrega || '—',
+                    REFRIGERADO: (kitData.refrigerado === true || kitData.isRefrigerated === true) ? 'REFRIGERADO' : '',
+                    QR_MAPS: (gpsEnabled && gpsCoords) ? 'https://www.google.com/maps?q=' + gpsCoords.lat + ',' + gpsCoords.lng : null
+                };
+            };
+            
+            const renderRutaTemplateToHTML = (template, resolvedData) => {
+                if (!template || !template.elements) return '';
+                // Función helper para escapar HTML (definida localmente para evitar problemas de scope)
+                const escapeHtmlLocal = (str) => {
+                    if (!str) return '';
+                    return String(str)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;');
+                };
+                let elementsHtml = '';
+                template.elements.forEach(element => {
+                    const text = element.tokenKey ? (resolvedData[element.tokenKey] || '') : (element.text || '');
+                    const style = element.style || {};
+                    const isBold = style.bold ? 'font-weight: 900;' : '';
+                    const align = style.align || 'left';
+                    const fontSize = style.fontSize || '2mm';
+                    const border = element.border ? 'border: 0.5px solid #000;' : '';
+                    const cellStyle = 'left: ' + element.xMm + 'mm; top: ' + element.yMm + 'mm; width: ' + element.wMm + 'mm; height: ' + element.hMm + 'mm; ' + border + ' ' + isBold + ' text-align: ' + align + '; font-size: ' + fontSize + '; padding: 0.5mm;';
+                    elementsHtml += '<div class="cell" style="' + cellStyle + '">' + escapeHtmlLocal(text) + '</div>';
+                });
+                let qrContainerHtml = '';
+                let qrScriptHtml = '';
+                if (resolvedData.QR_MAPS) {
+                    const qrElement = template.elements.find(e => e.tokenKey === 'QR_MAPS');
+                    if (qrElement) {
+                        const qrStyle = 'left: ' + qrElement.xMm + 'mm; top: ' + qrElement.yMm + 'mm; width: ' + qrElement.wMm + 'mm; height: ' + qrElement.hMm + 'mm; text-align: center; padding: 1mm;';
+                        qrContainerHtml = '<div class="cell" id="qr-container" style="' + qrStyle + '"></div>';
+                        const qrUrl = JSON.stringify(resolvedData.QR_MAPS);
+                        const qrScriptSrc = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>';
+                        const qrScriptCode = '<script>(function(){if(typeof QRCode !== "undefined"){var qrContainer = document.getElementById("qr-container");if(qrContainer){QRCode.toDataURL(' + qrUrl + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img = document.createElement("img");img.src = url;img.style.maxWidth = "100%";img.style.height = "auto";qrContainer.appendChild(img);}});}}})();<\/script>';
+                        qrScriptHtml = qrScriptSrc + qrScriptCode;
+                    }
+                }
+                const printHtml = '<!DOCTYPE html>' +
+'<html>' +
+'<head>' +
+'<meta charset="UTF-8">' +
+'<title>Viñeta Ruta</title>' +
+'<style>' +
+'@page { size: 210mm 71mm landscape; margin-left: 0.1cm; margin-right: 0.1cm; }' +
+'html, body { width: 210mm; height: 71mm; margin: 0; padding: 0; overflow: hidden; }' +
+'.ticket { width: 210mm; height: 71mm; position: relative; overflow: hidden; background: #fff; }' +
+'* { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; text-transform: uppercase; }' +
+'.cell { position: absolute; overflow: hidden; word-wrap: break-word; }' +
+'</style>' +
+'</head>' +
+'<body>' +
+'<div class="ticket">' +
+elementsHtml +
+qrContainerHtml +
+'</div>' +
+qrScriptHtml +
+'</body>' +
+'</html>';
+                return printHtml;
+            };
+            
+            // Función para imprimir viñeta RUTA (movida dentro de App para acceso a rutaTemplateCurrent)
+            const printRutaVignette = async (kit, patient) => {
+                try {
+                    // Obtener datos actualizados de la base de datos antes de imprimir
+                    let updatedKit = kit;
+                    let updatedPatient = patient || {};
+                    
+                    if (kit && kit.id && firebaseInitialized && db) {
+                        try {
+                            const kitDoc = await db.collection('prod_kits').doc(kit.id).get();
+                            if (kitDoc.exists) {
+                                updatedKit = { id: kitDoc.id, ...kitDoc.data() };
+                                console.log('✅ Kit actualizado desde base de datos:', updatedKit);
+                            }
+                        } catch (error) {
+                            console.warn('⚠️ No se pudo obtener kit actualizado, usando datos locales:', error);
+                        }
+                    }
+                    
+                    // Obtener datos actualizados del paciente si hay patientId
+                    if (updatedKit && updatedKit.patientId && firebaseInitialized && db) {
+                        try {
+                            const patientDoc = await db.collection('prod_patients').doc(updatedKit.patientId).get();
+                            if (patientDoc.exists) {
+                                updatedPatient = { id: patientDoc.id, ...patientDoc.data() };
+                                console.log('✅ Paciente actualizado desde base de datos');
+                            }
+                        } catch (error) {
+                            console.warn('⚠️ No se pudo obtener paciente actualizado, usando datos locales:', error);
+                        }
+                    }
+                    
+                    const patientData = updatedPatient;
+                    
+                    // Cargar plantilla actual si no está cargada
+                    if (!rutaTemplateCurrent) {
+                        await loadRutaTemplateCurrent();
+                    }
+                    
+                    // Si no hay plantilla, usar una por defecto
+                    let template = rutaTemplateCurrent;
+                    if (!template) {
+                        alert('No hay plantilla RUTA configurada. Por favor, suba una plantilla Excel en Configuración → Plantilla RUTA.');
+                        return;
+                    }
+                    
+                    // Resolver placeholders con datos actualizados
+                    const resolvedData = resolveRutaPlaceholders(updatedKit, patientData);
+                    
+                    // Renderizar a HTML
+                    const htmlDoc = renderRutaTemplateToHTML(template, resolvedData);
+                    
+                    // Imprimir usando iframe oculto (evita bloqueos de popups)
+                    const iframe = document.createElement('iframe');
+                    iframe.style.position = 'fixed';
+                    iframe.style.right = '0';
+                    iframe.style.bottom = '0';
+                    iframe.style.width = '0';
+                    iframe.style.height = '0';
+                    iframe.style.border = 'none';
+                    document.body.appendChild(iframe);
+                    
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    iframeDoc.open();
+                    iframeDoc.write(htmlDoc);
+                    iframeDoc.close();
+                    
+                    // Esperar a que cargue y luego imprimir
+                    iframe.onload = function() {
+                        setTimeout(() => {
+                            iframe.contentWindow.focus();
+                            iframe.contentWindow.print();
+                            // Remover iframe después de imprimir
+                            setTimeout(() => {
+                                document.body.removeChild(iframe);
+                            }, 2000);
+                        }, 300);
+                    };
+                    
+                    // Fallback si onload no se dispara
+                    setTimeout(() => {
+                        if (iframe.parentNode) {
+                            iframe.contentWindow.focus();
+                            iframe.contentWindow.print();
+                            setTimeout(() => {
+                                if (iframe.parentNode) {
+                                    document.body.removeChild(iframe);
+                                }
+                            }, 2000);
+                        }
+                    }, 500);
+                    
+                } catch (error) {
+                    console.error('Error imprimiendo viñeta RUTA:', error);
+                    alert('Error al imprimir: ' + error.message);
+                }
+            };
+            
+            // Función para importar Excel y convertir a plantilla JSON (movida dentro de App)
+            const importRutaTemplateFromExcel = async (file) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            
+                            // Buscar hoja "RUTA" o usar la primera
+                            let worksheet = workbook.Sheets['RUTA'] || workbook.Sheets[workbook.SheetNames[0]];
+                            if (!worksheet) {
+                                reject(new Error('No se encontró ninguna hoja en el archivo Excel'));
+                                return;
+                            }
+                            
+                            // Obtener rango y merges
+                            const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:Z100');
+                            const merges = worksheet['!merges'] || [];
+                            
+                            // Dimensiones objetivo: 210mm x 71mm
+                            const targetWidthMm = 210;
+                            const targetHeightMm = 71;
+                            const marginMm = 1; // 0.1cm = 1mm
+                            const usableWidthMm = targetWidthMm - (marginMm * 2);
+                            const usableHeightMm = targetHeightMm - (marginMm * 2);
+                            
+                            // Calcular ancho de columna promedio (asumiendo columnas uniformes)
+                            const numCols = range.e.c - range.s.c + 1;
+                            const numRows = range.e.r - range.s.r + 1;
+                            const colWidthMm = usableWidthMm / numCols;
+                            const rowHeightMm = usableHeightMm / numRows;
+                            
+                            const elements = [];
+                            const processedCells = new Set();
+                            
+                            // Procesar merges primero
+                            merges.forEach(merge => {
+                                const startCell = XLSX.utils.encode_cell({ r: merge.s.r, c: merge.s.c });
+                                const endCell = XLSX.utils.encode_cell({ r: merge.e.r, c: merge.e.c });
+                                const cell = worksheet[startCell];
+                                
+                                if (cell && cell.v !== undefined) {
+                                    const xMm = marginMm + (merge.s.c * colWidthMm);
+                                    const yMm = marginMm + (merge.s.r * rowHeightMm);
+                                    const wMm = (merge.e.c - merge.s.c + 1) * colWidthMm;
+                                    const hMm = (merge.e.r - merge.s.r + 1) * rowHeightMm;
+                                    
+                                    // Detectar token
+                                    const text = String(cell.v);
+                                    let tokenKey = null;
+                                    const tokenMatch = text.match(/\{\{(\w+)\}\}/);
+                                    if (tokenMatch) {
+                                        tokenKey = tokenMatch[1];
+                                    }
+                                    
+                                    // Estilos básicos
+                                    const style = {
+                                        bold: cell.s?.font?.bold || false,
+                                        align: cell.s?.alignment?.horizontal || 'left',
+                                        fontSize: cell.s?.font?.sz ? (cell.s.font.sz * 0.35) + 'mm' : '2mm'
+                                    };
+                                    
+                                    elements.push({
+                                        id: `cell_${merge.s.r}_${merge.s.c}`,
+                                        xMm,
+                                        yMm,
+                                        wMm,
+                                        hMm,
+                                        text: tokenKey ? null : text,
+                                        tokenKey: tokenKey,
+                                        style: style,
+                                        border: true
+                                    });
+                                    
+                                    // Marcar celdas procesadas
+                                    for (let r = merge.s.r; r <= merge.e.r; r++) {
+                                        for (let c = merge.s.c; c <= merge.e.c; c++) {
+                                            processedCells.add(`${r}_${c}`);
+                                        }
+                                    }
+                                }
+                            });
+                            
+                            // Procesar celdas no mergeadas
+                            for (let r = range.s.r; r <= range.e.r; r++) {
+                                for (let c = range.s.c; c <= range.e.c; c++) {
+                                    const key = `${r}_${c}`;
+                                    if (!processedCells.has(key)) {
+                                        const cellAddr = XLSX.utils.encode_cell({ r, c });
+                                        const cell = worksheet[cellAddr];
+                                        
+                                        if (cell && cell.v !== undefined) {
+                                            const xMm = marginMm + (c * colWidthMm);
+                                            const yMm = marginMm + (r * rowHeightMm);
+                                            
+                                            const text = String(cell.v);
+                                            let tokenKey = null;
+                                            const tokenMatch = text.match(/\{\{(\w+)\}\}/);
+                                            if (tokenMatch) {
+                                                tokenKey = tokenMatch[1];
+                                            }
+                                            
+                                            const style = {
+                                                bold: cell.s?.font?.bold || false,
+                                                align: cell.s?.alignment?.horizontal || 'left',
+                                                fontSize: cell.s?.font?.sz ? (cell.s.font.sz * 0.35) + 'mm' : '2mm'
+                                            };
+                                            
+                                            elements.push({
+                                                id: `cell_${r}_${c}`,
+                                                xMm,
+                                                yMm,
+                                                wMm: colWidthMm,
+                                                hMm: rowHeightMm,
+                                                text: tokenKey ? null : text,
+                                                tokenKey: tokenKey,
+                                                style: style,
+                                                border: true
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            resolve({
+                                elements: elements,
+                                metadata: {
+                                    importedAt: new Date().toISOString(),
+                                    sourceFile: file.name,
+                                    dimensions: { width: targetWidthMm, height: targetHeightMm }
+                                }
+                            });
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    reader.onerror = () => reject(new Error('Error leyendo el archivo'));
+                    reader.readAsArrayBuffer(file);
+                });
+            };
+            
+            // Función para guardar plantilla RUTA (movida dentro de App)
+            const saveRutaTemplate = async (templateData, isCurrent = true) => {
+                try {
+                    if (!firebaseInitialized || !db || !storage) {
+                        throw new Error('Firebase no disponible');
+                    }
+                    
+                    const versionId = Date.now().toString();
+                    const timestamp = new Date().toISOString();
+                    
+                    // Guardar JSON en Firestore
+                    const templateRef = db.collection('prod_templates_ruta').doc(isCurrent ? 'current' : versionId);
+                    await templateRef.set({
+                        ...templateData,
+                        versionId: isCurrent ? 'current' : versionId,
+                        savedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        savedBy: userName || 'unknown'
+                    });
+                    
+                    // Si es current, también guardar en historial
+                    if (isCurrent) {
+                        await db.collection('prod_templates_ruta').doc(versionId).set({
+                            ...templateData,
+                            versionId: versionId,
+                            savedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            savedBy: userName || 'unknown'
+                        });
+                    }
+                    
+                    // Cargar plantilla actual
+                    if (isCurrent) {
+                        await loadRutaTemplateCurrent();
+                    }
+                    
+                    return { success: true, versionId };
+                } catch (error) {
+                    console.error('Error guardando plantilla RUTA:', error);
+                    throw error;
+                }
+            };
 
             // Verificar estado de Firebase periódicamente
             useEffect(() => {
@@ -8014,6 +8231,7 @@ ${refrigeradoHtml}
                 loadContacts();
                 loadUsers();
                 loadKits();
+                loadRutaTemplateCurrent();
                 
                 // Escuchar cambios en tiempo real solo si Firebase está inicializado
                 if (firebaseInitialized && db) {
@@ -8388,8 +8606,8 @@ ${refrigeradoHtml}
                         <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative z-10">
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} />}
                             {view === 'reports' && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} />}
-                            {view === 'pacientes' && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={{name: userName, role: role}} userRole={role} contacts={contacts} />}
-                            {view === 'config' && (role === 'admin' || role === 'superadmin') && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} />}
+                            {view === 'pacientes' && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={{name: userName, role: role}} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} />}
+                            {view === 'config' && (role === 'admin' || role === 'superadmin') && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} rutaTemplateCurrent={rutaTemplateCurrent} importRutaTemplateFromExcel={importRutaTemplateFromExcel} saveRutaTemplate={saveRutaTemplate} loadRutaTemplateCurrent={loadRutaTemplateCurrent} />}
                             {view === 'users' && (role === 'admin' || role === 'superadmin') && <UserManagementBlock users={users} onAddUser={addUser} onUpdateUser={updateUser} onDeleteUser={deleteUser} />}
                         </div>
                     </main>
