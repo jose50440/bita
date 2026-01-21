@@ -24,6 +24,217 @@
     
     <!-- QRCode.js para generar códigos QR -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    
+    <!-- Mammoth.js (Para importar plantillas desde Word .docx) -->
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.11.0/mammoth.browser.min.js"></script>
+    
+    <!-- PDF.js para leer y renderizar PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <!-- Google Generative AI (Gemini) SDK Loader - Singleton robusto con fallback ESM/UMD -->
+    <script>
+        /**
+         * Loader singleton para Google Generative AI SDK
+         * Maneja carga UMD y ESM, evita duplicados, y proporciona fallback robusto
+         */
+        (function() {
+            'use strict';
+            
+            // Estado del loader (singleton)
+            const loaderState = {
+                promise: null,
+                sdk: null,
+                error: null,
+                loading: false
+            };
+            
+            // Timeout configurable (30 segundos por defecto)
+            const LOAD_TIMEOUT = 30000;
+            
+            /**
+             * Verifica si el SDK está disponible en alguna de las formas posibles
+             */
+            const checkSDKAvailable = () => {
+                // Forma 1: window.GoogleGenerativeAI (UMD estándar)
+                if (typeof window.GoogleGenerativeAI !== 'undefined') {
+                    return window.GoogleGenerativeAI;
+                }
+                // Forma 2: window.google.generativeAi.GoogleGenerativeAI
+                if (window.google?.generativeAi?.GoogleGenerativeAI) {
+                    return window.google.generativeAi.GoogleGenerativeAI;
+                }
+                // Forma 3: Variable global directa
+                if (typeof GoogleGenerativeAI !== 'undefined') {
+                    return GoogleGenerativeAI;
+                }
+                // Forma 4: window.google.generativeai (minúsculas)
+                if (window.google?.generativeai?.GoogleGenerativeAI) {
+                    return window.google.generativeai.GoogleGenerativeAI;
+                }
+                return null;
+            };
+            
+            /**
+             * Carga el SDK usando UMD (script tag)
+             */
+            const loadUMD = (url, cdnName) => {
+                return new Promise((resolve, reject) => {
+                    // Verificar si ya existe un script con esta URL
+                    const existingScript = document.querySelector(`script[src="${url}"]`);
+                    if (existingScript) {
+                        // Si ya existe, esperar a que termine de cargar
+                        if (existingScript.hasAttribute('data-loaded')) {
+                            const sdk = checkSDKAvailable();
+                            if (sdk) {
+                                resolve(sdk);
+                            } else {
+                                reject(new Error(`Script de ${cdnName} cargado pero SDK no disponible`));
+                            }
+                            return;
+                        }
+                        
+                        // Script existe pero aún no terminó, enganchar eventos
+                        existingScript.addEventListener('load', () => {
+                            setTimeout(() => {
+                                const sdk = checkSDKAvailable();
+                                if (sdk) {
+                                    existingScript.setAttribute('data-loaded', 'true');
+                                    resolve(sdk);
+                                } else {
+                                    reject(new Error(`Script de ${cdnName} cargado pero SDK no disponible`));
+                                }
+                            }, 500);
+                        });
+                        existingScript.addEventListener('error', () => {
+                            reject(new Error(`Error cargando script de ${cdnName}`));
+                        });
+                        return;
+                    }
+                    
+                    // Crear nuevo script
+                    const script = document.createElement('script');
+                    script.src = url;
+                    script.async = true;
+                    script.setAttribute('data-cdn', cdnName);
+                    
+                    script.onload = () => {
+                        setTimeout(() => {
+                            const sdk = checkSDKAvailable();
+                            if (sdk) {
+                                script.setAttribute('data-loaded', 'true');
+                                console.log(`✅ Google Generative AI SDK cargado desde ${cdnName}`);
+                                resolve(sdk);
+                            } else {
+                                reject(new Error(`SDK cargado desde ${cdnName} pero no disponible globalmente`));
+                            }
+                        }, 500);
+                    };
+                    
+                    script.onerror = () => {
+                        reject(new Error(`Error de red cargando desde ${cdnName}`));
+                    };
+                    
+                    document.head.appendChild(script);
+                });
+            };
+            
+            /**
+             * Carga el SDK usando ESM (import dinámico)
+             */
+            const loadESM = async () => {
+                try {
+                    // Intentar con jsDelivr +esm
+                    const module = await import('https://cdn.jsdelivr.net/npm/@google/generative-ai@0.21.0/+esm');
+                    if (module?.GoogleGenerativeAI) {
+                        console.log('✅ Google Generative AI SDK cargado vía ESM (jsDelivr)');
+                        return module.GoogleGenerativeAI;
+                    }
+                    throw new Error('Módulo ESM no expone GoogleGenerativeAI');
+                } catch (esmError) {
+                    console.warn('⚠️ ESM falló, intentando UMD:', esmError.message);
+                    throw esmError; // Propagar para intentar UMD
+                }
+            };
+            
+            /**
+             * Función principal de carga (singleton)
+             */
+            window.loadGoogleGenerativeAI = async function(options = {}) {
+                const { timeout = LOAD_TIMEOUT, preferESM = false } = options;
+                
+                // Si ya está cargado, retornar inmediatamente
+                const existingSDK = checkSDKAvailable();
+                if (existingSDK) {
+                    return existingSDK;
+                }
+                
+                // Si hay una carga en curso, retornar la misma Promise
+                if (loaderState.promise) {
+                    return loaderState.promise;
+                }
+                
+                // Si hubo un error previo y no se fuerza reintento, retornar error
+                if (loaderState.error && !options.forceRetry) {
+                    throw loaderState.error;
+                }
+                
+                // Crear nueva Promise de carga
+                loaderState.loading = true;
+                loaderState.promise = Promise.race([
+                    (async () => {
+                        try {
+                            // Intentar ESM primero si está disponible y preferido
+                            // Nota: No podemos verificar 'typeof import' directamente, así que intentamos y capturamos el error
+                            if (preferESM) {
+                                try {
+                                    return await loadESM();
+                                } catch (esmError) {
+                                    console.warn('ESM no disponible, usando UMD:', esmError.message);
+                                }
+                            }
+                            
+                            // Intentar UMD desde múltiples CDNs
+                            const cdns = [
+                                { url: 'https://cdn.jsdelivr.net/npm/@google/generative-ai@0.21.0/dist/index.umd.js', name: 'jsDelivr' },
+                                { url: 'https://unpkg.com/@google/generative-ai@0.21.0/dist/index.umd.js', name: 'unpkg' }
+                            ];
+                            
+                            let lastError = null;
+                            for (const cdn of cdns) {
+                                try {
+                                    const sdk = await loadUMD(cdn.url, cdn.name);
+                                    loaderState.sdk = sdk;
+                                    loaderState.loading = false;
+                                    return sdk;
+                                } catch (err) {
+                                    lastError = err;
+                                    console.warn(`⚠️ Falló ${cdn.name}, intentando siguiente...`);
+                                }
+                            }
+                            
+                            throw lastError || new Error('Todos los CDNs fallaron');
+                        } catch (error) {
+                            loaderState.error = error;
+                            loaderState.loading = false;
+                            throw error;
+                        }
+                    })(),
+                    new Promise((_, reject) => {
+                        setTimeout(() => {
+                            reject(new Error(`Timeout cargando SDK después de ${timeout}ms`));
+                        }, timeout);
+                    })
+                ]);
+                
+                return loaderState.promise;
+            };
+            
+            // Exponer función de verificación
+            window.isGoogleGenerativeAIAvailable = () => checkSDKAvailable() !== null;
+            
+            console.log('🔧 Google Generative AI SDK Loader inicializado (singleton)');
+        })();
+    </script>
 
     <!-- Firebase (Versión COMPAT - Compatible con API global firebase.*) -->
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
@@ -4179,11 +4390,8 @@
                 medicamentos: [],
                 digitador: '',
                 deliveryMode: '', 
-                selectedPhones: [], 
-                otherPhoneEnabled: false, 
-                otherPhone: '',
-                addressConfirmed: true, 
-                secondaryAddress: '',
+                phoneHighlight: '', // '', 'personal', 'familiar'
+                direccionEntrega: '', // obligatorio en RUTA
                 gpsStatus: 'SIN GPS',
                 gpsValue: '', 
                 observationsEnabled: false,
@@ -4198,11 +4406,8 @@
                 dni: '', 
                 nombre: '', 
                 telefono: '', 
-                direccion: '', 
                 familiar: '', 
                 telefonoFamiliar: '', 
-                descripcionMunicipio: '', 
-                tipoAfiliado: 'AFILIADO DIRECTO',
                 nAfiliacion: '' 
             });
 
@@ -4377,16 +4582,23 @@
                 }
             };
 
-            const loadPatients = async () => {
+            const loadPatients = async (forceRefresh = false) => {
                 setLoadingPatients(true);
                 setLoadingProgress(0);
                 
                 try {
-                    const cachedPatients = patientCache.getPatientList();
-                    if (cachedPatients && cachedPatients.length > 0) {
-                        setPatients(cachedPatients);
-                        setLoadingPatients(false);
-                        return;
+                    // Si forceRefresh es false, intentar usar cache primero
+                    if (!forceRefresh) {
+                        const cachedPatients = patientCache.getPatientList();
+                        if (cachedPatients && cachedPatients.length > 0) {
+                            setPatients(cachedPatients);
+                            setLoadingPatients(false);
+                            return;
+                        }
+                    } else {
+                        // Limpiar cache si se fuerza la recarga
+                        patientCache.clearCache(patientCache.PATIENT_LIST_CACHE_KEY);
+                        patientCache.clearPatientCache(); // Limpiar cache individual de pacientes también
                     }
                     
                     if (!firebaseInitialized || !db) {
@@ -4415,6 +4627,11 @@
                     setLoadingProgress(100);
                     setTimeout(() => setLoadingPatients(false), 500);
                 }
+            };
+
+            // Función para refrescar pacientes desde Firebase (fuerza recarga)
+            const refreshPatients = async () => {
+                await loadPatients(true);
             };
 
             const loadKits = async () => {
@@ -4454,7 +4671,12 @@
                     const patient = patients.find(p => p.id === patientId);
                     if (patient && kitData) {
                         handleSelectPatient(patient);
-                        setKitData({...kitData, otherPhoneEnabled: !!kitData.otherPhone});
+                        setKitData({
+                            ...kitData,
+                            phoneHighlight: kitData.phoneHighlight || '',
+                            direccionEntrega: kitData.direccionEntrega || '',
+                            gpsValue: kitData.gpsValue || ''
+                        });
                         setEditingKitId(kitData.id);
                         setIsViewMode(false);
                         setShowKitForm(true);
@@ -4543,16 +4765,16 @@
                     let updated = 0;
 
                     for (const row of data) {
+                        const dniValue = String(row['DNI'] || row['dni'] || '').trim();
+                        
+                        // Preparar solo los campos permitidos
                         const pData = {
-                            dni: String(row['DNI'] || row['dni'] || '').trim(),
+                            dni: dniValue,
                             nombre: String(row['NOMBRE'] || row['nombre'] || '').toUpperCase().trim(),
                             telefono: String(row['TELEFONO'] || row['telefono'] || '').trim(),
-                            direccion: String(row['DIRECCION'] || row['direccion'] || '').toUpperCase().trim(),
                             familiar: String(row['FAMILIAR'] || row['familiar'] || '').toUpperCase().trim(),
-                            telefonoFamiliar: String(row['TELEFONOFAMILIAR'] || row['telefonofamiliar'] || '').trim(),
-                            descripcionMunicipio: String(row['DESCRIPCION_MUNICIPIO'] || row['descripcion_municipio'] || '').toUpperCase().trim(),
-                            tipoAfiliado: String(row['TIPOAFILIADO'] || row['tipoafiliado'] || 'AFILIADO DIRECTO').toUpperCase().trim(),
-                            nAfiliacion: String(row['DNI'] || row['dni'] || '').trim() 
+                            telefonoFamiliar: String(row['TELEFONO_FAMILIAR'] || row['TELEFONOFAMILIAR'] || row['telefono_familiar'] || row['telefonofamiliar'] || '').trim(),
+                            nAfiliacion: dniValue // La afiliación es la misma que el DNI
                         };
 
                         if (!pData.dni) continue;
@@ -4562,19 +4784,31 @@
                         if (existingPatient) {
                             let needsUpdate = false;
                             const updates = {};
+                            
+                            // Solo actualizar campos permitidos
+                            const allowedFields = ['nombre', 'telefono', 'familiar', 'telefonoFamiliar', 'nAfiliacion'];
                             const checkAndFill = (field) => {
+                                if (!allowedFields.includes(field)) return; // Solo campos permitidos
+                                
                                 const dbValue = existingPatient[field];
                                 const excelValue = pData[field];
                                 if ((!dbValue || dbValue.trim() === '') && (excelValue && excelValue.trim() !== '')) {
                                     updates[field] = excelValue;
                                     needsUpdate = true;
+                                } else if (excelValue && excelValue.trim() !== '' && dbValue !== excelValue) {
+                                    updates[field] = excelValue;
+                                    needsUpdate = true;
                                 }
                             };
-                            checkAndFill('nombre'); checkAndFill('telefono'); checkAndFill('direccion');
-                            checkAndFill('familiar'); checkAndFill('telefonoFamiliar'); checkAndFill('descripcionMunicipio');
+                            checkAndFill('nombre'); 
+                            checkAndFill('telefono'); 
+                            checkAndFill('familiar'); 
+                            checkAndFill('telefonoFamiliar');
                             
-                            if ((!existingPatient.tipoAfiliado || existingPatient.tipoAfiliado === 'AFILIADO DIRECTO') && pData.tipoAfiliado && pData.tipoAfiliado !== 'AFILIADO DIRECTO') {
-                                 updates.tipoAfiliado = pData.tipoAfiliado; needsUpdate = true;
+                            // Actualizar afiliación siempre para asegurar que sea igual a DNI
+                            if (pData.nAfiliacion && pData.nAfiliacion !== existingPatient.nAfiliacion) {
+                                updates.nAfiliacion = pData.nAfiliacion;
+                                needsUpdate = true;
                             }
 
                             if (needsUpdate) { 
@@ -4583,6 +4817,7 @@
                                 updated++; 
                             } else { skipped++; }
                         } else {
+                            // Agregar nuevo paciente solo con campos permitidos
                             const result = await onAddPatient(pData);
                             patientCache.clearPatientCache();
                             added++;
@@ -4600,11 +4835,21 @@
             const handlePatientSubmit = async (e) => { 
                 e.preventDefault(); 
                 try {
+                    // Preparar solo los campos permitidos
+                    const formData = {
+                        dni: patientForm.dni || '',
+                        nombre: patientForm.nombre || '',
+                        telefono: patientForm.telefono || '',
+                        familiar: patientForm.familiar || '',
+                        telefonoFamiliar: patientForm.telefonoFamiliar || '',
+                        nAfiliacion: patientForm.dni || patientForm.nAfiliacion || '' // Siempre igual a DNI
+                    };
+                    
                     if (editingPatientId) {
-                        await onUpdatePatient(editingPatientId, patientForm); 
+                        await onUpdatePatient(editingPatientId, formData); 
                         patientCache.clearPatientCache(editingPatientId);
                     } else {
-                        await onAddPatient(patientForm);
+                        await onAddPatient(formData);
                         patientCache.clearPatientCache();
                     }
                     await loadPatients();
@@ -4619,11 +4864,8 @@
                     dni: '', 
                     nombre: '', 
                     telefono: '', 
-                    direccion: '', 
                     familiar: '', 
                     telefonoFamiliar: '', 
-                    descripcionMunicipio: '', 
-                    tipoAfiliado: 'AFILIADO DIRECTO',
                     nAfiliacion: '' 
                 }); 
                 setEditingPatientId(null); 
@@ -4634,22 +4876,44 @@
                 e.stopPropagation(); 
                 try {
                     const cachedPatient = patientCache.getPatient(p.id);
+                    let patientData;
                     if (cachedPatient) {
-                        setPatientForm(cachedPatient);
+                        patientData = cachedPatient;
                     } else {
                         if (!firebaseInitialized || !db) {
                             throw new Error("Base de datos no disponible");
                         }
                         const patientDoc = await db.collection('prod_patients').doc(p.id).get();
                         if (patientDoc.exists) {
-                            setPatientForm({ id: p.id, ...patientDoc.data() });
+                            patientData = { id: p.id, ...patientDoc.data() };
                         } else {
-                            setPatientForm(p);
+                            patientData = p;
                         }
                     }
+                    // Asegurar que nAfiliacion esté sincronizado con DNI
+                    if (!patientData.nAfiliacion && patientData.dni) {
+                        patientData.nAfiliacion = patientData.dni;
+                    }
+                    // Cargar solo los campos visibles en el formulario, pero mantener todos los datos del paciente
+                    setPatientForm({
+                        dni: patientData.dni || '',
+                        nombre: patientData.nombre || '',
+                        telefono: patientData.telefono || '',
+                        familiar: patientData.familiar || '',
+                        telefonoFamiliar: patientData.telefonoFamiliar || '',
+                        nAfiliacion: patientData.nAfiliacion || patientData.dni || ''
+                    });
                 } catch (error) {
                     console.error("Error cargando paciente:", error);
-                    setPatientForm(p);
+                    const patientData = p;
+                    setPatientForm({
+                        dni: patientData.dni || '',
+                        nombre: patientData.nombre || '',
+                        telefono: patientData.telefono || '',
+                        familiar: patientData.familiar || '',
+                        telefonoFamiliar: patientData.telefonoFamiliar || '',
+                        nAfiliacion: patientData.nAfiliacion || patientData.dni || ''
+                    });
                 }
                 setEditingPatientId(p.id); 
                 setShowPatientForm(true); 
@@ -4701,11 +4965,8 @@
                     medicamentos: [],
                     digitador: '',
                     deliveryMode: '', 
-                    selectedPhones: [], 
-                    otherPhoneEnabled: false, 
-                    otherPhone: '',
-                    addressConfirmed: true, 
-                    secondaryAddress: '',
+                    phoneHighlight: '',
+                    direccionEntrega: '',
                     gpsStatus: 'SIN GPS',
                     gpsValue: '',
                     observationsEnabled: false,
@@ -4733,11 +4994,8 @@
                     medicamentos: [],
                     digitador: currentUser.name,
                     deliveryMode: '', 
-                    selectedPhones: [], 
-                    otherPhoneEnabled: false, 
-                    otherPhone: '',
-                    addressConfirmed: true, 
-                    secondaryAddress: '',
+                    phoneHighlight: '',
+                    direccionEntrega: '',
                     gpsStatus: 'SIN GPS',
                     gpsValue: '',
                     observationsEnabled: false,
@@ -4750,7 +5008,12 @@
             };
             
             const openEditKit = (k, viewOnly = false) => { 
-                setKitData({...k, otherPhoneEnabled: !!k.otherPhone, gpsValue: k.gpsValue || ''}); 
+                setKitData({
+                    ...k,
+                    phoneHighlight: k.phoneHighlight || '',
+                    direccionEntrega: k.direccionEntrega || '',
+                    gpsValue: k.gpsValue || ''
+                }); 
                 setEditingKitId(k.id); 
                 setIsViewMode(viewOnly);
                 setShowKitForm(true); 
@@ -4763,26 +5026,44 @@
             };
             
             const handleTriggerMeds = (val) => {
-                const parsed = parseInt(val, 10);
-                const count = isNaN(parsed) ? 0 : parsed;
+                // Preservar el formato de texto completo (ej: "8/10", "6/9", "5")
+                // Extraer el número de la parte izquierda (antes del "/") para crear las líneas
+                let count = 0;
+                if (val && val.trim()) {
+                    // Si tiene "/", tomar la parte izquierda; si no, tomar el número completo
+                    const parts = String(val).split('/');
+                    const leftPart = parts[0].trim();
+                    const parsed = parseInt(leftPart, 10);
+                    count = isNaN(parsed) ? 0 : parsed;
+                }
+                
                 const safeCount = Math.min(Math.max(count, 0), 30);
                 const currentMeds = kitData.medicamentos || [];
                 let newMeds = [];
-                if (safeCount > currentMeds.length) {
-                    newMeds = [...currentMeds, ...Array(safeCount - currentMeds.length).fill({ nombre: '', idReceta: '', cantidad: '', cantRefri: '' })];
+                
+                // Siempre crear las líneas según el número extraído
+                if (safeCount > 0) {
+                    if (safeCount > currentMeds.length) {
+                        // Agregar líneas faltantes
+                        newMeds = [...currentMeds, ...Array(safeCount - currentMeds.length).fill({ nombre: '', idReceta: '', cantidad: '', cantRefri: '' })];
+                    } else if (safeCount < currentMeds.length) {
+                        // Reducir líneas si el número es menor
+                        newMeds = currentMeds.slice(0, safeCount);
+                    } else {
+                        // Mismo número, mantener líneas actuales
+                        newMeds = currentMeds;
+                    }
                 } else {
-                    newMeds = currentMeds.slice(0, safeCount);
+                    // Si el número es 0, limpiar las líneas
+                    newMeds = [];
                 }
+                
+                // Guardar el valor de texto completo (preservando formato como "8/10")
                 setKitData({...kitData, triggerMeds: val, medicamentos: newMeds});
             };
 
-            const togglePhoneSelection = (phone) => {
-                const current = kitData.selectedPhones || [];
-                if(current.includes(phone)) {
-                    setKitData({...kitData, selectedPhones: current.filter(p => p !== phone)});
-                } else {
-                    setKitData({...kitData, selectedPhones: [...current, phone]});
-                }
+            const setPhoneHighlight = (type) => {
+                setKitData({...kitData, phoneHighlight: type});
             };
 
             const handleBackToList = () => {
@@ -6539,55 +6820,124 @@ refrigeradoHtml +
                                         </div>
                                     </div>
 
-                                    <div className="flex gap-4 justify-center pb-4 border-b border-slate-100">
-                                        <button type="button" onClick={()=>setKitData({...kitData, deliveryMode: 'ventanilla'})} className={`px-6 py-2 rounded-lg font-bold transition-all ${kitData.deliveryMode === 'ventanilla' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Ventanilla</button>
-                                        <button type="button" onClick={()=>setKitData({...kitData, deliveryMode: 'ruta'})} className={`px-6 py-2 rounded-lg font-bold transition-all ${kitData.deliveryMode === 'ruta' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Ruta</button>
+                                    <div className="flex justify-center pb-4 border-b border-slate-100">
+                                        <div className="relative inline-flex items-center bg-slate-100 rounded-full p-1 shadow-inner w-full max-w-sm overflow-hidden">
+                                            <div
+                                                className="absolute inset-y-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out"
+                                                style={{
+                                                    left: kitData.deliveryMode === 'ruta' ? 'calc(50% + 0.125rem)' : '0.25rem',
+                                                    width: 'calc(50% - 0.25rem)',
+                                                    backgroundColor: kitData.deliveryMode === 'ruta' ? '#dcfce7' : '#e0e7ff'
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    // Ventanilla: desactivar datos de ruta para evitar conflictos
+                                                    setKitData({
+                                                        ...kitData,
+                                                        deliveryMode: 'ventanilla',
+                                                        phoneHighlight: '',
+                                                        direccionEntrega: '',
+                                                        gpsStatus: 'SIN GPS',
+                                                        gpsValue: '',
+                                                        observationsEnabled: false,
+                                                        observations: ''
+                                                    });
+                                                }}
+                                                className={`
+                                                    relative z-10 flex-1 px-6 py-2.5 text-sm font-extrabold uppercase rounded-full transition-colors duration-300 ease-in-out
+                                                    ${kitData.deliveryMode === 'ventanilla' ? 'text-indigo-700' : 'text-slate-600'}
+                                                    focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2
+                                                `}
+                                            >
+                                                {kitData.deliveryMode === 'ventanilla' ? '✓ VENTANILLA' : 'VENTANILLA'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setKitData({ ...kitData, deliveryMode: 'ruta' })}
+                                                className={`
+                                                    relative z-10 flex-1 px-6 py-2.5 text-sm font-extrabold uppercase rounded-full transition-colors duration-300 ease-in-out
+                                                    ${kitData.deliveryMode === 'ruta' ? 'text-green-700' : 'text-slate-600'}
+                                                    focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2
+                                                `}
+                                            >
+                                                {kitData.deliveryMode === 'ruta' ? '✓ RUTA' : 'RUTA'}
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className={`transition-all duration-300 ${kitData.deliveryMode === 'ventanilla' ? 'opacity-40 pointer-events-none grayscale' : ''}`}>
                                         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
-                                            <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Confirmar Datos de Contacto</h5>
-                                            <div className="space-y-2 mb-4">
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase block">Seleccionar Teléfonos a Llamar:</label>
-                                                {selectedPatientFullData?.telefono && (
-                                                    <label className="flex items-center gap-2 p-2 bg-white rounded border border-slate-200 cursor-pointer">
-                                                        <input type="checkbox" checked={kitData.selectedPhones?.includes(selectedPatientFullData.telefono)} onChange={()=>togglePhoneSelection(selectedPatientFullData.telefono)} />
-                                                        <span className="text-sm">{selectedPatientFullData.telefono} (Personal)</span>
-                                                    </label>
-                                                )}
-                                                {selectedPatientFullData?.telefonoFamiliar && (
-                                                    <label className="flex items-center gap-2 p-2 bg-white rounded border border-slate-200 cursor-pointer">
-                                                        <input type="checkbox" checked={kitData.selectedPhones?.includes(selectedPatientFullData.telefonoFamiliar)} onChange={()=>togglePhoneSelection(selectedPatientFullData.telefonoFamiliar)} />
-                                                        <span className="text-sm">{selectedPatientFullData.telefonoFamiliar} (Familiar)</span>
-                                                    </label>
-                                                )}
-                                                <div className="flex items-center gap-2 p-2 bg-white rounded border border-slate-200">
-                                                    <input type="checkbox" checked={kitData.otherPhoneEnabled} onChange={(e) => setKitData({...kitData, otherPhoneEnabled: e.target.checked, otherPhone: e.target.checked ? kitData.otherPhone : ''})} />
-                                                    <span className="text-sm whitespace-nowrap">Otro:</span>
-                                                    <input type="text" className={`w-full p-1 border-b border-slate-300 outline-none text-sm ${!kitData.otherPhoneEnabled ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`} placeholder="Ingresar otro número" value={kitData.otherPhone} onChange={e=>setKitData({...kitData, otherPhone:e.target.value})} disabled={!kitData.otherPhoneEnabled} />
+                                            <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Ruta (Datos obligatorios)</h5>
+                                            
+                                            <div className="space-y-3 mb-4">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase block">Teléfonos del paciente (se imprimen los 2; el seleccionado se marca en recuadro):</label>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPhoneHighlight(kitData.phoneHighlight === 'personal' ? '' : 'personal')}
+                                                        className={`p-3 rounded-lg border text-left transition-all ${
+                                                            kitData.phoneHighlight === 'personal'
+                                                                ? 'bg-emerald-50 border-emerald-300 shadow-sm'
+                                                                : 'bg-white border-slate-200 hover:border-slate-300'
+                                                        }`}
+                                                    >
+                                                        <div className="text-[10px] font-bold text-slate-400 uppercase">Personal</div>
+                                                        <div className="text-sm font-bold text-slate-800">{selectedPatientFullData?.telefono || 'No disponible'}</div>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPhoneHighlight(kitData.phoneHighlight === 'familiar' ? '' : 'familiar')}
+                                                        className={`p-3 rounded-lg border text-left transition-all ${
+                                                            kitData.phoneHighlight === 'familiar'
+                                                                ? 'bg-emerald-50 border-emerald-300 shadow-sm'
+                                                                : 'bg-white border-slate-200 hover:border-slate-300'
+                                                        }`}
+                                                    >
+                                                        <div className="text-[10px] font-bold text-slate-400 uppercase">Familiar</div>
+                                                        <div className="text-sm font-bold text-slate-800">{selectedPatientFullData?.telefonoFamiliar || 'No disponible'}</div>
+                                                    </button>
                                                 </div>
                                             </div>
+                                            
                                             <div className="mb-4">
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Confirmar Ubicación (Primaria: {selectedPatientFullData?.direccion || 'No disponible'})</label>
-                                                <div className="flex items-center gap-4 mb-2">
-                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                        <input type="radio" name="addrConf" checked={kitData.addressConfirmed === true} onChange={()=>setKitData({...kitData, addressConfirmed: true})} /> 
-                                                        <span className="text-sm font-bold text-green-600">Sí, es correcta</span>
-                                                    </label>
-                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                        <input type="radio" name="addrConf" checked={kitData.addressConfirmed === false} onChange={()=>setKitData({...kitData, addressConfirmed: false})} /> 
-                                                        <span className="text-sm font-bold text-red-500">No, nueva dirección</span>
-                                                    </label>
-                                                </div>
-                                                {!kitData.addressConfirmed && (
-                                                    <div className="animate-in mb-3">
-                                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Dirección Secundaria (Ruta)</label>
-                                                        <textarea className="w-full p-2 border rounded text-sm bg-white" rows="2" value={kitData.secondaryAddress} onChange={e=>setKitData({...kitData, secondaryAddress:e.target.value})} placeholder="Ingrese la nueva dirección de entrega..."></textarea>
-                                                    </div>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Ubicación de entrega (OBLIGATORIO)</label>
+                                                <textarea
+                                                    className="w-full p-2.5 border-2 rounded-lg text-sm bg-white font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 transition-all"
+                                                    rows="2"
+                                                    value={kitData.direccionEntrega || ''}
+                                                    onChange={e=>setKitData({...kitData, direccionEntrega:e.target.value})}
+                                                    placeholder="Ingrese la ubicación exacta de entrega..."
+                                                    required={kitData.deliveryMode === 'ruta'}
+                                                    disabled={kitData.deliveryMode !== 'ruta'}
+                                                />
+                                            </div>
+                                            
+                                            <div className="mb-4">
+                                                <label className="flex items-center gap-2 cursor-pointer mb-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={kitData.observationsEnabled}
+                                                        onChange={e=>setKitData({...kitData, observationsEnabled:e.target.checked})}
+                                                        disabled={kitData.deliveryMode !== 'ruta'}
+                                                    />
+                                                    <span className="text-xs font-bold text-slate-500 uppercase">Instrucciones de entrega</span>
+                                                </label>
+                                                {kitData.observationsEnabled && (
+                                                    <textarea
+                                                        className="w-full p-2 border rounded text-sm bg-amber-50 border-amber-200"
+                                                        rows="2"
+                                                        value={kitData.observations}
+                                                        onChange={e=>setKitData({...kitData, observations:e.target.value})}
+                                                        placeholder="Ej: Portón negro, tocar timbre 2 veces..."
+                                                        disabled={kitData.deliveryMode !== 'ruta'}
+                                                    ></textarea>
                                                 )}
-                                                
-                                                <div>
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">GPS</label>
+                                            </div>
+                                            
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">GPS</label>
                                                     
                                                     {/* Toggle Button Sí/No con animación */}
                                                     <div className="relative inline-flex items-center mb-3 bg-slate-100 rounded-full p-1 shadow-inner w-full max-w-xs overflow-hidden">
@@ -6630,21 +6980,11 @@ refrigeradoHtml +
                                                                 className="w-full p-2.5 border-2 border-green-300 rounded-lg text-sm bg-green-50 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-500 transition-all duration-200"
                                                                 value={kitData.gpsValue || ''}
                                                                 onChange={e => setKitData({...kitData, gpsValue: e.target.value})}
-                                                                placeholder="Ingrese coordenadas GPS o referencia..."
+                                                                placeholder="Ingrese coordenadas (lat,lng) o enlace de GPS..."
                                                                 autoFocus
                                                             />
                                                         </div>
                                                     )}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="flex items-center gap-2 cursor-pointer mb-2">
-                                                    <input type="checkbox" checked={kitData.observationsEnabled} onChange={e=>setKitData({...kitData, observationsEnabled:e.target.checked})} />
-                                                    <span className="text-xs font-bold text-slate-500 uppercase">Agregar Observaciones de Entrega</span>
-                                                </label>
-                                                {kitData.observationsEnabled && (
-                                                    <textarea className="w-full p-2 border rounded text-sm bg-amber-50 border-amber-200" rows="2" value={kitData.observations} onChange={e=>setKitData({...kitData, observations:e.target.value})} placeholder="Ej: Casa de color verde, portón negro..."></textarea>
-                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -6866,6 +7206,16 @@ refrigeradoHtml +
                                 />
                             </div>
                             
+                            <button 
+                                onClick={refreshPatients} 
+                                disabled={loadingPatients}
+                                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md whitespace-nowrap transition-all btn-hover-effect"
+                                title="Refrescar lista de pacientes desde Firebase"
+                            >
+                                <Icons.RefreshCw size={16} className={loadingPatients ? 'animate-spin' : ''}/> 
+                                <span className="hidden sm:inline">Refrescar</span>
+                            </button>
+                            
                             {(userRole === 'admin' || userRole === 'superadmin') && (
                                 <div className="relative overflow-hidden">
                                     <button className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md whitespace-nowrap transition-all btn-hover-effect">
@@ -6896,12 +7246,13 @@ refrigeradoHtml +
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">N° Afiliación</label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Afiliación</label>
                                     <input 
                                         type="text" 
                                         className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-slate-50" 
                                         value={patientForm.nAfiliacion} 
-                                        onChange={e=>setPatientForm({...patientForm, nAfiliacion:e.target.value})} 
+                                        readOnly
+                                        title="La afiliación es la misma que el DNI"
                                     />
                                 </div>
                             </div>
@@ -6916,35 +7267,14 @@ refrigeradoHtml +
                                 />
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Teléfono</label>
-                                    <input 
-                                        type="text" 
-                                        className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" 
-                                        value={patientForm.telefono} 
-                                        onChange={e=>setPatientForm({...patientForm, telefono:e.target.value})} 
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Municipio</label>
-                                    <input 
-                                        type="text" 
-                                        className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" 
-                                        value={patientForm.descripcionMunicipio} 
-                                        onChange={e=>setPatientForm({...patientForm, descripcionMunicipio:e.target.value})} 
-                                    />
-                                </div>
-                            </div>
-
                             <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Dirección</label>
-                                <textarea 
-                                    rows="2" 
-                                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm resize-none" 
-                                    value={patientForm.direccion} 
-                                    onChange={e=>setPatientForm({...patientForm, direccion:e.target.value})}
-                                ></textarea>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Teléfono</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" 
+                                    value={patientForm.telefono} 
+                                    onChange={e=>setPatientForm({...patientForm, telefono:e.target.value})} 
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -6966,23 +7296,6 @@ refrigeradoHtml +
                                         onChange={e=>setPatientForm({...patientForm, telefonoFamiliar:e.target.value})} 
                                     />
                                 </div>
-                            </div>
-
-                            <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Tipo Afiliación</label>
-                                <select 
-                                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white" 
-                                    value={patientForm.tipoAfiliado} 
-                                    onChange={e=>setPatientForm({...patientForm, tipoAfiliado:e.target.value})}
-                                >
-                                    <option value="AFILIADO DIRECTO">AFILIADO DIRECTO</option>
-                                    <option value="JUBILADO">JUBILADO</option>
-                                    <option value="PENSIONADO">PENSIONADO</option>
-                                    <option value="BENEFICIARIO PADRE">BENEFICIARIO PADRE</option>
-                                    <option value="BENEFICIARIO COMPAÑERO(O)">BENEFICIARIO COMPAÑERO(O)</option>
-                                    <option value="BENEFICIARIO ESPOSO(A)">BENEFICIARIO ESPOSO(A)</option>
-                                    <option value="BENEFICIARIO HIJO(A)">BENEFICIARIO HIJO(A)</option>
-                                </select>
                             </div>
 
                             <button type="submit" className="w-full py-3 bg-turquoise-600 text-white font-bold rounded-xl shadow-lg mt-2 btn-hover-effect">
@@ -7053,7 +7366,7 @@ refrigeradoHtml +
                                                             <Icons.Edit size={20}/>
                                                         </button>
                                                         {(userRole==='superadmin'||userRole==='admin') && (
-                                                            <button onClick={()=>setConfirmData({ title: 'Eliminar', msg: `¿Eliminar a ${p.nombre}?`, action: () => onDeletePatient(p.id) })} className="text-slate-300 hover:text-red-500 p-2 btn-hover-effect">
+                                                            <button onClick={()=>setConfirmData({ title: 'Eliminar', msg: `¿Eliminar a ${p.nombre}?`, action: async () => { await onDeletePatient(p.id); await loadPatients(true); } })} className="text-slate-300 hover:text-red-500 p-2 btn-hover-effect">
                                                                 <Icons.Trash size={20}/>
                                                             </button>
                                                         )}
@@ -7100,7 +7413,7 @@ refrigeradoHtml +
         };
 
         // --- BLOCK: CONFIGURACION ---
-        const ConfigBlock = ({ medicines, onAddList, contacts, onAddContact, onDeleteContact, rutaTemplateCurrent, importRutaTemplateFromExcel, saveRutaTemplate, loadRutaTemplateCurrent }) => {
+        const ConfigBlock = ({ medicines, onAddList, contacts, onAddContact, onDeleteContact, rutaTemplateCurrent, importRutaTemplateFromExcel, importRutaTemplateFromWord, importRutaTemplateFromPDF, saveRutaTemplate, loadRutaTemplateCurrent }) => {
             const [rawText, setRawText] = useState('');
             const [newMed, setNewMed] = useState(''); 
             const [cName, setCName] = useState('');
@@ -7373,6 +7686,103 @@ refrigeradoHtml +
                                             <Icons.Upload size={16}/> Subir Excel (.xlsx)
                                         </button>
                                     </div>
+
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                        <h5 className="font-bold text-slate-700 mb-3 text-xs uppercase">Subir Plantilla desde Word</h5>
+                                        <p className="text-xs text-slate-500 mb-4">
+                                            Suba un archivo Word (.docx) con tokens como {'{'}{'{'}NOMBRE{'}'}{'}'}, {'{'}{'{'}DNI{'}'}{'}'}, {'{'}{'{'}DIRECCION_ENTREGA{'}'}{'}'}, etc.
+                                        </p>
+                                        <input 
+                                            type="file" 
+                                            accept=".docx" 
+                                            id="rutaTemplateUploadWord"
+                                            className="hidden"
+                                            onChange={async (e) => {
+                                                const file = e.target.files[0];
+                                                if (!file) return;
+                                                try {
+                                                    if (!firebaseInitialized || !db) {
+                                                        throw new Error('No hay conexión a la base de datos. Por favor, verifique su conexión.');
+                                                    }
+                                                    if (!importRutaTemplateFromWord) {
+                                                        throw new Error('Importación Word no disponible');
+                                                    }
+                                                    const templateData = await importRutaTemplateFromWord(file);
+                                                    await saveRutaTemplate(templateData, true);
+                                                    if (loadRutaTemplateCurrent) {
+                                                        await loadRutaTemplateCurrent();
+                                                    }
+                                                    alert('✅ Plantilla RUTA (Word) importada y guardada correctamente en la base de datos.');
+                                                    e.target.value = '';
+                                                } catch (error) {
+                                                    console.error('Error importando plantilla Word:', error);
+                                                    alert('❌ Error al importar plantilla Word: ' + error.message);
+                                                    e.target.value = '';
+                                                }
+                                            }}
+                                        />
+                                        <button 
+                                            onClick={() => document.getElementById('rutaTemplateUploadWord').click()}
+                                            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold text-xs hover:bg-indigo-700 transition flex items-center justify-center gap-2 shadow-sm"
+                                        >
+                                            <Icons.Upload size={16}/> Subir Word (.docx)
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                        <h5 className="font-bold text-slate-700 mb-3 text-xs uppercase">Subir Plantilla desde PDF (con Gemini AI)</h5>
+                                        <p className="text-xs text-slate-500 mb-4">
+                                            Suba un archivo PDF y Gemini 3.0 analizará automáticamente la estructura y tokens. El estilo original se preservará.
+                                        </p>
+                                        <input 
+                                            type="file" 
+                                            accept=".pdf" 
+                                            id="rutaTemplateUploadPDF"
+                                            className="hidden"
+                                            onChange={async (e) => {
+                                                const file = e.target.files[0];
+                                                if (!file) return;
+                                                try {
+                                                    if (!firebaseInitialized || !db) {
+                                                        throw new Error('No hay conexión a la base de datos. Por favor, verifique su conexión.');
+                                                    }
+                                                    if (!importRutaTemplateFromPDF) {
+                                                        throw new Error('Importación PDF no disponible');
+                                                    }
+                                                    
+                                                    // Mostrar loading
+                                                    alert('🔄 Analizando PDF... Esto puede tomar unos segundos.');
+                                                    
+                                                    const templateData = await importRutaTemplateFromPDF(file);
+                                                    await saveRutaTemplate(templateData, true);
+                                                    if (loadRutaTemplateCurrent) {
+                                                        await loadRutaTemplateCurrent();
+                                                    }
+                                                    
+                                                    const tokensFound = templateData.metadata?.tokensFound || [];
+                                                    const tokensList = tokensFound.length > 0 ? tokensFound.join(', ') : 'Ninguno detectado';
+                                                    
+                                                    // Mostrar mensaje según el método de análisis usado
+                                                    if (templateData.metadata?.analysisMethod === 'local') {
+                                                        alert(`📄 PDF importado en modo local.\n\nTokens detectados: ${tokensList}\n\n${templateData.metadata.aiError ? '⚠️ SDK de IA no disponible: ' + templateData.metadata.aiError : 'ℹ️ Se usó análisis local (sin IA).'}\n\nLa plantilla se guardó correctamente en la base de datos.`);
+                                                    } else {
+                                                        alert(`✅ Plantilla RUTA (PDF) importada y analizada con IA (Gemini).\n\nTokens detectados: ${tokensList}\n\nLa plantilla se guardó correctamente en la base de datos.`);
+                                                    }
+                                                    e.target.value = '';
+                                                } catch (error) {
+                                                    console.error('Error importando plantilla PDF:', error);
+                                                    alert('❌ Error al importar plantilla PDF: ' + error.message);
+                                                    e.target.value = '';
+                                                }
+                                            }}
+                                        />
+                                        <button 
+                                            onClick={() => document.getElementById('rutaTemplateUploadPDF').click()}
+                                            className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold text-xs hover:bg-purple-700 transition flex items-center justify-center gap-2 shadow-sm"
+                                        >
+                                            <Icons.Upload size={16}/> Subir PDF con Gemini AI (.pdf)
+                                        </button>
+                                    </div>
                                     
                                     {(localRutaTemplate || rutaTemplateCurrent) && (
                                         <div className="bg-green-50 p-4 rounded-xl border border-green-200">
@@ -7399,17 +7809,21 @@ refrigeradoHtml +
                                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                                         <h5 className="font-bold text-slate-700 mb-3 text-xs uppercase">Tokens Disponibles</h5>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}NOMBRE{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}DNI{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}GPS_STATUS{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}TELEFONOS{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}MEDS_COUNT{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}DIRECCION_ENTREGA{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}OBSERVACIONES{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}CONTACT_CENTER{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}FECHA_ENTREGA{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}REFRIGERADO{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}QR_MAPS{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}NOMBRE{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}DNI{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}GPS_STATUS{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}TELEFONOS{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}TEL_PERSONAL{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}TEL_FAMILIAR{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}TEL_PERSONAL_BOX{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}TEL_FAMILIAR_BOX{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}MEDS_COUNT{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}DIRECCION_ENTREGA{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}INSTRUCCIONES_ENTREGA{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}CONTACT_CENTER{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}FECHA_ENTREGA{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}REFRIGERADO{'}'}{'}'}</code></div>
+                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}QR_MAPS{'}'}{'}'}</code></div>
                                         </div>
                                         <p className="text-xs text-slate-500 mt-3">
                                             Escribe estos tokens exactamente en las celdas de Excel donde quieras que aparezcan los datos.
@@ -7657,39 +8071,25 @@ refrigeradoHtml +
                 return null;
             };
             
-            const resolveDeliveryAddressRuta = (kitData, patientData) => {
-                const addressConfirmed = kitData.addressConfirmed !== false && 
-                                       kitData.ubicacionConfirmada !== false && 
-                                       kitData.confirmoUbicacion !== false;
-                if (!addressConfirmed) {
-                    const secondaryAddr = kitData.secondaryAddress || 
-                                         kitData.direccionSecundaria || 
-                                         kitData.direccionNueva || 
-                                         kitData.deliveryAddressText || 
-                                         kitData.direccionEntrega || 
-                                         kitData.secondaryDeliveryAddress || '';
-                    if (secondaryAddr && String(secondaryAddr).trim()) {
-                        return String(secondaryAddr).trim();
-                    }
-                }
-                return kitData.direccionEntrega || 
-                       kitData.direccion || 
-                       patientData?.direccion || 
-                       '';
+            const resolveDeliveryAddressRuta = (kitData) => {
+                // En este proyecto la ubicación de entrega vive en el KIT (obligatoria en RUTA)
+                return String(kitData?.direccionEntrega || '').trim();
             };
             
             const resolveRutaPlaceholders = (kitData, patientData) => {
                 const gpsEnabled = getGpsEnabled(kitData);
                 const gpsCoords = getGpsCoords(kitData);
-                const direccionEntrega = resolveDeliveryAddressRuta(kitData, patientData);
-                const phones = [];
-                if (kitData.selectedPhones && Array.isArray(kitData.selectedPhones)) {
-                    phones.push(...kitData.selectedPhones);
-                }
-                if (kitData.otherPhoneEnabled && kitData.otherPhone) {
-                    phones.push(kitData.otherPhone);
-                }
-                const telefonosText = phones.length > 0 ? phones.join(' / ') : '';
+                const direccionEntrega = resolveDeliveryAddressRuta(kitData);
+                const telPersonal = String(patientData?.telefono || '').trim();
+                const telFamiliar = String(patientData?.telefonoFamiliar || '').trim();
+                const telefonosText = [telPersonal, telFamiliar].filter(Boolean).join(' / ');
+                
+                const renderBox = (text) => {
+                    const safe = String(text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    return '<span style="display:inline-block;padding:0.6mm 1mm;border:0.6mm solid #000;border-radius:1.2mm;font-weight:900;">' + safe + '</span>';
+                };
+                const TEL_PERSONAL_BOX = kitData.phoneHighlight === 'personal' ? renderBox(telPersonal) : (telPersonal || '');
+                const TEL_FAMILIAR_BOX = kitData.phoneHighlight === 'familiar' ? renderBox(telFamiliar) : (telFamiliar || '');
                 let contactCenter = '';
                 if (kitData.contactCenter) {
                     const contactStr = String(kitData.contactCenter);
@@ -7718,8 +8118,13 @@ refrigeradoHtml +
                     DNI: (kitData.dni || patientData?.dni || '').toUpperCase(),
                     GPS_STATUS: gpsEnabled ? 'TIENE GPS' : '',
                     TELEFONOS: telefonosText.toUpperCase(),
+                    TEL_PERSONAL: telPersonal.toUpperCase(),
+                    TEL_FAMILIAR: telFamiliar.toUpperCase(),
+                    TEL_PERSONAL_BOX: TEL_PERSONAL_BOX,
+                    TEL_FAMILIAR_BOX: TEL_FAMILIAR_BOX,
                     MEDS_COUNT: medsCount.toUpperCase(),
                     DIRECCION_ENTREGA: direccionEntrega.toUpperCase(),
+                    INSTRUCCIONES_ENTREGA: (kitData.observations || kitData.observacionesEntrega || kitData.obsRuta || '').toUpperCase(),
                     OBSERVACIONES: (kitData.observations || kitData.observacionesEntrega || kitData.obsRuta || '').toUpperCase(),
                     CONTACT_CENTER: contactCenter.toUpperCase() || '—',
                     FECHA_ENTREGA: fechaEntrega || '—',
@@ -7742,6 +8147,7 @@ refrigeradoHtml +
                 };
                 let elementsHtml = '';
                 template.elements.forEach(element => {
+                    const isHtmlToken = element.tokenKey === 'TEL_PERSONAL_BOX' || element.tokenKey === 'TEL_FAMILIAR_BOX';
                     const text = element.tokenKey ? (resolvedData[element.tokenKey] || '') : (element.text || '');
                     const style = element.style || {};
                     const isBold = style.bold ? 'font-weight: 900;' : '';
@@ -7749,7 +8155,7 @@ refrigeradoHtml +
                     const fontSize = style.fontSize || '2mm';
                     const border = element.border ? 'border: 0.5px solid #000;' : '';
                     const cellStyle = 'left: ' + element.xMm + 'mm; top: ' + element.yMm + 'mm; width: ' + element.wMm + 'mm; height: ' + element.hMm + 'mm; ' + border + ' ' + isBold + ' text-align: ' + align + '; font-size: ' + fontSize + '; padding: 0.5mm;';
-                    elementsHtml += '<div class="cell" style="' + cellStyle + '">' + escapeHtmlLocal(text) + '</div>';
+                    elementsHtml += '<div class="cell" style="' + cellStyle + '">' + (isHtmlToken ? String(text) : escapeHtmlLocal(text)) + '</div>';
                 });
                 let qrContainerHtml = '';
                 let qrScriptHtml = '';
@@ -7837,8 +8243,183 @@ qrScriptHtml +
                     // Resolver placeholders con datos actualizados
                     const resolvedData = resolveRutaPlaceholders(updatedKit, patientData);
                     
-                    // Renderizar a HTML
-                    const htmlDoc = renderRutaTemplateToHTML(template, resolvedData);
+                    // Renderizar según formato (PDF, Word o Excel)
+                    let htmlDoc = '';
+                    
+                    if (template.format === 'pdf' && template.pdfBase64) {
+                        // Plantilla PDF: renderizar con PDF.js y sobrescribir tokens
+                        try {
+                            if (typeof pdfjsLib === 'undefined') {
+                                throw new Error('PDF.js no está disponible');
+                            }
+                            
+                            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                            
+                            // Convertir base64 a Uint8Array
+                            const binaryString = atob(template.pdfBase64);
+                            const bytes = new Uint8Array(binaryString.length);
+                            for (let i = 0; i < binaryString.length; i++) {
+                                bytes[i] = binaryString.charCodeAt(i);
+                            }
+                            
+                            const pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
+                            const page = await pdfDoc.getPage(1);
+                            const viewport = page.getViewport({ scale: 2.0 });
+                            
+                            // Crear canvas para renderizar PDF
+                            const canvas = document.createElement('canvas');
+                            const context = canvas.getContext('2d');
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+                            
+                            await page.render({
+                                canvasContext: context,
+                                viewport: viewport
+                            }).promise;
+                            
+                            // Sobrescribir texto en posiciones detectadas por Gemini
+                            const elements = template.geminiAnalysis?.elements || template.elements || [];
+                            
+                            // Primero intentar usar elementos detectados por Gemini
+                            if (elements.length > 0) {
+                                elements.forEach(element => {
+                                    if (element.type === 'text' && element.token) {
+                                        // Limpiar token de {{ }} si viene con formato
+                                        const cleanToken = element.token.replace(/[{}]/g, '');
+                                        const value = resolvedData[cleanToken];
+                                        
+                                        if (value) {
+                                            const pos = element.position || {};
+                                            const style = element.style || {};
+                                            // Convertir mm a pixels (asumiendo 96 DPI: 1mm = 3.779px)
+                                            const x = (pos.x || 0) * 3.779;
+                                            const y = (pos.y || 0) * 3.779;
+                                            const fontSize = (style.fontSize || 12) * 1.5; // Ajustar tamaño
+                                            const fontWeight = style.fontWeight || 'bold';
+                                            const color = style.color || '#000000';
+                                            
+                                            context.save();
+                                            context.font = `${fontWeight} ${fontSize}px Arial`;
+                                            context.fillStyle = color;
+                                            context.textAlign = pos.align || 'left';
+                                            context.textBaseline = 'top';
+                                            
+                                            // Si el token es HTML (como TEL_PERSONAL_BOX), renderizar como texto normal
+                                            const textValue = String(value).replace(/<[^>]*>/g, '').trim();
+                                            if (textValue) {
+                                                context.fillText(textValue.toUpperCase(), x, y);
+                                            }
+                                            
+                                            context.restore();
+                                        }
+                                    }
+                                });
+                            } else {
+                                // Fallback: buscar tokens directamente en el texto del PDF
+                                console.warn('No se detectaron elementos en el análisis de Gemini, intentando extraer tokens del texto del PDF...');
+                                try {
+                                    const textContent = await page.getTextContent();
+                                    textContent.items.forEach((item) => {
+                                        if (item.str && item.str.includes('{{')) {
+                                            const tokenMatch = item.str.match(/\{\{(\w+)\}\}/);
+                                            if (tokenMatch) {
+                                                const token = tokenMatch[1];
+                                                const value = resolvedData[token];
+                                                if (value) {
+                                                    const transform = item.transform || [1, 0, 0, 1, 0, 0];
+                                                    const x = transform[4];
+                                                    const y = viewport.height - transform[5]; // Invertir Y
+                                                    
+                                                    context.save();
+                                                    context.font = `bold ${(item.height || 12) * 1.2}px Arial`;
+                                                    context.fillStyle = '#000000';
+                                                    context.textAlign = 'left';
+                                                    context.textBaseline = 'top';
+                                                    context.fillText(String(value).toUpperCase(), x, y);
+                                                    context.restore();
+                                                }
+                                            }
+                                        }
+                                    });
+                                } catch (textError) {
+                                    console.warn('Error extrayendo texto del PDF:', textError);
+                                }
+                            }
+                            
+                            // Generar QR si existe token QR_MAPS
+                            if (resolvedData.QR_MAPS && typeof QRCode !== 'undefined') {
+                                const qrElement = elements.find(e => {
+                                    const token = e.token || '';
+                                    return token.replace(/[{}]/g, '') === 'QR_MAPS';
+                                });
+                                if (qrElement) {
+                                    const qrPos = qrElement.position || {};
+                                    // Convertir mm a pixels (1mm = 3.779px a 96 DPI)
+                                    const qrX = (qrPos.x || 0) * 3.779;
+                                    const qrY = (qrPos.y || 0) * 3.779;
+                                    const qrSize = (qrElement.size || 30) * 3.779;
+                                    
+                                    // Generar QR en canvas temporal
+                                    const qrCanvas = document.createElement('canvas');
+                                    await new Promise((resolve) => {
+                                        QRCode.toCanvas(qrCanvas, resolvedData.QR_MAPS, { width: Math.round(qrSize), margin: 1 }, (err) => {
+                                            if (!err && qrCanvas) {
+                                                context.drawImage(qrCanvas, qrX, qrY);
+                                            }
+                                            resolve();
+                                        });
+                                    });
+                                }
+                            }
+                            
+                            // Convertir canvas a imagen y crear HTML para imprimir
+                            const imageDataUrl = canvas.toDataURL('image/png');
+                            const css = '@page { size: 210mm 71mm landscape; margin: 0; }' +
+                                'html, body { width: 210mm; height: 71mm; margin: 0; padding: 0; }' +
+                                '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }';
+                            
+                            htmlDoc = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Viñeta Ruta (PDF)</title>
+    <style>${css}</style>
+</head>
+<body style="margin:0;padding:0;">
+    <img src="${imageDataUrl}" style="width:210mm;height:71mm;object-fit:contain;" />
+</body>
+</html>`;
+                            
+                        } catch (error) {
+                            console.error('Error renderizando PDF:', error);
+                            throw new Error('Error al renderizar plantilla PDF: ' + error.message);
+                        }
+                    } else if (template.format === 'word' && template.html) {
+                        const css = '@page { size: 210mm 71mm landscape; margin-left: 0.1cm; margin-right: 0.1cm; }' +
+                            'html, body { width: 210mm; height: 71mm; margin: 0; padding: 0; overflow: hidden; }' +
+                            '.ticket { width: 210mm; height: 71mm; position: relative; overflow: hidden; background: #fff; padding: 2mm; box-sizing: border-box; }' +
+                            '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; text-transform: uppercase; font-family: Arial, sans-serif; }';
+                        
+                        // Reemplazo simple de tokens {{TOKEN}} en el HTML de Word
+                        let hydrated = String(template.html || '').replace(/\{\{(\w+)\}\}/g, (m, key) => {
+                            if (key === 'QR_MAPS') return '<div id="qr-container" style="width:30mm;height:30mm;"></div>';
+                            const val = resolvedData[key];
+                            return val == null ? '' : String(val);
+                        });
+                        
+                        let qrScriptHtml = '';
+                        if (resolvedData.QR_MAPS) {
+                            const qrUrl = JSON.stringify(resolvedData.QR_MAPS);
+                            const qrScriptSrc = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>';
+                            const qrScriptCode = '<script>(function(){if(typeof QRCode !== "undefined"){var el=document.getElementById("qr-container");if(el){QRCode.toDataURL(' + qrUrl + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img=document.createElement("img");img.src=url;img.style.maxWidth="100%";img.style.height="auto";el.appendChild(img);}});}}})();<\/script>';
+                            qrScriptHtml = qrScriptSrc + qrScriptCode;
+                        }
+                        
+                        htmlDoc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Viñeta Ruta</title><style>' + css + '</style></head><body><div class="ticket">' + hydrated + '</div>' + qrScriptHtml + '</body></html>';
+                    } else {
+                        // Excel (formato por defecto)
+                        htmlDoc = renderRutaTemplateToHTML(template, resolvedData);
+                    }
                     
                     // Imprimir usando iframe oculto (evita bloqueos de popups)
                     const iframe = document.createElement('iframe');
@@ -7862,7 +8443,9 @@ qrScriptHtml +
                             iframe.contentWindow.print();
                             // Remover iframe después de imprimir
                             setTimeout(() => {
-                                document.body.removeChild(iframe);
+                                if (iframe.parentNode) {
+                                    document.body.removeChild(iframe);
+                                }
                             }, 2000);
                         }, 300);
                     };
@@ -8026,6 +8609,278 @@ qrScriptHtml +
                     reader.onerror = () => reject(new Error('Error leyendo el archivo'));
                     reader.readAsArrayBuffer(file);
                 });
+            };
+
+            // Función para importar Word (.docx) y convertir a plantilla HTML con tokens {{TOKEN}}
+            const importRutaTemplateFromWord = async (file) => {
+                if (!file) throw new Error('Archivo no válido');
+                if (typeof mammoth === 'undefined') {
+                    throw new Error('Mammoth.js no está disponible. Verifique su conexión a internet.');
+                }
+                const arrayBuffer = await file.arrayBuffer();
+                const result = await mammoth.convertToHtml({ arrayBuffer });
+                const html = (result && result.value) ? String(result.value) : '';
+                if (!html.trim()) {
+                    throw new Error('El documento Word no contiene contenido convertible.');
+                }
+                return {
+                    format: 'word',
+                    html,
+                    elements: [],
+                    metadata: {
+                        importedAt: new Date().toISOString(),
+                        sourceFile: file.name,
+                        sourceType: 'word'
+                    }
+                };
+            };
+            
+            /**
+             * Extrae tokens y estructura básica del PDF usando PDF.js (fallback local)
+             * No requiere SDK de IA
+             */
+            const extractPDFTokensLocal = async (pdfDoc, page) => {
+                try {
+                    // Extraer texto del PDF
+                    const textContent = await page.getTextContent();
+                    const textItems = textContent.items || [];
+                    const fullText = textItems.map(item => item.str).join(' ');
+                    
+                    // Buscar tokens en formato {{TOKEN}}
+                    const tokenPattern = /\{\{(\w+)\}\}/g;
+                    const tokenMatches = [...fullText.matchAll(tokenPattern)];
+                    const tokensFound = [...new Set(tokenMatches.map(m => `{{${m[1]}}}`))];
+                    
+                    // Obtener dimensiones de la página
+                    const viewport = page.getViewport({ scale: 1.0 });
+                    const widthMm = (viewport.width / 3.779).toFixed(2);
+                    const heightMm = (viewport.height / 3.779).toFixed(2);
+                    
+                    // Crear elementos básicos para cada token encontrado
+                    const elements = [];
+                    let yOffset = 20; // Posición inicial en mm
+                    
+                    tokensFound.forEach((token, idx) => {
+                        const cleanToken = token.replace(/[{}]/g, '');
+                        elements.push({
+                            type: 'text',
+                            token: token,
+                            position: { 
+                                x: 10 + (idx % 3) * 60, // Distribuir en 3 columnas
+                                y: yOffset + Math.floor(idx / 3) * 15 
+                            },
+                            style: { 
+                                fontSize: 12, 
+                                fontWeight: 'bold', 
+                                color: '#000000' 
+                            }
+                        });
+                    });
+                    
+                    return {
+                        tokensFound: tokensFound,
+                        structure: `PDF importado en modo local. Dimensiones: ${widthMm}mm x ${heightMm}mm. Se encontraron ${tokensFound.length} tokens.`,
+                        dimensions: { 
+                            width: parseFloat(widthMm), 
+                            height: parseFloat(heightMm) 
+                        },
+                        elements: elements,
+                        fullText: fullText.substring(0, 500) // Primeros 500 caracteres para referencia
+                    };
+                } catch (error) {
+                    console.warn('Error extrayendo tokens localmente:', error);
+                    // Retornar estructura mínima
+                    return {
+                        tokensFound: [],
+                        structure: 'Error extrayendo tokens del PDF',
+                        dimensions: { width: 210, height: 71 },
+                        elements: []
+                    };
+                }
+            };
+            
+            // Función para importar PDF y analizar con Gemini 3.0 para extraer estructura y tokens
+            const importRutaTemplateFromPDF = async (file) => {
+                if (!file) throw new Error('Archivo no válido');
+                
+                // Verificar dependencias básicas
+                if (typeof pdfjsLib === 'undefined') {
+                    throw new Error('PDF.js no está disponible. Verifique su conexión a internet.');
+                }
+                
+                // Variables para tracking
+                let useAIAnalysis = false;
+                let aiAnalysisError = null;
+                let localAnalysis = null;
+                
+                try {
+                    // Configurar PDF.js worker
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    
+                    // Leer PDF como arrayBuffer
+                    const arrayBuffer = await file.arrayBuffer();
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    const pdfDoc = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+                    const page = await pdfDoc.getPage(1);
+                    
+                    // PRIMERO: Intentar análisis local (siempre funciona)
+                    console.log('📄 Extrayendo tokens del PDF localmente...');
+                    localAnalysis = await extractPDFTokensLocal(pdfDoc, page);
+                    console.log(`✅ Análisis local completado: ${localAnalysis.tokensFound.length} tokens encontrados`);
+                    
+                    // SEGUNDO: Intentar análisis con IA (opcional, no bloqueante)
+                    try {
+                        // Usar el loader singleton robusto
+                        if (typeof window.loadGoogleGenerativeAI === 'function') {
+                            console.log('🤖 Intentando análisis con IA (Gemini)...');
+                            const GenAI = await window.loadGoogleGenerativeAI({ timeout: 20000 });
+                            
+                            if (GenAI && typeof GenAI === 'function') {
+                                // Convertir primera página a imagen para enviar a Gemini
+                                const viewport = page.getViewport({ scale: 2.0 });
+                                const canvas = document.createElement('canvas');
+                                const context = canvas.getContext('2d');
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+                                
+                                await page.render({
+                                    canvasContext: context,
+                                    viewport: viewport
+                                }).promise;
+                                
+                                // Convertir canvas a base64
+                                const imageBase64 = canvas.toDataURL('image/png').split(',')[1];
+                                
+                                // Inicializar Gemini con API key
+                                const GEMINI_API_KEY = 'AIzaSyCzWjsek2kIlQfgQwl7BRTt3PtMMgFS9r0';
+                                const genAI = new GenAI(GEMINI_API_KEY);
+                                const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+                                
+                                // Prompt para Gemini
+                                const prompt = `Analiza esta imagen de una viñeta/etiqueta de entrega de medicamentos (210mm x 71mm horizontal).
+
+INSTRUCCIONES:
+1. Identifica TODOS los tokens que encuentres en el formato {{TOKEN}} (ej: {{NOMBRE}}, {{DNI}}, etc.)
+2. Describe la estructura visual del documento (posiciones aproximadas de elementos, fuentes, tamaños, colores)
+3. Identifica áreas donde deberían ir los datos dinámicos
+
+TOKENS DISPONIBLES que puedes encontrar:
+- {{NOMBRE}} - Nombre del paciente
+- {{DNI}} - DNI del paciente
+- {{GPS_STATUS}} - Estado GPS (TIENE GPS o vacío)
+- {{TELEFONOS}} - Teléfonos combinados
+- {{TEL_PERSONAL}} - Teléfono personal
+- {{TEL_FAMILIAR}} - Teléfono familiar
+- {{TEL_PERSONAL_BOX}} - Teléfono personal con recuadro (si está seleccionado)
+- {{TEL_FAMILIAR_BOX}} - Teléfono familiar con recuadro (si está seleccionado)
+- {{MEDS_COUNT}} - Cantidad de medicamentos
+- {{DIRECCION_ENTREGA}} - Dirección de entrega
+- {{INSTRUCCIONES_ENTREGA}} - Instrucciones de entrega
+- {{OBSERVACIONES}} - Observaciones
+- {{CONTACT_CENTER}} - Contact Center
+- {{FECHA_ENTREGA}} - Fecha de entrega
+- {{REFRIGERADO}} - Si es refrigerado
+- {{QR_MAPS}} - QR code para mapa GPS
+
+Responde en formato JSON con esta estructura:
+{
+  "tokensFound": ["{{NOMBRE}}", "{{DNI}}", ...],
+  "structure": "Descripción de la estructura visual",
+  "dimensions": { "width": 210, "height": 71 },
+  "elements": [
+    {
+      "type": "text|image|qr",
+      "token": "{{NOMBRE}}",
+      "position": { "x": 10, "y": 20 },
+      "style": { "fontSize": 12, "fontWeight": "bold", "color": "#000000" }
+    }
+  ]
+}`;
+                                
+                                // Enviar imagen a Gemini
+                                const result = await model.generateContent([
+                                    prompt,
+                                    {
+                                        inlineData: {
+                                            data: imageBase64,
+                                            mimeType: 'image/png'
+                                        }
+                                    }
+                                ]);
+                                
+                                const response = await result.response;
+                                const text = response.text();
+                                
+                                // Parsear respuesta de Gemini
+                                let jsonText = text.trim();
+                                if (jsonText.includes('```json')) {
+                                    jsonText = jsonText.split('```json')[1].split('```')[0].trim();
+                                } else if (jsonText.includes('```')) {
+                                    jsonText = jsonText.split('```')[1].split('```')[0].trim();
+                                }
+                                
+                                let geminiAnalysis;
+                                try {
+                                    geminiAnalysis = JSON.parse(jsonText);
+                                    useAIAnalysis = true;
+                                    console.log('✅ Análisis con IA completado');
+                                } catch (parseError) {
+                                    console.warn('⚠️ Gemini no devolvió JSON válido, usando análisis local:', parseError);
+                                    // Usar análisis local como fallback
+                                    geminiAnalysis = localAnalysis;
+                                }
+                                
+                                // Convertir PDF completo a base64 para almacenar
+                                const pdfBase64 = btoa(String.fromCharCode(...uint8Array));
+                                
+                                return {
+                                    format: 'pdf',
+                                    pdfBase64: pdfBase64,
+                                    pdfOriginal: uint8Array,
+                                    geminiAnalysis: useAIAnalysis ? geminiAnalysis : null,
+                                    elements: (useAIAnalysis && geminiAnalysis?.elements) ? geminiAnalysis.elements : localAnalysis.elements,
+                                    metadata: {
+                                        importedAt: new Date().toISOString(),
+                                        sourceFile: file.name,
+                                        sourceType: 'pdf',
+                                        tokensFound: (useAIAnalysis && geminiAnalysis?.tokensFound) ? geminiAnalysis.tokensFound : localAnalysis.tokensFound,
+                                        structure: (useAIAnalysis && geminiAnalysis?.structure) ? geminiAnalysis.structure : localAnalysis.structure,
+                                        analysisMethod: useAIAnalysis ? 'ai' : 'local',
+                                        aiError: null
+                                    }
+                                };
+                            }
+                        }
+                    } catch (aiError) {
+                        aiAnalysisError = aiError;
+                        console.warn('⚠️ Análisis con IA no disponible, usando modo local:', aiError.message);
+                        // Continuar con análisis local (no lanzar error)
+                    }
+                    
+                    // Si llegamos aquí, usar análisis local
+                    const pdfBase64 = btoa(String.fromCharCode(...uint8Array));
+                    
+                    return {
+                        format: 'pdf',
+                        pdfBase64: pdfBase64,
+                        pdfOriginal: uint8Array,
+                        geminiAnalysis: null,
+                        elements: localAnalysis.elements,
+                        metadata: {
+                            importedAt: new Date().toISOString(),
+                            sourceFile: file.name,
+                            sourceType: 'pdf',
+                            tokensFound: localAnalysis.tokensFound,
+                            structure: localAnalysis.structure + ' (Modo local: SDK de IA no disponible)',
+                            analysisMethod: 'local',
+                            aiError: aiAnalysisError ? aiAnalysisError.message : null
+                        }
+                    };
+                    
+                } catch (error) {
+                    console.error('❌ Error procesando PDF:', error);
+                    throw new Error('Error al procesar PDF: ' + error.message);
+                }
             };
             
             // Función para guardar plantilla RUTA (movida dentro de App)
@@ -8302,13 +9157,37 @@ qrScriptHtml +
                 }
             }, [role, firebaseInitialized]);
 
+            // Función helper para filtrar solo los campos permitidos en pacientes
+            const filterAllowedPatientFields = (data) => {
+                const allowedFields = ['dni', 'nAfiliacion', 'nombre', 'telefono', 'familiar', 'telefonoFamiliar'];
+                const filtered = {};
+                
+                // Solo incluir campos permitidos
+                allowedFields.forEach(field => {
+                    if (data.hasOwnProperty(field)) {
+                        filtered[field] = data[field] || '';
+                    }
+                });
+                
+                // Asegurar que nAfiliacion siempre sea igual a dni
+                if (filtered.dni) {
+                    filtered.nAfiliacion = filtered.dni;
+                }
+                
+                return filtered;
+            };
+
             const addPatient = async (d) => {
                 try {
                     if (!firebaseInitialized || !db) {
                         throw new Error("Base de datos no disponible");
                     }
+                    
+                    // Filtrar solo campos permitidos antes de guardar
+                    const cleanData = filterAllowedPatientFields(d);
+                    
                     const result = await db.collection('prod_patients').add({
-                        ...d, 
+                        ...cleanData, 
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     console.log("✅ Paciente guardado con ID: ", result.id);
@@ -8329,7 +9208,35 @@ qrScriptHtml +
                     if (!firebaseInitialized || !db) {
                         throw new Error("Base de datos no disponible");
                     }
-                    await db.collection('prod_patients').doc(id).update(d);
+                    
+                    // Filtrar solo campos permitidos antes de actualizar
+                    const cleanData = filterAllowedPatientFields(d);
+                    const docRef = db.collection('prod_patients').doc(id);
+                    const docSnap = await docRef.get();
+                    
+                    if (docSnap.exists) {
+                        const existingData = docSnap.data();
+                        const updateData = { ...cleanData };
+                        
+                        // Eliminar campos no permitidos explícitamente
+                        const fieldsToDelete = ['direccion', 'descripcionMunicipio', 'tipoAfiliado'];
+                        fieldsToDelete.forEach(field => {
+                            if (existingData.hasOwnProperty(field)) {
+                                updateData[field] = firebase.firestore.FieldValue.delete();
+                            }
+                        });
+                        
+                        updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                        await docRef.update(updateData);
+                    } else {
+                        // Si no existe, crear con solo campos permitidos
+                        await docRef.set({
+                            ...cleanData,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                    
                     cacheManager.clearPatientCache(id);
                 } catch (error) {
                     console.error("Error updating patient: ", error);
@@ -8343,7 +9250,9 @@ qrScriptHtml +
                         throw new Error("Base de datos no disponible");
                     }
                     await db.collection('prod_patients').doc(id).delete();
-                    cacheManager.clearPatientCache(id);
+                    // Limpiar cache completo de pacientes para forzar recarga
+                    cacheManager.clearPatientCache(); // Sin ID limpia todo el cache de pacientes
+                    cacheManager.clearCache(cacheManager.PATIENT_LIST_CACHE_KEY);
                 } catch (error) {
                     console.error("Error deleting patient: ", error);
                     throw error;
@@ -8607,7 +9516,7 @@ qrScriptHtml +
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} />}
                             {view === 'reports' && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} />}
                             {view === 'pacientes' && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={{name: userName, role: role}} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} />}
-                            {view === 'config' && (role === 'admin' || role === 'superadmin') && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} rutaTemplateCurrent={rutaTemplateCurrent} importRutaTemplateFromExcel={importRutaTemplateFromExcel} saveRutaTemplate={saveRutaTemplate} loadRutaTemplateCurrent={loadRutaTemplateCurrent} />}
+                            {view === 'config' && (role === 'admin' || role === 'superadmin') && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} rutaTemplateCurrent={rutaTemplateCurrent} importRutaTemplateFromExcel={importRutaTemplateFromExcel} importRutaTemplateFromWord={importRutaTemplateFromWord} importRutaTemplateFromPDF={importRutaTemplateFromPDF} saveRutaTemplate={saveRutaTemplate} loadRutaTemplateCurrent={loadRutaTemplateCurrent} />}
                             {view === 'users' && (role === 'admin' || role === 'superadmin') && <UserManagementBlock users={users} onAddUser={addUser} onUpdateUser={updateUser} onDeleteUser={deleteUser} />}
                         </div>
                     </main>
