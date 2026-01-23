@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="data:,">
-    <title>Bitácora de Producción - Operaciones</title>
+    <title>IHSS A TU CASA - Plataforma de Dispensación</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -783,7 +783,11 @@
             QrCode: (p) => <Icon {...p} path={<><rect x="3" y="3" width="8" height="8"></rect><rect x="13" y="3" width="8" height="8"></rect><rect x="3" y="13" width="8" height="8"></rect><rect x="13" y="13" width="8" height="8"></rect></>} />,
             AlignLeft: (p) => <Icon {...p} path={<><line x1="21" y1="10" x2="7" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="7" y2="18"></line></>} />,
             AlignCenter: (p) => <Icon {...p} path={<><line x1="18" y1="10" x2="6" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="18" y1="18" x2="6" y2="18"></line></>} />,
-            AlignRight: (p) => <Icon {...p} path={<><line x1="21" y1="10" x2="7" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="7" y2="18"></line></>} />
+            AlignRight: (p) => <Icon {...p} path={<><line x1="21" y1="10" x2="7" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="7" y2="18"></line></>} />,
+            CheckCircle: (p) => <Icon {...p} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></>} />,
+            XCircle: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></>} />,
+            UserCheck: (p) => <Icon {...p} path={<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></>} />,
+            ChevronsLeft: (p) => <Icon {...p} path={<><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></>} />
         };
 
         // --- COMPONENTS ---
@@ -3977,7 +3981,85 @@
                     if (!querySnapshot.empty) {
                         const userData = querySnapshot.docs[0].data();
                         if (userData.password === password) {
-                            onLogin(userData.role, userData.nombre || userData.username);
+                            // Validar restricción de horario si está activa
+                            if (userData.restriccionHorario) {
+                                const ahora = new Date();
+                                const diaActual = ahora.getDay(); // 0 = domingo, 1 = lunes, etc.
+                                const horaActual = ahora.getHours() * 100 + ahora.getMinutes(); // Formato HHMM
+                                
+                                // Mapear día de JavaScript a nuestros días
+                                const diasMap = {
+                                    0: 'domingo',
+                                    1: 'lunes',
+                                    2: 'martes',
+                                    3: 'miercoles',
+                                    4: 'jueves',
+                                    5: 'viernes',
+                                    6: 'sabado'
+                                };
+                                
+                                const diaNombre = diasMap[diaActual];
+                                const diasPermitidos = userData.diasPermitidos || {};
+                                
+                                // Verificar si el día actual está permitido
+                                if (!diasPermitidos[diaNombre]) {
+                                    const diasLabels = {
+                                        lunes: 'Lunes',
+                                        martes: 'Martes',
+                                        miercoles: 'Miércoles',
+                                        jueves: 'Jueves',
+                                        viernes: 'Viernes',
+                                        sabado: 'Sábado',
+                                        domingo: 'Domingo'
+                                    };
+                                    setError(`Acceso denegado: Este usuario no tiene permitido acceder los ${diasLabels[diaNombre]}.`);
+                                    setLoading(false);
+                                    return;
+                                }
+                                
+                                // Verificar si la hora actual está dentro del rango permitido
+                                if (userData.horaInicio && userData.horaFin) {
+                                    const [hInicio, mInicio] = userData.horaInicio.split(':').map(Number);
+                                    const [hFin, mFin] = userData.horaFin.split(':').map(Number);
+                                    const horaInicio = hInicio * 100 + mInicio;
+                                    const horaFin = hFin * 100 + mFin;
+                                    
+                                    if (horaActual < horaInicio || horaActual > horaFin) {
+                                        setError(`Acceso denegado: El horario permitido es de ${userData.horaInicio} a ${userData.horaFin}.`);
+                                        setLoading(false);
+                                        return;
+                                    }
+                                }
+                            }
+                            
+                            // Recalcular el rol del sistema desde los roles del departamento si están disponibles
+                            // Esto asegura que el rol esté siempre sincronizado
+                            const getSystemRoleFromRoles = (roles) => {
+                                if (!roles || roles.length === 0) return 'digitador';
+                                if (roles.includes('superadmin')) return 'superadmin';
+                                if (roles.includes('admin')) return 'admin';
+                                if (roles.some(r => r.includes('supervisor'))) return 'admin';
+                                return 'digitador';
+                            };
+                            
+                            const calculatedRole = userData.rolesDepartamento && userData.rolesDepartamento.length > 0
+                                ? getSystemRoleFromRoles(userData.rolesDepartamento)
+                                : (userData.role || 'digitador');
+                            
+                            // Si el rol calculado es diferente al guardado, actualizar en la base de datos
+                            if (calculatedRole !== userData.role && userData.rolesDepartamento && userData.rolesDepartamento.length > 0) {
+                                console.log('⚠️ Rol desincronizado detectado. Actualizando rol de', userData.role, 'a', calculatedRole);
+                                // Actualizar el rol en la base de datos de forma asíncrona (no bloquear el login)
+                                db.collection('prod_users').doc(querySnapshot.docs[0].id).update({ role: calculatedRole })
+                                    .catch(err => console.error('Error actualizando rol:', err));
+                            }
+                            
+                            // Pasar información completa del usuario incluyendo departamento y roles
+                            onLogin(calculatedRole, userData.nombre || userData.username, {
+                                id: querySnapshot.docs[0].id,
+                                ...userData,
+                                role: calculatedRole // Asegurar que el rol esté actualizado
+                            });
                         } else { 
                             setError("Contraseña incorrecta."); 
                             setLoading(false); 
@@ -4019,11 +4101,19 @@
 
                     <div className="glass-panel p-10 rounded-3xl shadow-soft w-full max-w-sm border-white/50 relative z-10">
                         <div className="text-center mb-10">
-                            <div className="bg-gradient-to-tr from-turquoise-500 to-clinical-400 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow text-white animate-ekg">
-                                <Icons.Activity size={40} />
+                            <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow overflow-hidden bg-white">
+                                <img 
+                                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" 
+                                    alt="IHSS Logo" 
+                                    className="w-full h-full object-contain"
+                                    onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.parentElement.innerHTML = '<div class="bg-gradient-to-tr from-turquoise-500 to-clinical-400 w-20 h-20 rounded-2xl flex items-center justify-center shadow-glow text-white animate-ekg"><svg class="w-10 h-10" fill="currentColor" viewBox="0 0 20 20"><path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.384l-4.614-1.76a1 1 0 00-.836 1.838l7 3a1 1 0 00.788 0l7-3a1 1 0 00-.836-1.838L14.394 7.667a.999.999 0 01-.356.384l4.614 1.76a1 1 0 00.836-1.838l-7-3zM3.5 10.5a1 1 0 01-1-1v-1a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1zm5 0a1 1 0 01-1-1v-1a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1zm5 0a1 1 0 01-1-1v-1a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1z"/></svg></div>';
+                                    }}
+                                />
                             </div>
-                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight brand-font">Bitácora <span className="text-turquoise-600">Producción</span></h1>
-                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Dpto. Operaciones</p>
+                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight brand-font">IHSS <span className="text-turquoise-600">A TU CASA</span></h1>
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Plataforma de Dispensación</p>
                         </div>
                         <form onSubmit={handleLogin} className="space-y-6">
                             {error && <div className="bg-red-50 text-red-500 p-3 rounded-lg text-xs text-center font-bold border border-red-100">{error}</div>}
@@ -4063,25 +4153,64 @@
         };
 
         // --- BLOCK: DASHBOARD ---
-        const DashboardBlock = ({ setView, stats, userName, role }) => { 
+        const DashboardBlock = ({ setView, stats, userName, role, kits, currentUser, patients = [], users = [] }) => { 
             const [time, setTime] = useState(new Date());
             useEffect(() => { const t = setInterval(()=>setTime(new Date()),1000); return ()=>clearInterval(t); }, []);
             
             const allCards = [
-                { id: 'reports', label: 'Reportes y Carpetas', icon: Icons.List, color: 'bg-amber-500', desc: 'Ver kits por fecha', allowed: ['admin', 'superadmin', 'digitador'] },
+                { id: 'reports', label: 'Reportes y Carpetas', icon: Icons.List, color: 'bg-amber-500', desc: 'Ver kits por fecha', allowed: ['admin', 'superadmin'] },
                 { id: 'pacientes', label: 'Gestión de Pacientes', icon: Icons.Users, color: 'bg-turquoise-500', desc: 'Crear kits por DH', allowed: ['admin', 'superadmin', 'digitador'] },
                 { id: 'config', label: 'Configuración', icon: Icons.Settings, color: 'bg-slate-500', desc: 'Catálogos del Sistema', allowed: ['admin', 'superadmin'] },
                 { id: 'users', label: 'Gestión de Usuarios', icon: Icons.UserCog, color: 'bg-indigo-500', desc: 'Control de accesos', allowed: ['admin', 'superadmin'] },
             ];
 
             const visibleCards = allCards.filter(c => c.allowed.includes(role));
+            
+            // Determinar si necesita calendario
+            const userDept = currentUser?.departamento || '';
+            const userRoles = currentUser?.rolesDepartamento || [];
+            const needsCalendar = (userDept === 'contact center' && userRoles.includes('agente contact center')) || 
+                                  (userDept === 'farmacia' && userRoles.includes('revision y asignacion'));
+            const [calendarView, setCalendarView] = useState('years'); // 'years', 'months', 'days'
+            const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+            const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+            const [selectedDay, setSelectedDay] = useState(null);
+
+            // Calcular estadísticas según el rol
+            const today = new Date().toISOString().split('T')[0];
+            let userStats = { workToday: 0, label: '' };
+            
+            if (role === 'admin' || role === 'superadmin') {
+                // Para admin: kits que llegaron a logística hoy
+                const kitsLogisticaHoy = kits.filter(k => {
+                    if (!k.fechaEntregaLogistica) return false;
+                    const fechaLog = new Date(k.fechaEntregaLogistica).toISOString().split('T')[0];
+                    return fechaLog === today;
+                });
+                userStats = {
+                    workToday: kitsLogisticaHoy.length,
+                    label: 'Kits en Logística Hoy'
+                };
+            } else {
+                // Para usuarios normales: kits creados hoy por el usuario
+                const userKitsToday = kits.filter(k => {
+                    if (!k.fechaArmado) return false;
+                    const fechaArm = new Date(k.fechaArmado).toISOString().split('T')[0];
+                    const digitadorMatch = k.digitador && k.digitador.toLowerCase().includes(userName.toLowerCase());
+                    return fechaArm === today && digitadorMatch;
+                });
+                userStats = {
+                    workToday: userKitsToday.length,
+                    label: 'Mi Trabajo Hoy'
+                };
+            }
 
             return (
                 <div className="w-full max-w-6xl mx-auto space-y-8 animate-in">
                     <div className="bg-gradient-to-r from-turquoise-600 to-clinical-600 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden">
                         <div className="relative z-10">
                             <h1 className="text-3xl font-bold brand-font mb-2">¡Hola, {userName}!</h1>
-                            <p className="opacity-90 text-sm font-medium uppercase tracking-wider">Operaciones - Bitácora de Producción</p>
+                            <p className="opacity-90 text-sm font-medium uppercase tracking-wider">Plataforma de Dispensación</p>
                         </div>
                         <div className="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-right"></div>
                     </div>
@@ -4090,19 +4219,12 @@
                             <div className="text-5xl font-mono font-bold text-slate-700 tracking-widest mb-2">{time.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
                             <div className="text-sm text-slate-400 font-medium uppercase">{time.toLocaleDateString([], {weekday:'long', day:'numeric', month:'long'})}</div>
                         </div>
-                        <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
                             <div className="bg-white p-6 rounded-3xl shadow-soft border border-slate-100 flex items-center gap-4">
                                 <div className="p-4 bg-turquoise-50 text-turquoise-600 rounded-2xl"><Icons.Box size={32}/></div>
                                 <div>
-                                    <div className="text-3xl font-bold text-slate-800"><AnimatedCounter value={stats.totalKits}/></div>
-                                    <div className="text-xs text-slate-400 font-bold uppercase">Kits Totales</div>
-                                </div>
-                            </div>
-                            <div className="bg-white p-6 rounded-3xl shadow-soft border border-slate-100 flex items-center gap-4">
-                                <div className="p-4 bg-clinical-50 text-clinical-600 rounded-2xl"><Icons.Calendar size={32}/></div>
-                                <div>
-                                    <div className="text-3xl font-bold text-slate-800"><AnimatedCounter value={stats.todayKits}/></div>
-                                    <div className="text-xs text-slate-400 font-bold uppercase">Armados Hoy</div>
+                                    <div className="text-3xl font-bold text-slate-800"><AnimatedCounter value={userStats.workToday}/></div>
+                                    <div className="text-xs text-slate-400 font-bold uppercase">{userStats.label}</div>
                                 </div>
                             </div>
                         </div>
@@ -4124,6 +4246,237 @@
                             </button>
                         ))}
                     </div>
+                    
+                    {needsCalendar && (
+                        <div className="mt-8">
+                            <h3 className="text-xl font-bold text-slate-700 brand-font mb-6">Calendario de Trabajo</h3>
+                            <div className="bg-white rounded-3xl shadow-soft border border-slate-100 p-6">
+                                {calendarView === 'years' && (
+                                    <div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h4 className="font-bold text-lg text-slate-800">Seleccione el Año</h4>
+                                        </div>
+                                        <div className="grid grid-cols-4 gap-3">
+                                            {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
+                                                <button
+                                                    key={year}
+                                                    onClick={() => {
+                                                        setSelectedYear(year);
+                                                        setCalendarView('months');
+                                                    }}
+                                                    className="p-4 rounded-xl border-2 border-slate-200 hover:border-turquoise-500 hover:bg-turquoise-50 transition-all text-center font-bold text-slate-700 hover:text-turquoise-600"
+                                                >
+                                                    {year}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {calendarView === 'months' && (
+                                    <div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <button onClick={() => setCalendarView('years')} className="text-slate-400 hover:text-slate-600 flex items-center gap-2">
+                                                <Icons.ArrowLeft size={16}/> Años
+                                            </button>
+                                            <h4 className="font-bold text-lg text-slate-800">{selectedYear}</h4>
+                                            <div className="w-20"></div>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((month, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        setSelectedMonth(idx + 1);
+                                                        setCalendarView('days');
+                                                    }}
+                                                    className="p-4 rounded-xl border-2 border-slate-200 hover:border-turquoise-500 hover:bg-turquoise-50 transition-all text-center font-bold text-slate-700 hover:text-turquoise-600"
+                                                >
+                                                    {month}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {calendarView === 'days' && (
+                                    <div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <button onClick={() => setCalendarView('months')} className="text-slate-400 hover:text-slate-600 flex items-center gap-2">
+                                                <Icons.ArrowLeft size={16}/> Meses
+                                            </button>
+                                            <h4 className="font-bold text-lg text-slate-800">
+                                                {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][selectedMonth - 1]} {selectedYear}
+                                            </h4>
+                                            <div className="w-20"></div>
+                                        </div>
+                                        
+                                        {(() => {
+                                            const currentUserName = (currentUser?.name || currentUser?.username || '').toLowerCase();
+                                            const fieldToCheck = userDept === 'contact center' ? 'agenteContactCenter' : 'usuarioRevisionAsignacion';
+                                            
+                                            // Obtener usuarios disponibles (incluyendo trabajo compartido)
+                                            const availableUserNames = [currentUserName];
+                                            users.forEach(u => {
+                                                if (u.id === currentUser?.id) return;
+                                                const uName = (u.nombre || u.username || '').toLowerCase();
+                                                if (userDept === 'contact center' && u.departamento === 'contact center' && 
+                                                    u.rolesDepartamento?.includes('agente contact center') && u.trabajoCompartido) {
+                                                    availableUserNames.push(uName);
+                                                }
+                                                if (userDept === 'farmacia' && u.departamento === 'farmacia' && 
+                                                    u.rolesDepartamento?.includes('revision y asignacion') && u.trabajoCompartido) {
+                                                    availableUserNames.push(uName);
+                                                }
+                                            });
+                                            
+                                            // Obtener días del mes
+                                            const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+                                            const days = [];
+                                            
+                                            for (let day = 1; day <= daysInMonth; day++) {
+                                                const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                                
+                                                // Buscar pacientes asignados a usuarios disponibles para este día
+                                                const dayPatients = patients.filter(p => {
+                                                    const assignedTo = (p[fieldToCheck] || '').toLowerCase();
+                                                    return availableUserNames.includes(assignedTo);
+                                                });
+                                                
+                                                // Buscar kits programados para este día de pacientes asignados
+                                                const dayKits = kits.filter(k => {
+                                                    if (!k.fechaArmado) return false;
+                                                    const kitDate = new Date(k.fechaArmado).toISOString().split('T')[0];
+                                                    if (kitDate !== dateStr) return false;
+                                                    
+                                                    // Verificar que el kit pertenezca a un paciente asignado
+                                                    const kitPatient = patients.find(p => p.id === k.patientId);
+                                                    if (!kitPatient) return false;
+                                                    const assignedTo = (kitPatient[fieldToCheck] || '').toLowerCase();
+                                                    return availableUserNames.includes(assignedTo);
+                                                });
+                                                
+                                                // Determinar estado del semáforo
+                                                let status = 'green'; // Verde: todo trabajado
+                                                if (dayPatients.length > 0) {
+                                                    // Verificar cuántos pacientes tienen kits
+                                                    const patientsWithKits = dayPatients.filter(p => {
+                                                        return dayKits.some(k => k.patientId === p.id);
+                                                    });
+                                                    
+                                                    if (patientsWithKits.length < dayPatients.length) {
+                                                        status = 'red'; // Rojo: hay pacientes sin kits
+                                                    }
+                                                }
+                                                
+                                                days.push({ day, dateStr, patients: dayPatients, kits: dayKits, status });
+                                            }
+                                            
+                                            return (
+                                                <div>
+                                                    <div className="grid grid-cols-7 gap-2 mb-4">
+                                                        {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(d => (
+                                                            <div key={d} className="text-center text-xs font-bold text-slate-500 py-2">{d}</div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="grid grid-cols-7 gap-2">
+                                                        {Array.from({ length: new Date(selectedYear, selectedMonth - 1, 1).getDay() }, (_, i) => (
+                                                            <div key={`empty-${i}`}></div>
+                                                        ))}
+                                                        {days.map(({ day, dateStr, patients, kits, status }) => (
+                                                            <button
+                                                                key={day}
+                                                                onClick={() => setSelectedDay(dateStr)}
+                                                                className={`p-3 rounded-lg border-2 transition-all text-center font-bold ${
+                                                                    status === 'green' 
+                                                                        ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
+                                                                        : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                                                                } ${selectedDay === dateStr ? 'ring-2 ring-turquoise-500' : ''}`}
+                                                            >
+                                                                <div className="text-sm">{day}</div>
+                                                                <div className="text-xs mt-1">
+                                                                    {patients.length > 0 && (
+                                                                        <div className="flex items-center justify-center gap-1">
+                                                                            <span className={`w-2 h-2 rounded-full ${status === 'green' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                                            <span>{patients.length}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    
+                                                    {selectedDay && (
+                                                        <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                                            <h5 className="font-bold text-slate-800 mb-3">
+                                                                Trabajo programado para {new Date(selectedDay).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                                            </h5>
+                                                            {(() => {
+                                                                const currentUserName = (currentUser?.name || currentUser?.username || '').toLowerCase();
+                                                                const availableUserNames = [currentUserName];
+                                                                users.forEach(u => {
+                                                                    if (u.id === currentUser?.id) return;
+                                                                    const uName = (u.nombre || u.username || '').toLowerCase();
+                                                                    if (userDept === 'contact center' && u.departamento === 'contact center' && 
+                                                                        u.rolesDepartamento?.includes('agente contact center') && u.trabajoCompartido) {
+                                                                        availableUserNames.push(uName);
+                                                                    }
+                                                                    if (userDept === 'farmacia' && u.departamento === 'farmacia' && 
+                                                                        u.rolesDepartamento?.includes('revision y asignacion') && u.trabajoCompartido) {
+                                                                        availableUserNames.push(uName);
+                                                                    }
+                                                                });
+                                                                
+                                                                const dayPatients = patients.filter(p => {
+                                                                    const assignedTo = (p[fieldToCheck] || '').toLowerCase();
+                                                                    return availableUserNames.includes(assignedTo);
+                                                                });
+                                                                
+                                                                const dayKits = kits.filter(k => {
+                                                                    if (!k.fechaArmado) return false;
+                                                                    const kitDate = new Date(k.fechaArmado).toISOString().split('T')[0];
+                                                                    if (kitDate !== selectedDay) return false;
+                                                                    const kitPatient = patients.find(p => p.id === k.patientId);
+                                                                    if (!kitPatient) return false;
+                                                                    const assignedTo = (kitPatient[fieldToCheck] || '').toLowerCase();
+                                                                    return availableUserNames.includes(assignedTo);
+                                                                });
+                                                                
+                                                                const pending = dayPatients.filter(p => {
+                                                                    return !dayKits.some(k => k.patientId === p.id);
+                                                                });
+                                                                
+                                                                return (
+                                                                    <div className="space-y-2">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className={`w-3 h-3 rounded-full ${pending.length === 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                                            <span className="text-sm font-semibold">
+                                                                                {pending.length === 0 ? 'Todo trabajado' : `${pending.length} pendiente(s)`}
+                                                                            </span>
+                                                                        </div>
+                                                                        {pending.length > 0 && (
+                                                                            <div className="mt-3 space-y-1">
+                                                                                <p className="text-xs font-bold text-slate-600 uppercase">Pacientes pendientes:</p>
+                                                                                {pending.map(p => (
+                                                                                    <div key={p.id} className="text-xs text-slate-700 bg-white p-2 rounded border border-slate-200">
+                                                                                        {p.nombre} - {p.dni}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -4361,14 +4714,129 @@
             );
         };
 
+        // --- COMPONENT: ASIGNACIÓN MASIVA ---
+        const MassAssignForm = ({ users, onAssign }) => {
+            const [selectedDept, setSelectedDept] = useState('');
+            const [selectedRole, setSelectedRole] = useState('');
+            const [selectedUser, setSelectedUser] = useState('');
+            const [dnisText, setDnisText] = useState('');
+            
+            const availableUsers = users.filter(u => {
+                if (!selectedDept || !selectedRole) return false;
+                if (selectedDept === 'contact center' && selectedRole === 'agente contact center') {
+                    return u.departamento === 'contact center' && u.rolesDepartamento?.includes('agente contact center');
+                }
+                if (selectedDept === 'farmacia' && selectedRole === 'revision y asignacion') {
+                    return u.departamento === 'farmacia' && u.rolesDepartamento?.includes('revision y asignacion');
+                }
+                return false;
+            });
+            
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!selectedDept || !selectedRole || !selectedUser || !dnisText.trim()) {
+                    alert('Por favor complete todos los campos');
+                    return;
+                }
+                onAssign(selectedDept, selectedRole, selectedUser, dnisText);
+            };
+            
+            return (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Departamento</label>
+                        <select 
+                            className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white outline-none focus:border-turquoise-500" 
+                            value={selectedDept} 
+                            onChange={e => {
+                                setSelectedDept(e.target.value);
+                                setSelectedRole('');
+                                setSelectedUser('');
+                            }}
+                            required
+                        >
+                            <option value="">Seleccione departamento</option>
+                            <option value="farmacia">Farmacia</option>
+                            <option value="contact center">Contact Center</option>
+                        </select>
+                    </div>
+                    
+                    {selectedDept && (
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Rol</label>
+                            <select 
+                                className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white outline-none focus:border-turquoise-500" 
+                                value={selectedRole} 
+                                onChange={e => {
+                                    setSelectedRole(e.target.value);
+                                    setSelectedUser('');
+                                }}
+                                required
+                            >
+                                <option value="">Seleccione rol</option>
+                                {selectedDept === 'farmacia' && <option value="revision y asignacion">Revisión y Asignación</option>}
+                                {selectedDept === 'contact center' && <option value="agente contact center">Agente Contact Center</option>}
+                            </select>
+                        </div>
+                    )}
+                    
+                    {selectedRole && (
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Usuario</label>
+                            <select 
+                                className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white outline-none focus:border-turquoise-500" 
+                                value={selectedUser} 
+                                onChange={e => setSelectedUser(e.target.value)}
+                                required
+                            >
+                                <option value="">Seleccione usuario</option>
+                                {availableUsers.map(u => (
+                                    <option key={u.id} value={u.id}>
+                                        {u.nombre || u.username}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">DNIs (uno por línea)</label>
+                        <textarea 
+                            className="w-full p-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-turquoise-500 h-40 font-mono" 
+                            value={dnisText} 
+                            onChange={e => setDnisText(e.target.value)}
+                            placeholder="0801199012345&#10;0801199012346&#10;0801199012347"
+                            required
+                        />
+                        <p className="text-xs text-slate-500 mt-1">Pegue los DNIs, uno por línea</p>
+                    </div>
+                    
+                    <button type="submit" className="w-full bg-purple-600 text-white py-3 rounded-xl text-sm font-bold shadow hover:bg-purple-700 btn-hover-effect">
+                        Asignar Pacientes
+                    </button>
+                </form>
+            );
+        };
+
         // --- BLOCK: PACIENTES ---
-        const PatientManagementBlock = ({ medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts, printRutaVignette }) => {
+        const PatientManagementBlock = ({ medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts, printRutaVignette, users = [] }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
             const [selectedPatientFullData, setSelectedPatientFullData] = useState(null);
             const [showPatientForm, setShowPatientForm] = useState(false);
             const [editingPatientId, setEditingPatientId] = useState(null);
             const [confirmData, setConfirmData] = useState(null);
+            const [activePatientTab, setActivePatientTab] = useState('general'); // 'general' o 'asignados'
+            const [showMassAssignModal, setShowMassAssignModal] = useState(false);
+            
+            // Determinar si el usuario necesita pestañas
+            const userDept = currentUser?.departamento || '';
+            const userRoles = currentUser?.rolesDepartamento || [];
+            const isAgenteContactCenter = userDept === 'contact center' && userRoles.includes('agente contact center');
+            const isRevisionAsignacion = userDept === 'farmacia' && userRoles.includes('revision y asignacion');
+            const needsTabs = isAgenteContactCenter || isRevisionAsignacion;
+            const canCreateKits = isRevisionAsignacion;
+            const canCreatePatients = userRole === 'admin' || userRole === 'superadmin';
             const [currentPage, setCurrentPage] = useState(1);
             const [patientsPerPage] = useState(50);
             const [loadingPatients, setLoadingPatients] = useState(false);
@@ -4413,7 +4881,12 @@
                 telefono: '', 
                 familiar: '', 
                 telefonoFamiliar: '', 
-                nAfiliacion: '' 
+                nAfiliacion: '',
+                agenteContactCenter: '',
+                usuarioRevisionAsignacion: '',
+                direccion: '',
+                descripcionMunicipio: '',
+                tipoAfiliado: 'AFILIADO DIRECTO'
             });
 
             // Cargar plantillas de impresión
@@ -4643,6 +5116,10 @@
                         dni: doc.data().dni || '',
                         nombre: doc.data().nombre || '',
                         tipoAfiliado: doc.data().tipoAfiliado || 'AFILIADO DIRECTO',
+                        direccion: doc.data().direccion || '',
+                        descripcionMunicipio: doc.data().descripcionMunicipio || '',
+                        agenteContactCenter: doc.data().agenteContactCenter || '',
+                        usuarioRevisionAsignacion: doc.data().usuarioRevisionAsignacion || '',
                         createdAt: doc.data().createdAt
                     }));
 
@@ -4781,6 +5258,10 @@
                             dni: doc.data().dni || '',
                             nombre: doc.data().nombre || '',
                             tipoAfiliado: doc.data().tipoAfiliado || 'AFILIADO DIRECTO',
+                            direccion: doc.data().direccion || '',
+                            descripcionMunicipio: doc.data().descripcionMunicipio || '',
+                            agenteContactCenter: doc.data().agenteContactCenter || '',
+                            usuarioRevisionAsignacion: doc.data().usuarioRevisionAsignacion || '',
                             createdAt: doc.data().createdAt
                         }));
                         setSearchResults(found);
@@ -4866,15 +5347,106 @@
                 };
             }, [patientSnapshotUnsubscribe]);
 
+            // Obtener usuarios del mismo rol con trabajo compartido activo
+            const getAvailableUsersForRole = useMemo(() => {
+                if (!needsTabs) return [];
+                return users.filter(u => {
+                    if (u.id === currentUser?.id) return false; // Excluir usuario actual
+                    if (isAgenteContactCenter) {
+                        return u.departamento === 'contact center' && 
+                               u.rolesDepartamento?.includes('agente contact center') &&
+                               u.trabajoCompartido === true;
+                    }
+                    if (isRevisionAsignacion) {
+                        return u.departamento === 'farmacia' && 
+                               u.rolesDepartamento?.includes('revision y asignacion') &&
+                               u.trabajoCompartido === true;
+                    }
+                    return false;
+                });
+            }, [users, needsTabs, isAgenteContactCenter, isRevisionAsignacion, currentUser]);
+
+            // Estado para todos los pacientes (necesario para filtrado por usuario)
+            const [allPatients, setAllPatients] = useState([]);
+            
+            // Cargar todos los pacientes cuando se necesita para filtrado
+            useEffect(() => {
+                if (needsTabs && activePatientTab === 'asignados') {
+                    const loadAllPatients = async () => {
+                        try {
+                            if (!firebaseInitialized || !db) return;
+                            
+                            const querySnapshot = await db.collection('prod_patients')
+                                .orderBy('dni', 'asc')
+                                .get();
+                            
+                            const allPats = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                            setAllPatients(allPats);
+                        } catch (error) {
+                            console.error('Error cargando todos los pacientes:', error);
+                        }
+                    };
+                    loadAllPatients();
+                } else {
+                    setAllPatients([]);
+                }
+            }, [needsTabs, activePatientTab, firebaseInitialized, db]);
+            
+            // Organizar pacientes por usuario
+            const patientsByUser = useMemo(() => {
+                if (!needsTabs || activePatientTab !== 'asignados') return {};
+                
+                const grouped = {};
+                const currentUserName = (currentUser?.name || currentUser?.username || '').toLowerCase();
+                const availableUsers = [currentUser, ...getAvailableUsersForRole];
+                
+                // Usar allPatients si está disponible, sino usar patients
+                const patientsToFilter = allPatients.length > 0 ? allPatients : patients;
+                
+                availableUsers.forEach(user => {
+                    const userName = (user?.nombre || user?.username || '').toLowerCase();
+                    if (!userName) return;
+                    
+                    const userPatients = patientsToFilter.filter(p => {
+                        if (isAgenteContactCenter) {
+                            return p.agenteContactCenter && p.agenteContactCenter.toLowerCase() === userName;
+                        }
+                        if (isRevisionAsignacion) {
+                            return p.usuarioRevisionAsignacion && p.usuarioRevisionAsignacion.toLowerCase() === userName;
+                        }
+                        return false;
+                    });
+                    
+                    if (userPatients.length > 0 || user.id === currentUser?.id) {
+                        grouped[userName] = {
+                            user: user,
+                            patients: userPatients,
+                            isCurrentUser: userName === currentUserName
+                        };
+                    }
+                });
+                
+                return grouped;
+            }, [allPatients, patients, needsTabs, activePatientTab, isAgenteContactCenter, isRevisionAsignacion, currentUser, getAvailableUsersForRole]);
+
             const filteredPatients = useMemo(() => {
+                let basePatients = patients;
                 const term = String(searchTerm || '').trim();
+                
                 // Si hay búsqueda activa, usamos resultados (cache o firebase)
                 if (term) {
-                    return Array.isArray(searchResults) ? searchResults : [];
+                    basePatients = Array.isArray(searchResults) ? searchResults : [];
                 }
-                // Sin búsqueda, la página actual ya viene paginada (máx 50)
-                return patients;
-            }, [patients, searchTerm, searchResults]);
+                
+                // Si está en pestaña asignados y hay organización por carpetas, retornar todos los pacientes agrupados
+                if (needsTabs && activePatientTab === 'asignados') {
+                    // Retornar todos los pacientes que están en las carpetas
+                    const allAssignedPatients = Object.values(patientsByUser).flatMap(group => group.patients);
+                    return allAssignedPatients;
+                }
+                
+                return basePatients;
+            }, [patients, searchTerm, searchResults, activePatientTab, needsTabs, patientsByUser]);
 
             // En paginación real, `patients` ya es la página actual (máx 50)
             const currentPatients = filteredPatients;
@@ -4908,8 +5480,17 @@
                             telefono: String(row['TELEFONO'] || row['telefono'] || '').trim(),
                             familiar: String(row['FAMILIAR'] || row['familiar'] || '').toUpperCase().trim(),
                             telefonoFamiliar: String(row['TELEFONO_FAMILIAR'] || row['TELEFONOFAMILIAR'] || row['telefono_familiar'] || row['telefonofamiliar'] || '').trim(),
-                            nAfiliacion: dniValue // La afiliación es la misma que el DNI
+                            nAfiliacion: dniValue, // La afiliación es la misma que el DNI
+                            direccion: String(row['DIRECCION'] || row['direccion'] || '').trim(),
+                            descripcionMunicipio: String(row['DESCRIPCION_MUNICIPIO'] || row['descripcion_municipio'] || row['DESCRIPCIONMUNICIPIO'] || row['descripcionmunicipio'] || '').trim(),
+                            tipoAfiliado: String(row['TIPO_AFILIADO'] || row['tipo_afiliado'] || row['TIPOAFILIADO'] || row['tipoafiliado'] || 'AFILIADO DIRECTO').toUpperCase().trim()
                         };
+                        
+                        // Validar que tipoAfiliado sea uno de los valores permitidos
+                        const tiposPermitidos = ['JUBILADO', 'PENSIONADO', 'AFILIADO DIRECTO', 'BENEFICIARIA PADRE', 'BENEFICIARIA(O) COMPAÑERA(O)', 'BENEFICIARIA(O) ESPOSA(O)', 'BENEFICIARIA(O) HIJO(A)'];
+                        if (!tiposPermitidos.includes(pData.tipoAfiliado)) {
+                            pData.tipoAfiliado = 'AFILIADO DIRECTO';
+                        }
 
                         if (!pData.dni) continue;
 
@@ -4920,7 +5501,7 @@
                             const updates = {};
                             
                             // Solo actualizar campos permitidos
-                            const allowedFields = ['nombre', 'telefono', 'familiar', 'telefonoFamiliar', 'nAfiliacion'];
+                            const allowedFields = ['nombre', 'telefono', 'familiar', 'telefonoFamiliar', 'nAfiliacion', 'direccion', 'descripcionMunicipio', 'tipoAfiliado'];
                             const checkAndFill = (field) => {
                                 if (!allowedFields.includes(field)) return; // Solo campos permitidos
                                 
@@ -4938,6 +5519,9 @@
                             checkAndFill('telefono'); 
                             checkAndFill('familiar'); 
                             checkAndFill('telefonoFamiliar');
+                            checkAndFill('direccion');
+                            checkAndFill('descripcionMunicipio');
+                            checkAndFill('tipoAfiliado');
                             
                             // Actualizar afiliación siempre para asegurar que sea igual a DNI
                             if (pData.nAfiliacion && pData.nAfiliacion !== existingPatient.nAfiliacion) {
@@ -4977,7 +5561,12 @@
                         telefono: patientForm.telefono || '',
                         familiar: patientForm.familiar || '',
                         telefonoFamiliar: patientForm.telefonoFamiliar || '',
-                        nAfiliacion: patientForm.dni || patientForm.nAfiliacion || '' // Siempre igual a DNI
+                        nAfiliacion: patientForm.dni || patientForm.nAfiliacion || '', // Siempre igual a DNI
+                        agenteContactCenter: patientForm.agenteContactCenter || '',
+                        usuarioRevisionAsignacion: patientForm.usuarioRevisionAsignacion || '',
+                        direccion: patientForm.direccion || '',
+                        descripcionMunicipio: patientForm.descripcionMunicipio || '',
+                        tipoAfiliado: patientForm.tipoAfiliado || 'AFILIADO DIRECTO'
                     };
                     
                     if (editingPatientId) {
@@ -5013,7 +5602,12 @@
                     telefono: '', 
                     familiar: '', 
                     telefonoFamiliar: '', 
-                    nAfiliacion: '' 
+                    nAfiliacion: '',
+                    agenteContactCenter: '',
+                    usuarioRevisionAsignacion: '',
+                    direccion: '',
+                    descripcionMunicipio: '',
+                    tipoAfiliado: 'AFILIADO DIRECTO'
                 }); 
                 setEditingPatientId(null); 
                 setShowPatientForm(false); 
@@ -5048,7 +5642,12 @@
                         telefono: patientData.telefono || '',
                         familiar: patientData.familiar || '',
                         telefonoFamiliar: patientData.telefonoFamiliar || '',
-                        nAfiliacion: patientData.nAfiliacion || patientData.dni || ''
+                        nAfiliacion: patientData.nAfiliacion || patientData.dni || '',
+                        agenteContactCenter: patientData.agenteContactCenter || '',
+                        usuarioRevisionAsignacion: patientData.usuarioRevisionAsignacion || '',
+                        direccion: patientData.direccion || '',
+                        descripcionMunicipio: patientData.descripcionMunicipio || '',
+                        tipoAfiliado: patientData.tipoAfiliado || 'AFILIADO DIRECTO'
                     });
                 } catch (error) {
                     console.error("Error cargando paciente:", error);
@@ -6873,9 +7472,11 @@ refrigeradoHtml +
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={openNewKit} className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs shadow-md transition-all btn-hover-effect bg-turquoise-600 hover:bg-turquoise-700 text-white">
-                                    <Icons.FolderPlus size={16}/> Nuevo Kit
-                                </button>
+                                {canCreateKits && (
+                                    <button onClick={openNewKit} className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs shadow-md transition-all btn-hover-effect bg-turquoise-600 hover:bg-turquoise-700 text-white">
+                                        <Icons.FolderPlus size={16}/> Nuevo Kit
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -7377,11 +7978,32 @@ refrigeradoHtml +
                                 </div>
                             )}
 
-                            <button onClick={()=>setShowPatientForm(true)} className="flex items-center gap-2 bg-turquoise-600 hover:bg-turquoise-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md whitespace-nowrap transition-all btn-hover-effect">
-                                <Icons.Plus size={16}/> <span className="hidden sm:inline">Nuevo</span>
-                            </button>
+                            {canCreatePatients && (
+                                <button onClick={()=>setShowPatientForm(true)} className="flex items-center gap-2 bg-turquoise-600 hover:bg-turquoise-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md whitespace-nowrap transition-all btn-hover-effect">
+                                    <Icons.Plus size={16}/> <span className="hidden sm:inline">Nuevo</span>
+                                </button>
+                            )}
                         </div>
                     </div>
+                    
+                    {needsTabs && (
+                        <div className="border-b border-slate-100 px-6">
+                            <div className="flex gap-4">
+                                <button 
+                                    onClick={() => setActivePatientTab('general')} 
+                                    className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activePatientTab === 'general' ? 'border-turquoise-500 text-turquoise-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    Pacientes Generales
+                                </button>
+                                <button 
+                                    onClick={() => setActivePatientTab('asignados')} 
+                                    className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activePatientTab === 'asignados' ? 'border-turquoise-500 text-turquoise-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    Mis Asignados
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     
                     <Modal isOpen={showPatientForm} onClose={closePatientForm} title={editingPatientId ? "Editar Paciente" : "Nuevo Derechohabiente"} maxWidth="max-w-2xl">
                         <form onSubmit={handlePatientSubmit} className="space-y-4">
@@ -7450,6 +8072,86 @@ refrigeradoHtml +
                                 </div>
                             </div>
 
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Dirección</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" 
+                                    value={patientForm.direccion} 
+                                    onChange={e=>setPatientForm({...patientForm, direccion:e.target.value})} 
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Descripción Municipio</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" 
+                                    value={patientForm.descripcionMunicipio} 
+                                    onChange={e=>setPatientForm({...patientForm, descripcionMunicipio:e.target.value})} 
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Tipo de Afiliado</label>
+                                <select 
+                                    className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white outline-none focus:border-turquoise-500" 
+                                    value={patientForm.tipoAfiliado} 
+                                    onChange={e=>setPatientForm({...patientForm, tipoAfiliado:e.target.value})}
+                                >
+                                    <option value="AFILIADO DIRECTO">AFILIADO DIRECTO</option>
+                                    <option value="JUBILADO">JUBILADO</option>
+                                    <option value="PENSIONADO">PENSIONADO</option>
+                                    <option value="BENEFICIARIA PADRE">BENEFICIARIA PADRE</option>
+                                    <option value="BENEFICIARIA(O) COMPAÑERA(O)">BENEFICIARIA(O) COMPAÑERA(O)</option>
+                                    <option value="BENEFICIARIA(O) ESPOSA(O)">BENEFICIARIA(O) ESPOSA(O)</option>
+                                    <option value="BENEFICIARIA(O) HIJO(A)">BENEFICIARIA(O) HIJO(A)</option>
+                                </select>
+                            </div>
+
+                            {canCreatePatients && (
+                                <>
+                                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Agente Contact Center</label>
+                                            <select 
+                                                className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white outline-none focus:border-turquoise-500" 
+                                                value={patientForm.agenteContactCenter} 
+                                                onChange={e=>setPatientForm({...patientForm, agenteContactCenter:e.target.value})}
+                                            >
+                                                <option value="">Seleccione un agente</option>
+                                                {users
+                                                    .filter(u => u.departamento === 'contact center' && u.rolesDepartamento?.includes('agente contact center'))
+                                                    .map(u => (
+                                                        <option key={u.id} value={u.nombre || u.username}>
+                                                            {u.nombre || u.username}
+                                                        </option>
+                                                    ))
+                                                }
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Usuario Revisión y Asignación</label>
+                                            <select 
+                                                className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white outline-none focus:border-turquoise-500" 
+                                                value={patientForm.usuarioRevisionAsignacion} 
+                                                onChange={e=>setPatientForm({...patientForm, usuarioRevisionAsignacion:e.target.value})}
+                                            >
+                                                <option value="">Seleccione un usuario</option>
+                                                {users
+                                                    .filter(u => u.departamento === 'farmacia' && u.rolesDepartamento?.includes('revision y asignacion'))
+                                                    .map(u => (
+                                                        <option key={u.id} value={u.nombre || u.username}>
+                                                            {u.nombre || u.username}
+                                                        </option>
+                                                    ))
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
                             <button type="submit" className="w-full py-3 bg-turquoise-600 text-white font-bold rounded-xl shadow-lg mt-2 btn-hover-effect">
                                 {editingPatientId ? 'Actualizar' : 'Guardar'}
                             </button>
@@ -7457,92 +8159,239 @@ refrigeradoHtml +
                     </Modal>
 
                     <div className="h-full overflow-y-auto bg-white p-6">
-                        {(!searchTerm.trim()) && (
-                            <div className="mb-4 flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                <div className="text-sm text-slate-600">
-                                    Mostrando {currentPatients.length ? (indexOfFirstPatient + 1) : 0}-{indexOfLastPatient} (Página {currentPage}) — {currentPatients.length} pacientes cargados
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={async () => {
-                                            if (currentPage === 1) return;
-                                            const prevPage = Math.max(1, currentPage - 1);
-                                            setCurrentPage(prevPage);
-                                            await loadPatients(prevPage);
-                                        }}
-                                        disabled={currentPage === 1}
-                                        className={`px-3 py-1 rounded-lg text-sm font-medium ${currentPage === 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
-                                    >
-                                        Anterior
-                                    </button>
-                                    <span className="px-3 py-1 text-sm text-slate-700">
-                                        Página {currentPage}
-                                    </span>
-                                    <button
-                                        onClick={async () => {
-                                            if (!hasNextPage) return;
-                                            const nextPage = currentPage + 1;
-                                            setCurrentPage(nextPage);
-                                            await loadPatients(nextPage);
-                                        }}
-                                        disabled={!hasNextPage}
-                                        className={`px-3 py-1 rounded-lg text-sm font-medium ${!hasNextPage ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
-                                    >
-                                        Siguiente
-                                    </button>
-                                </div>
+                        {canCreatePatients && (
+                            <div className="mb-4">
+                                <button 
+                                    onClick={() => setShowMassAssignModal(true)}
+                                    className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md whitespace-nowrap transition-all btn-hover-effect"
+                                >
+                                    <Icons.Users size={16}/> Asignación Masiva
+                                </button>
                             </div>
                         )}
+                        
+                        {needsTabs && activePatientTab === 'asignados' && Object.keys(patientsByUser).length > 0 ? (
+                            <div className="space-y-4">
+                                {Object.entries(patientsByUser).map(([userName, group]) => (
+                                    <div key={userName} className="border border-slate-200 rounded-xl overflow-hidden">
+                                        <div className={`p-4 flex items-center justify-between ${group.isCurrentUser ? 'bg-turquoise-50 border-turquoise-200' : 'bg-slate-50'}`}>
+                                            <div className="flex items-center gap-3">
+                                                <Icons.Folder size={24} className={group.isCurrentUser ? 'text-turquoise-600' : 'text-slate-400'}/>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800">
+                                                        {group.user?.nombre || group.user?.username || userName}
+                                                        {group.isCurrentUser && <span className="ml-2 text-xs text-turquoise-600 font-normal">(Yo)</span>}
+                                                    </h4>
+                                                    <p className="text-xs text-slate-500">{group.patients.length} paciente(s)</p>
+                                                </div>
+                                            </div>
+                                            {group.user?.trabajoCompartido && !group.isCurrentUser && (
+                                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
+                                                    Trabajo Compartido
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="bg-white">
+                                            <table className="w-full">
+                                                <thead className="bg-slate-50 border-b border-slate-200">
+                                                    <tr>
+                                                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-600 uppercase">Paciente</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-600 uppercase">DNI</th>
+                                                        <th className="px-6 py-3 text-center text-xs font-bold text-slate-600 uppercase">Kits</th>
+                                                        <th className="px-6 py-3 text-right text-xs font-bold text-slate-600 uppercase">Acción</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50">
+                                                    {group.patients.map(p => {
+                                                        const countKits = kits.filter(k => k.patientId === p.id).length;
+                                                        return (
+                                                            <tr key={p.id} onClick={() => handleSelectPatient(p)} className="row-hover-effect cursor-pointer">
+                                                                <td className="px-6 py-4">
+                                                                    <div className="font-bold text-sm text-slate-800">{p.nombre}</div>
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <div className="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded w-fit">{p.dni}</div>
+                                                                </td>
+                                                                <td className="px-6 py-4 text-center">
+                                                                    <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-full text-xs font-bold">{countKits}</span>
+                                                                </td>
+                                                                <td className="px-6 py-4 text-right" onClick={(e)=>e.stopPropagation()}>
+                                                                    <button onClick={(e) => openEditPatient(e, p)} className="text-slate-300 hover:text-orange-500 p-2 btn-hover-effect">
+                                                                        <Icons.Edit size={18}/>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <>
+                                {(!searchTerm.trim()) && (
+                                    <div className="mb-4 flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                        <div className="text-sm text-slate-600">
+                                            Mostrando {currentPatients.length ? (indexOfFirstPatient + 1) : 0}-{indexOfLastPatient} (Página {currentPage}) — {currentPatients.length} pacientes cargados
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={async () => {
+                                                    if (currentPage === 1) return;
+                                                    const prevPage = Math.max(1, currentPage - 1);
+                                                    setCurrentPage(prevPage);
+                                                    await loadPatients(prevPage);
+                                                }}
+                                                disabled={currentPage === 1}
+                                                className={`px-3 py-1 rounded-lg text-sm font-medium ${currentPage === 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                            >
+                                                Anterior
+                                            </button>
+                                            <span className="px-3 py-1 text-sm text-slate-700">
+                                                Página {currentPage}
+                                            </span>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!hasNextPage) return;
+                                                    const nextPage = currentPage + 1;
+                                                    setCurrentPage(nextPage);
+                                                    await loadPatients(nextPage);
+                                                }}
+                                                disabled={!hasNextPage}
+                                                className={`px-3 py-1 rounded-lg text-sm font-medium ${!hasNextPage ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                            >
+                                                Siguiente
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse min-w-[800px]">
-                                <thead className="bg-slate-50/80 sticky top-0 z-10">
-                                    <tr className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                                        <th className="px-6 py-4 pl-8">Paciente</th>
-                                        <th className="px-6 py-4">Identificación</th>
-                                        <th className="px-6 py-4 text-center">N° Kits</th>
-                                        <th className="px-6 py-4 text-right pr-8">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {currentPatients.map(p => {
-                                        const countKits = kits.filter(k => k.patientId === p.id).length;
-                                        return (
-                                            <tr key={p.id} onClick={() => handleSelectPatient(p)} className={`row-hover-effect cursor-pointer`}>
-                                                <td className="px-6 py-5 pl-8">
-                                                    <div className="font-bold text-base text-slate-800 tracking-tight">{p.nombre}</div>
-                                                    <div className="text-xs text-turquoise-600 font-medium mt-1 flex items-center gap-1">
-                                                        Ver Detalle <Icons.ChevronsRight size={14}/>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-5">
-                                                    <div className="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded w-fit mb-1 font-bold">{p.dni}</div>
-                                                    <div className="text-xs text-slate-400">{p.tipoAfiliado}</div>
-                                                </td>
-                                                <td className="px-6 py-5 text-center">
-                                                    <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">{countKits}</span>
-                                                </td>
-                                                <td className="px-6 py-5 text-right pr-8" onClick={(e)=>e.stopPropagation()}>
-                                                    <div className="flex justify-end gap-2">
-                                                        <button onClick={(e) => openEditPatient(e, p)} className="text-slate-300 hover:text-orange-500 p-2 btn-hover-effect">
-                                                            <Icons.Edit size={20}/>
-                                                        </button>
-                                                        {(userRole==='superadmin'||userRole==='admin') && (
-                                                            <button onClick={()=>setConfirmData({ title: 'Eliminar', msg: `¿Eliminar a ${p.nombre}?`, action: async () => { await onDeletePatient(p.id); await loadPatients(currentPage, true); } })} className="text-slate-300 hover:text-red-500 p-2 btn-hover-effect">
-                                                                <Icons.Trash size={20}/>
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse min-w-[800px]">
+                                        <thead className="bg-slate-50/80 sticky top-0 z-10">
+                                            <tr className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                                                <th className="px-6 py-4 pl-8">Paciente</th>
+                                                <th className="px-6 py-4">Identificación</th>
+                                                <th className="px-6 py-4 text-center">N° Kits</th>
+                                                <th className="px-6 py-4 text-right pr-8">Acción</th>
                                             </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {currentPatients.map(p => {
+                                                const countKits = kits.filter(k => k.patientId === p.id).length;
+                                                return (
+                                                    <tr key={p.id} onClick={() => handleSelectPatient(p)} className={`row-hover-effect cursor-pointer`}>
+                                                        <td className="px-6 py-5 pl-8">
+                                                            <div className="font-bold text-base text-slate-800 tracking-tight">{p.nombre}</div>
+                                                            <div className="text-xs text-turquoise-600 font-medium mt-1 flex items-center gap-1">
+                                                                Ver Detalle <Icons.ChevronsRight size={14}/>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-5">
+                                                            <div className="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded w-fit mb-1 font-bold">{p.dni}</div>
+                                                            <div className="text-xs text-slate-400">{p.tipoAfiliado}</div>
+                                                        </td>
+                                                        <td className="px-6 py-5 text-center">
+                                                            <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">{countKits}</span>
+                                                        </td>
+                                                        <td className="px-6 py-5 text-right pr-8" onClick={(e)=>e.stopPropagation()}>
+                                                            <div className="flex justify-end gap-2">
+                                                                <button onClick={(e) => openEditPatient(e, p)} className="text-slate-300 hover:text-orange-500 p-2 btn-hover-effect">
+                                                                    <Icons.Edit size={20}/>
+                                                                </button>
+                                                                {(userRole==='superadmin'||userRole==='admin') && (
+                                                                    <button onClick={()=>setConfirmData({ title: 'Eliminar', msg: `¿Eliminar a ${p.nombre}?`, action: async () => { await onDeletePatient(p.id); await loadPatients(currentPage, true); } })} className="text-slate-300 hover:text-red-500 p-2 btn-hover-effect">
+                                                                        <Icons.Trash size={20}/>
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        )}
 
                         {/* Paginación numérica removida: ahora es paginación real Firestore (Anterior/Siguiente) */}
                     </div>
+                    
+                    <Modal isOpen={showMassAssignModal} onClose={() => setShowMassAssignModal(false)} title="Asignación Masiva de Pacientes" maxWidth="max-w-2xl">
+                        <MassAssignForm 
+                            users={users} 
+                            onAssign={async (dept, role, userId, dnis) => {
+                                try {
+                                    if (!firebaseInitialized || !db) {
+                                        throw new Error("Base de datos no disponible");
+                                    }
+                                    
+                                    const targetUser = users.find(u => u.id === userId);
+                                    if (!targetUser) {
+                                        throw new Error("Usuario no encontrado");
+                                    }
+                                    
+                                    const userName = targetUser.nombre || targetUser.username;
+                                    let fieldToUpdate = '';
+                                    if (dept === 'contact center' && role === 'agente contact center') {
+                                        fieldToUpdate = 'agenteContactCenter';
+                                    } else if (dept === 'farmacia' && role === 'revision y asignacion') {
+                                        fieldToUpdate = 'usuarioRevisionAsignacion';
+                                    } else {
+                                        throw new Error("Combinación de departamento y rol no válida");
+                                    }
+                                    
+                                    const dnisArray = dnis.split(/\r?\n/).map(d => d.trim()).filter(d => d);
+                                    if (dnisArray.length === 0) {
+                                        throw new Error("No se proporcionaron DNIs");
+                                    }
+                                    
+                                    const batch = db.batch();
+                                    let found = 0;
+                                    let notFound = [];
+                                    
+                                    for (const dni of dnisArray) {
+                                        const patientsSnapshot = await db.collection('prod_patients')
+                                            .where('dni', '==', dni)
+                                            .limit(1)
+                                            .get();
+                                        
+                                        if (!patientsSnapshot.empty) {
+                                            const patientDoc = patientsSnapshot.docs[0];
+                                            batch.update(patientDoc.ref, { [fieldToUpdate]: userName });
+                                            found++;
+                                        } else {
+                                            notFound.push(dni);
+                                        }
+                                    }
+                                    
+                                    await batch.commit();
+                                    
+                                    let message = `✅ ${found} paciente(s) asignado(s) exitosamente a ${userName}`;
+                                    if (notFound.length > 0) {
+                                        message += `\n\n⚠️ ${notFound.length} DNI(s) no encontrado(s):\n${notFound.join(', ')}`;
+                                    }
+                                    
+                                    alert(message);
+                                    setShowMassAssignModal(false);
+                                    // Recargar pacientes y actualizar allPatients si está en pestaña asignados
+                                    await loadPatients(currentPage, true);
+                                    if (needsTabs && activePatientTab === 'asignados') {
+                                        const querySnapshot = await db.collection('prod_patients')
+                                            .orderBy('dni', 'asc')
+                                            .get();
+                                        const allPats = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                                        setAllPatients(allPats);
+                                    }
+                                } catch (error) {
+                                    alert('Error en asignación masiva: ' + error.message);
+                                }
+                            }}
+                        />
+                    </Modal>
                 </div>
             );
         };
@@ -7551,8 +8400,6 @@ refrigeradoHtml +
         const ConfigBlock = ({ medicines, onAddList, contacts, onAddContact, onDeleteContact, rutaTemplateCurrent, importRutaTemplateFromExcel, importRutaTemplateFromWord, importRutaTemplateFromPDF, saveRutaTemplate, loadRutaTemplateCurrent }) => {
             const [rawText, setRawText] = useState('');
             const [newMed, setNewMed] = useState(''); 
-            const [cName, setCName] = useState('');
-            const [cPhone, setCPhone] = useState('');
             const [activeTab, setActiveTab] = useState('medicamentos');
             const [localRutaTemplate, setLocalRutaTemplate] = useState(rutaTemplateCurrent);
             
@@ -7586,15 +8433,6 @@ refrigeradoHtml +
                 }
             };
 
-            const handleAddContact = (e) => {
-                e.preventDefault();
-                if(cName.trim() && cPhone.trim()) {
-                    onAddContact(cName, cPhone);
-                    setCName('');
-                    setCPhone('');
-                }
-            };
-
             return (
                 <div className="glass-panel rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden border-0 bg-white">
                     <div className="p-6 border-b border-slate-100 bg-white/50 backdrop-blur-md flex items-center gap-4">
@@ -7614,12 +8452,6 @@ refrigeradoHtml +
                                 className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'medicamentos' ? 'border-turquoise-500 text-turquoise-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                             >
                                 <Icons.Box className="inline mr-2" size={16}/> Medicamentos
-                            </button>
-                            <button 
-                                onClick={() => setActiveTab('contactos')} 
-                                className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'contactos' ? 'border-turquoise-500 text-turquoise-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-                            >
-                                <Icons.Phone className="inline mr-2" size={16}/> Contact Center
                             </button>
                             <button 
                                 onClick={() => setActiveTab('plantillas')} 
@@ -7678,69 +8510,6 @@ refrigeradoHtml +
                                                     {m.name}
                                                 </div>
                                             ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {activeTab === 'contactos' && (
-                            <div>
-                                <h4 className="font-bold text-slate-700 mb-4 text-xs uppercase tracking-wider flex items-center gap-2 border-b pb-2">
-                                    <Icons.Phone size={16}/> Contact Center
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 h-fit">
-                                        <h4 className="font-bold text-slate-700 mb-4 text-xs uppercase tracking-wider">Nuevo Agente</h4>
-                                        <form onSubmit={handleAddContact} className="space-y-4">
-                                            <div>
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Nombre</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={cName} 
-                                                    onChange={e=>setCName(e.target.value)} 
-                                                    className="w-full p-2.5 rounded-lg border border-slate-200 text-sm outline-none focus:border-turquoise-400" 
-                                                    placeholder="Ej: Karla" 
-                                                    required
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Teléfono</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={cPhone} 
-                                                    onChange={e=>setCPhone(e.target.value)} 
-                                                    className="w-full p-2.5 rounded-lg border border-slate-200 text-sm outline-none focus:border-turquoise-400" 
-                                                    placeholder="Ej: 9988-7766" 
-                                                    required
-                                                />
-                                            </div>
-                                            <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold text-xs hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-sm">
-                                                <Icons.Save size={16}/> Guardar Agente
-                                            </button>
-                                        </form>
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-slate-700 mb-2 text-xs uppercase tracking-wider">Agentes Activos ({contacts?.length || 0})</h4>
-                                        <div className="border rounded-xl bg-white p-2 max-h-60 overflow-y-auto space-y-1">
-                                            {contacts && contacts.map(c => (
-                                                <div key={c.id} className="text-xs p-2 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center group">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px]">
-                                                            {c.name.substring(0,2).toUpperCase()}
-                                                        </div>
-                                                        <span className="font-medium text-slate-700">{c.name} <span className="text-slate-400 mx-1">---</span> {c.phone}</span>
-                                                    </div>
-                                                    <button onClick={()=>onDeleteContact(c.id)} className="text-slate-300 hover:text-red-500 p-1 rounded hover:bg-red-50 transition">
-                                                        <Icons.Trash size={14}/>
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            {(!contacts || contacts.length === 0) && (
-                                                <div className="text-center text-slate-300 text-xs py-4 italic">
-                                                    No hay agentes configurados
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -7974,26 +8743,175 @@ refrigeradoHtml +
 
         // --- BLOCK: USUARIOS ---
         const UserManagementBlock = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
-            const [formData, setFormData] = useState({ username: '', password: '', role: 'digitador', nombre: '' });
+            const [formData, setFormData] = useState({ 
+                username: '', 
+                password: '', 
+                role: 'digitador', 
+                nombre: '', 
+                departamento: '', 
+                rolesDepartamento: [], 
+                restriccionHorario: false,
+                diasPermitidos: {
+                    lunes: false,
+                    martes: false,
+                    miercoles: false,
+                    jueves: false,
+                    viernes: false,
+                    sabado: false,
+                    domingo: false
+                },
+                horaInicio: '08:00',
+                horaFin: '18:00',
+                telefono: ''
+            });
             const [showModal, setShowModal] = useState(false);
             const [editingId, setEditingId] = useState(null);
             const [confirmData, setConfirmData] = useState(null);
+            const [showReassignModal, setShowReassignModal] = useState(false);
+            const [reassigningUser, setReassigningUser] = useState(null);
+            const [reassignTargetUser, setReassignTargetUser] = useState('');
+            const [showMassAssignModal, setShowMassAssignModal] = useState(false);
+
+            // Configuración de roles por departamento
+            const rolesPorDepartamento = {
+                'admin': ['superadmin'],
+                'farmacia': ['supervisor', 'revision y asignacion', 'despacho medicamentos'],
+                'contact center': ['agente contact center', 'supervisor'],
+                'operaciones': ['operador de empaque', 'supervisor'],
+                'calidad': ['agente de calidad', 'revisor de observaciones', 'supervisor'],
+                'logistica': ['asignador de rutas despacho logistica', 'supervisor'],
+                'delivery': ['supervisor', 'motorista']
+            };
+
+            const departamentos = Object.keys(rolesPorDepartamento);
+            const diasSemana = [
+                { key: 'lunes', label: 'Lunes' },
+                { key: 'martes', label: 'Martes' },
+                { key: 'miercoles', label: 'Miércoles' },
+                { key: 'jueves', label: 'Jueves' },
+                { key: 'viernes', label: 'Viernes' },
+                { key: 'sabado', label: 'Sábado' },
+                { key: 'domingo', label: 'Domingo' }
+            ];
 
             const openNew = () => { 
                 setEditingId(null); 
-                setFormData({ username: '', password: '', role: 'digitador', nombre: '' }); 
+                const initialRoles = [];
+                const initialRole = getSystemRoleFromDepartmentRoles(initialRoles);
+                setFormData({ 
+                    username: '', 
+                    password: '', 
+                    role: initialRole, // Inicializar con el rol calculado
+                    nombre: '', 
+                    departamento: '', 
+                    rolesDepartamento: initialRoles, 
+                    restriccionHorario: false,
+                    diasPermitidos: {
+                        lunes: false,
+                        martes: false,
+                        miercoles: false,
+                        jueves: false,
+                        viernes: false,
+                        sabado: false,
+                        domingo: false
+                    },
+                    horaInicio: '08:00',
+                    horaFin: '18:00',
+                    telefono: ''
+                }); 
                 setShowModal(true); 
             };
             
             const openEdit = (u) => { 
                 setEditingId(u.id); 
-                setFormData(u); 
+                const rolesDept = u.rolesDepartamento || [];
+                // Recalcular el rol del sistema desde los roles del departamento
+                const calculatedRole = getSystemRoleFromDepartmentRoles(rolesDept);
+                setFormData({
+                    ...u,
+                    role: calculatedRole, // Asegurar que el rol esté actualizado
+                    rolesDepartamento: rolesDept,
+                    restriccionHorario: u.restriccionHorario || false,
+                    diasPermitidos: u.diasPermitidos || {
+                        lunes: false,
+                        martes: false,
+                        miercoles: false,
+                        jueves: false,
+                        viernes: false,
+                        sabado: false,
+                        domingo: false
+                    },
+                    horaInicio: u.horaInicio || '08:00',
+                    horaFin: u.horaFin || '18:00',
+                    telefono: u.telefono || ''
+                }); 
                 setShowModal(true); 
             };
             
             const closeModal = () => { 
                 setShowModal(false); 
                 setEditingId(null); 
+            };
+
+            const handleDepartamentoChange = (dept) => {
+                const newRoles = []; // Limpiar roles al cambiar departamento
+                const systemRole = getSystemRoleFromDepartmentRoles(newRoles);
+                setFormData({
+                    ...formData,
+                    departamento: dept,
+                    rolesDepartamento: newRoles,
+                    role: systemRole, // Actualizar el rol del sistema
+                    telefono: '' // Limpiar teléfono al cambiar departamento
+                });
+            };
+
+            // Mapeo de roles del departamento a roles del sistema
+            const getSystemRoleFromDepartmentRoles = (roles) => {
+                if (!roles || roles.length === 0) return 'digitador';
+                
+                // Prioridad: superadmin > admin > supervisor > otros
+                if (roles.includes('superadmin')) return 'superadmin';
+                if (roles.includes('admin')) return 'admin';
+                if (roles.some(r => r.includes('supervisor'))) return 'admin';
+                
+                // Para otros roles, usar 'digitador' como base
+                return 'digitador';
+            };
+
+            const handleRoleToggle = (role) => {
+                const currentRoles = formData.rolesDepartamento || [];
+                let newRoles;
+                if (currentRoles.includes(role)) {
+                    newRoles = currentRoles.filter(r => r !== role);
+                } else {
+                    newRoles = [...currentRoles, role];
+                }
+                
+                // Determinar el rol del sistema basado en los roles del departamento
+                const systemRole = getSystemRoleFromDepartmentRoles(newRoles);
+                
+                // Si se deselecciona "agente contact center", limpiar el teléfono
+                const eraAgenteContactCenter = formData.departamento === 'contact center' && 
+                                                currentRoles.includes('agente contact center');
+                const sigueSiendoAgente = formData.departamento === 'contact center' && 
+                                          newRoles.includes('agente contact center');
+                
+                setFormData({
+                    ...formData,
+                    rolesDepartamento: newRoles,
+                    role: systemRole,
+                    telefono: sigueSiendoAgente ? formData.telefono : ''
+                });
+            };
+
+            const handleDiaToggle = (dia) => {
+                setFormData({
+                    ...formData,
+                    diasPermitidos: {
+                        ...formData.diasPermitidos,
+                        [dia]: !formData.diasPermitidos[dia]
+                    }
+                });
             };
 
             const handleSubmit = async (e) => {
@@ -8003,7 +8921,65 @@ refrigeradoHtml +
                         throw new Error("Base de datos no disponible");
                     }
                     
-                    const uData = {...formData, departamento: 'Operaciones'};
+                    if (!formData.departamento) {
+                        alert('Por favor seleccione un departamento');
+                        return;
+                    }
+                    
+                    if (!formData.rolesDepartamento || formData.rolesDepartamento.length === 0) {
+                        alert('Por favor seleccione al menos un rol para el departamento');
+                        return;
+                    }
+
+                    // Validar teléfono para agente contact center
+                    const esAgenteContactCenter = formData.departamento === 'contact center' && 
+                                                  formData.rolesDepartamento.includes('agente contact center');
+                    if (esAgenteContactCenter) {
+                        if (!formData.telefono || formData.telefono.trim() === '') {
+                            alert('Por favor ingrese el número de teléfono para el agente de contact center');
+                            return;
+                        }
+                        // Validar que tenga exactamente 8 dígitos
+                        const telefonoLimpio = formData.telefono.replace(/\D/g, '');
+                        if (telefonoLimpio.length !== 8) {
+                            alert('El número de teléfono debe tener exactamente 8 dígitos');
+                            return;
+                        }
+                    }
+
+                    // Validar restricción de horario
+                    if (formData.restriccionHorario) {
+                        const diasSeleccionados = Object.values(formData.diasPermitidos).some(v => v);
+                        if (!diasSeleccionados) {
+                            alert('Por favor seleccione al menos un día permitido para la restricción de horario');
+                            return;
+                        }
+                        if (formData.horaInicio >= formData.horaFin) {
+                            alert('La hora de inicio debe ser menor que la hora de fin');
+                            return;
+                        }
+                    }
+                    
+                    // Determinar el rol del sistema desde los roles del departamento
+                    const systemRole = getSystemRoleFromDepartmentRoles(formData.rolesDepartamento);
+                    
+                    // Preparar datos del usuario, asegurando que el rol del sistema esté correctamente establecido
+                    const uData = {
+                        username: formData.username,
+                        password: formData.password,
+                        nombre: formData.nombre,
+                        departamento: formData.departamento,
+                        rolesDepartamento: formData.rolesDepartamento || [],
+                        role: systemRole, // Rol del sistema calculado desde roles del departamento
+                        restriccionHorario: formData.restriccionHorario || false,
+                        diasPermitidos: formData.restriccionHorario ? formData.diasPermitidos : {},
+                        horaInicio: formData.restriccionHorario ? formData.horaInicio : '',
+                        horaFin: formData.restriccionHorario ? formData.horaFin : '',
+                        telefono: formData.telefono || ''
+                    };
+                    
+                    console.log('💾 Guardando usuario con rol del sistema:', systemRole, 'Roles departamento:', formData.rolesDepartamento);
+                    
                     if (editingId) {
                         await onUpdateUser(editingId, uData);
                     } else {
@@ -8058,7 +9034,7 @@ refrigeradoHtml +
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Contraseña</label>
-                                    <input 
+                                <input 
                                     type="password" 
                                     className="w-full p-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-turquoise-500" 
                                     value={formData.password} 
@@ -8068,16 +9044,167 @@ refrigeradoHtml +
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Rol</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Departamento</label>
                                 <select 
                                     className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white outline-none focus:border-turquoise-500" 
-                                    value={formData.role} 
-                                    onChange={e=>setFormData({...formData, role:e.target.value})}
+                                    value={formData.departamento} 
+                                    onChange={e=>handleDepartamentoChange(e.target.value)}
+                                    required
                                 >
-                                    <option value="digitador">Digitador</option>
-                                    <option value="admin">Administrador</option>
-                                    <option value="superadmin">Super Admin</option>
+                                    <option value="">Seleccione un departamento</option>
+                                    {departamentos.map(dept => (
+                                        <option key={dept} value={dept}>{dept.charAt(0).toUpperCase() + dept.slice(1)}</option>
+                                    ))}
                                 </select>
+                            </div>
+                            {formData.departamento && (
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-2">Roles en {formData.departamento.charAt(0).toUpperCase() + formData.departamento.slice(1)}</label>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto p-2 border border-slate-200 rounded-xl">
+                                        {rolesPorDepartamento[formData.departamento]?.map(role => {
+                                            const isSelected = formData.rolesDepartamento?.includes(role);
+                                            return (
+                                                <label 
+                                                    key={role} 
+                                                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
+                                                        isSelected 
+                                                            ? 'bg-turquoise-50 border-2 border-turquoise-500' 
+                                                            : 'bg-slate-50 border-2 border-transparent hover:bg-slate-100'
+                                                    }`}
+                                                >
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={isSelected}
+                                                        onChange={() => handleRoleToggle(role)}
+                                                        className="w-4 h-4 text-turquoise-600 border-slate-300 rounded focus:ring-turquoise-500 focus:ring-2"
+                                                    />
+                                                    <span className={`text-sm font-medium ${isSelected ? 'text-turquoise-700' : 'text-slate-600'}`}>
+                                                        {role.charAt(0).toUpperCase() + role.slice(1)}
+                                                    </span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                    {formData.rolesDepartamento?.length > 0 && (
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            {formData.rolesDepartamento.length} rol(es) seleccionado(s)
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                            {formData.departamento === 'contact center' && formData.rolesDepartamento?.includes('agente contact center') && (
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Número de Teléfono</label>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex items-center bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5">
+                                            <span className="text-sm font-semibold text-slate-700">+504</span>
+                                        </div>
+                                        <input 
+                                            type="tel" 
+                                            className="flex-1 p-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-turquoise-500" 
+                                            value={formData.telefono} 
+                                            onChange={e=>{
+                                                // Solo permitir números y limitar a 8 dígitos
+                                                const valor = e.target.value.replace(/\D/g, '').slice(0, 8);
+                                                setFormData({...formData, telefono: valor});
+                                            }}
+                                            placeholder="12345678"
+                                            maxLength={8}
+                                            required
+                                        />
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Ingrese 8 dígitos del número de teléfono (sin espacios ni guiones)
+                                    </p>
+                                </div>
+                            )}
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-2">Restricción de Horario de Acceso</label>
+                                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                    <span className="text-sm font-medium text-slate-700">
+                                        {formData.restriccionHorario ? 'Restricción activa' : 'Sin restricción de horario'}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({...formData, restriccionHorario: !formData.restriccionHorario})}
+                                        className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:ring-offset-2 ${
+                                            formData.restriccionHorario ? 'bg-turquoise-600' : 'bg-slate-300'
+                                        }`}
+                                    >
+                                        <span
+                                            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform duration-300 ${
+                                                formData.restriccionHorario ? 'translate-x-8' : 'translate-x-1'
+                                            }`}
+                                        />
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    {formData.restriccionHorario 
+                                        ? 'El usuario tendrá restricción de horario de acceso al sistema' 
+                                        : 'El usuario podrá acceder al sistema en cualquier momento'}
+                                </p>
+                            </div>
+                            {formData.restriccionHorario && (
+                                <>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-2">Días Permitidos</label>
+                                        <div className="grid grid-cols-2 gap-2 p-3 border border-slate-200 rounded-xl bg-slate-50">
+                                            {diasSemana.map(dia => (
+                                                <label 
+                                                    key={dia.key}
+                                                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
+                                                        formData.diasPermitidos[dia.key]
+                                                            ? 'bg-turquoise-50 border-2 border-turquoise-500' 
+                                                            : 'bg-white border-2 border-transparent hover:bg-slate-100'
+                                                    }`}
+                                                >
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={formData.diasPermitidos[dia.key]}
+                                                        onChange={() => handleDiaToggle(dia.key)}
+                                                        className="w-4 h-4 text-turquoise-600 border-slate-300 rounded focus:ring-turquoise-500 focus:ring-2"
+                                                    />
+                                                    <span className={`text-xs font-medium ${formData.diasPermitidos[dia.key] ? 'text-turquoise-700' : 'text-slate-600'}`}>
+                                                        {dia.label}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Hora Inicio</label>
+                                            <input 
+                                                type="time" 
+                                                className="w-full p-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-turquoise-500" 
+                                                value={formData.horaInicio} 
+                                                onChange={e=>setFormData({...formData, horaInicio:e.target.value})} 
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Hora Fin</label>
+                                            <input 
+                                                type="time" 
+                                                className="w-full p-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-turquoise-500" 
+                                                value={formData.horaFin} 
+                                                onChange={e=>setFormData({...formData, horaFin:e.target.value})} 
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                                <p className="text-xs font-semibold text-blue-800 mb-1">Rol del Sistema:</p>
+                                <p className="text-sm text-blue-600 font-medium">
+                                    {formData.rolesDepartamento.length > 0 
+                                        ? formData.rolesDepartamento.map(r => r.charAt(0).toUpperCase() + r.slice(1)).join(', ')
+                                        : 'Seleccione roles del departamento'}
+                                </p>
+                                <p className="text-[10px] text-blue-500 mt-1">
+                                    El rol del sistema se determina automáticamente desde los roles del departamento seleccionados
+                                </p>
                             </div>
                             <button type="submit" className="w-full bg-turquoise-600 text-white py-3 rounded-xl text-sm font-bold shadow hover:bg-turquoise-700 btn-hover-effect mt-4">
                                 {editingId ? 'Actualizar' : 'Crear Usuario'}
@@ -8093,25 +9220,250 @@ refrigeradoHtml +
                                         <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm ${u.role === 'digitador' ? 'bg-clinical-500' : 'bg-turquoise-600'}`}>
                                             {u.username.substring(0,2).toUpperCase()}
                                         </div>
-                                        <div>
-                                            <div className="font-bold text-sm text-slate-800">{u.nombre || u.username}</div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-bold text-sm text-slate-800 truncate">{u.nombre || u.username}</div>
                                             <div className="text-[10px] text-slate-400 font-mono bg-slate-100 px-2 py-0.5 rounded w-fit mt-1">
                                                 @{u.username} • {u.role}
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="border-t border-slate-100 pt-2 flex justify-end gap-2">
-                                        <button onClick={() => openEdit(u)} className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="Editar">
-                                            <Icons.Edit size={18}/>
-                                        </button>
-                                        <button onClick={() => setConfirmData({ title: 'Eliminar Usuario', msg: `¿Desea eliminar a ${u.username}?`, action: () => onDeleteUser(u.id) })} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
-                                            <Icons.Trash size={18}/>
-                                        </button>
+                                    {u.departamento && (
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Departamento:</span>
+                                                <span className="text-xs font-semibold text-turquoise-600 bg-turquoise-50 px-2 py-0.5 rounded">
+                                                    {u.departamento.charAt(0).toUpperCase() + u.departamento.slice(1)}
+                                                </span>
+                                            </div>
+                                            {u.rolesDepartamento && u.rolesDepartamento.length > 0 && (
+                                                <div>
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Roles:</span>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {u.rolesDepartamento.map((rol, idx) => (
+                                                            <span key={idx} className="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                                                                {rol.charAt(0).toUpperCase() + rol.slice(1)}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {u.departamento === 'contact center' && u.rolesDepartamento?.includes('agente contact center') && u.telefono && (
+                                                <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Teléfono:</span>
+                                                    <span className="text-xs font-semibold text-turquoise-700 bg-turquoise-50 px-2 py-0.5 rounded flex items-center gap-1">
+                                                        <span className="text-[10px]">+504</span>
+                                                        <span>{u.telefono}</span>
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {u.restriccionHorario && (
+                                                <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Restricción:</span>
+                                                        <span className="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded flex items-center gap-1">
+                                                            <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                                                            Horario limitado
+                                                        </span>
+                                                    </div>
+                                                    {u.diasPermitidos && (
+                                                        <div>
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Días:</span>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {Object.entries(u.diasPermitidos).map(([dia, permitido]) => {
+                                                                    if (!permitido) return null;
+                                                                    const diasLabels = {
+                                                                        lunes: 'L',
+                                                                        martes: 'M',
+                                                                        miercoles: 'X',
+                                                                        jueves: 'J',
+                                                                        viernes: 'V',
+                                                                        sabado: 'S',
+                                                                        domingo: 'D'
+                                                                    };
+                                                                    return (
+                                                                        <span key={dia} className="text-[10px] text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded font-semibold">
+                                                                            {diasLabels[dia] || dia.charAt(0).toUpperCase()}
+                                                                        </span>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {u.horaInicio && u.horaFin && (
+                                                        <div className="text-[10px] text-slate-600">
+                                                            <span className="font-bold text-slate-400 uppercase">Horario: </span>
+                                                            <span className="font-semibold text-orange-700">{u.horaInicio} - {u.horaFin}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="border-t border-slate-100 pt-2 flex justify-between items-center gap-2">
+                                        <div className="flex gap-2">
+                                            {(u.departamento === 'contact center' && u.rolesDepartamento?.includes('agente contact center')) || 
+                                             (u.departamento === 'farmacia' && u.rolesDepartamento?.includes('revision y asignacion')) ? (
+                                                <>
+                                                    <button 
+                                                        onClick={async () => {
+                                                            try {
+                                                                if (!firebaseInitialized || !db) {
+                                                                    throw new Error("Base de datos no disponible");
+                                                                }
+                                                                const nuevoEstado = !u.trabajoCompartido;
+                                                                await db.collection('prod_users').doc(u.id).update({
+                                                                    trabajoCompartido: nuevoEstado
+                                                                });
+                                                                await onUpdateUser(u.id, { ...u, trabajoCompartido: nuevoEstado });
+                                                            } catch (error) {
+                                                                alert('Error al cambiar estado: ' + error.message);
+                                                            }
+                                                        }} 
+                                                        className={`p-2 rounded-lg transition-colors ${
+                                                            u.trabajoCompartido 
+                                                                ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                                                                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                                        }`}
+                                                        title={u.trabajoCompartido ? "Desactivar trabajo compartido" : "Activar trabajo compartido (otros usuarios pueden trabajar en sus asignaciones)"}
+                                                    >
+                                                        {u.trabajoCompartido ? <Icons.CheckCircle size={18}/> : <Icons.XCircle size={18}/>}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setReassigningUser(u);
+                                                            setShowReassignModal(true);
+                                                        }} 
+                                                        className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" 
+                                                        title="Reasignar pacientes"
+                                                    >
+                                                        <Icons.UserCheck size={18}/>
+                                                    </button>
+                                                </>
+                                            ) : null}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => openEdit(u)} className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="Editar">
+                                                <Icons.Edit size={18}/>
+                                            </button>
+                                            <button onClick={() => setConfirmData({ title: 'Eliminar Usuario', msg: `¿Desea eliminar a ${u.username}?`, action: () => onDeleteUser(u.id) })} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                                                <Icons.Trash size={18}/>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
+                    
+                    <Modal isOpen={showReassignModal} onClose={() => { setShowReassignModal(false); setReassigningUser(null); setReassignTargetUser(''); }} title="Reasignar Pacientes" maxWidth="max-w-md">
+                        {reassigningUser && (
+                            <div className="space-y-4">
+                                <div className="bg-slate-50 p-3 rounded-xl">
+                                    <p className="text-xs text-slate-600 mb-1">Reasignar pacientes de:</p>
+                                    <p className="font-bold text-slate-800">{reassigningUser.nombre || reassigningUser.username}</p>
+                                    <p className="text-xs text-slate-500">
+                                        {reassigningUser.departamento === 'contact center' ? 'Agente Contact Center' : 'Revisión y Asignación'}
+                                    </p>
+                                </div>
+                                
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">
+                                        Reasignar a:
+                                    </label>
+                                    <select 
+                                        className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white outline-none focus:border-turquoise-500" 
+                                        value={reassignTargetUser} 
+                                        onChange={e => setReassignTargetUser(e.target.value)}
+                                    >
+                                        <option value="">Seleccione un usuario</option>
+                                        {users
+                                            .filter(targetUser => {
+                                                if (targetUser.id === reassigningUser.id) return false;
+                                                if (reassigningUser.departamento === 'contact center') {
+                                                    return targetUser.departamento === 'contact center' && 
+                                                           targetUser.rolesDepartamento?.includes('agente contact center');
+                                                }
+                                                if (reassigningUser.departamento === 'farmacia') {
+                                                    return targetUser.departamento === 'farmacia' && 
+                                                           targetUser.rolesDepartamento?.includes('revision y asignacion');
+                                                }
+                                                return false;
+                                            })
+                                            .map(targetUser => (
+                                                <option key={targetUser.id} value={targetUser.id}>
+                                                    {targetUser.nombre || targetUser.username}
+                                                </option>
+                                            ))
+                                        }
+                                    </select>
+                                </div>
+                                
+                                <button 
+                                    onClick={async () => {
+                                        if (!reassignTargetUser) {
+                                            alert('Por favor seleccione un usuario destino');
+                                            return;
+                                        }
+                                        
+                                        const targetUser = users.find(u => u.id === reassignTargetUser);
+                                        if (!targetUser) {
+                                            alert('Usuario destino no encontrado');
+                                            return;
+                                        }
+                                        
+                                        try {
+                                            if (!firebaseInitialized || !db) {
+                                                throw new Error("Base de datos no disponible");
+                                            }
+                                            
+                                            let fieldToUpdate = '';
+                                            if (reassigningUser.departamento === 'contact center') {
+                                                fieldToUpdate = 'agenteContactCenter';
+                                            } else if (reassigningUser.departamento === 'farmacia') {
+                                                fieldToUpdate = 'usuarioRevisionAsignacion';
+                                            }
+                                            
+                                            if (!fieldToUpdate) {
+                                                alert('Error: No se pudo determinar el campo a actualizar');
+                                                return;
+                                            }
+                                            
+                                            // Buscar todos los pacientes asignados al usuario origen
+                                            const patientsSnapshot = await db.collection('prod_patients')
+                                                .where(fieldToUpdate, '==', reassigningUser.nombre || reassigningUser.username)
+                                                .get();
+                                            
+                                            if (patientsSnapshot.empty) {
+                                                alert('No hay pacientes asignados a este usuario');
+                                                setShowReassignModal(false);
+                                                return;
+                                            }
+                                            
+                                            // Reasignar todos los pacientes
+                                            const batch = db.batch();
+                                            let count = 0;
+                                            patientsSnapshot.docs.forEach(doc => {
+                                                batch.update(doc.ref, { [fieldToUpdate]: targetUser.nombre || targetUser.username });
+                                                count++;
+                                            });
+                                            
+                                            await batch.commit();
+                                            alert(`✅ ${count} paciente(s) reasignado(s) exitosamente a ${targetUser.nombre || targetUser.username}`);
+                                            setShowReassignModal(false);
+                                            setReassigningUser(null);
+                                            setReassignTargetUser('');
+                                        } catch (error) {
+                                            console.error('Error reasignando pacientes:', error);
+                                            alert('Error al reasignar pacientes: ' + error.message);
+                                        }
+                                    }}
+                                    className="w-full bg-blue-600 text-white py-3 rounded-xl text-sm font-bold shadow hover:bg-blue-700 btn-hover-effect"
+                                >
+                                    Reasignar Pacientes
+                                </button>
+                            </div>
+                        )}
+                    </Modal>
                 </div>
             );
         };
@@ -8120,6 +9472,7 @@ refrigeradoHtml +
         const App = () => {
             const [role, setRole] = useState(sessionStorage.getItem('leq_role'));
             const [userName, setUserName] = useState(sessionStorage.getItem('leq_username'));
+            const [currentUserData, setCurrentUserData] = useState(null);
             const [view, setView] = useState('dashboard');
             const [patients, setPatients] = useState([]);
             const [kits, setKits] = useState([]);
@@ -9102,12 +10455,28 @@ Responde en formato JSON con esta estructura:
                 setUserName(null); 
             };
             
-            const handleLogin = (r, n) => { 
+            const handleLogin = (r, n, userData = null) => { 
                 setRole(r); 
                 setUserName(n); 
+                setCurrentUserData(userData);
                 sessionStorage.setItem('leq_role', r); 
                 sessionStorage.setItem('leq_username', n); 
+                if (userData) {
+                    sessionStorage.setItem('leq_userData', JSON.stringify(userData));
+                }
             };
+            
+            // Cargar datos del usuario desde sessionStorage al iniciar
+            useEffect(() => {
+                const savedUserData = sessionStorage.getItem('leq_userData');
+                if (savedUserData) {
+                    try {
+                        setCurrentUserData(JSON.parse(savedUserData));
+                    } catch (e) {
+                        console.error('Error parsing user data:', e);
+                    }
+                }
+            }, []);
 
             const loadMedicines = async () => {
                 try {
@@ -9559,7 +10928,15 @@ Responde en formato JSON con esta estructura:
                         <div className="fixed inset-0 z-50 bg-turquoise-900/95 backdrop-blur-sm flex flex-col md:hidden animate-in">
                             <div className="p-4 flex justify-between items-center border-b border-turquoise-800">
                                 <div className="font-bold text-white text-xl flex items-center gap-2 brand-font">
-                                    <Icons.Activity/> Bitácora Producción
+                                    <img 
+                                        src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" 
+                                        alt="IHSS Logo" 
+                                        className="w-6 h-6 object-contain"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                        }}
+                                    />
+                                    IHSS A TU CASA
                                 </div>
                                 <button onClick={() => setMobileMenuOpen(false)} className="text-white p-2 bg-turquoise-800 rounded-full btn-hover-effect">
                                     <Icons.X size={24}/>
@@ -9567,7 +10944,7 @@ Responde en formato JSON con esta estructura:
                             </div>
                             <div className="p-6 space-y-4">
                                 <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
-                                <NavItem id="reports" label="Reportes" icon={Icons.List} />
+                                {(role === 'admin' || role === 'superadmin') && <NavItem id="reports" label="Reportes" icon={Icons.List} />}
                                 <NavItem id="pacientes" label="Pacientes" icon={Icons.Users} />
                                 {(role === 'admin' || role === 'superadmin') && <NavItem id="config" label="Configuración" icon={Icons.Settings} />}
                                 {(role === 'admin' || role === 'superadmin') && <NavItem id="users" label="Usuarios" icon={Icons.UserCog} />}
@@ -9584,15 +10961,33 @@ Responde en formato JSON con esta estructura:
                         <div className={`p-6 pb-2 relative z-10 flex ${sidebarCollapsed ? 'justify-center' : 'justify-between'} items-center`}>
                             {!sidebarCollapsed && (
                                 <div className="flex items-center gap-3 text-white">
-                                    <div className="bg-gradient-to-br from-turquoise-400 to-clinical-400 p-2 rounded-xl shadow-lg">
-                                        <Icons.Activity size={24} className="text-white"/>
+                                    <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden bg-white flex items-center justify-center">
+                                        <img 
+                                            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" 
+                                            alt="IHSS Logo" 
+                                            className="w-full h-full object-contain"
+                                            onError={(e) => {
+                                                e.target.style.display = 'none';
+                                                e.target.parentElement.className = 'bg-gradient-to-br from-turquoise-400 to-clinical-400 p-2 rounded-xl shadow-lg';
+                                                e.target.parentElement.innerHTML = '<svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.384l-4.614-1.76a1 1 0 00-.836 1.838l7 3a1 1 0 00.788 0l7-3a1 1 0 00-.836-1.838L14.394 7.667a.999.999 0 01-.356.384l4.614 1.76a1 1 0 00.836-1.838l-7-3zM3.5 10.5a1 1 0 01-1-1v-1a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1zm5 0a1 1 0 01-1-1v-1a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1zm5 0a1 1 0 01-1-1v-1a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1z"/></svg>';
+                                            }}
+                                        />
                                     </div>
-                                    <span className="font-bold text-2xl brand-font animate-in">Bitácora</span>
+                                    <span className="font-bold text-2xl brand-font animate-in">IHSS</span>
                                 </div>
                             )}
                             {sidebarCollapsed && (
-                                <div className="bg-gradient-to-br from-turquoise-400 to-clinical-400 p-2 rounded-xl shadow-lg mb-2">
-                                    <Icons.Activity size={24} className="text-white"/>
+                                <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden bg-white flex items-center justify-center mb-2">
+                                    <img 
+                                        src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" 
+                                        alt="IHSS Logo" 
+                                        className="w-full h-full object-contain"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.parentElement.className = 'bg-gradient-to-br from-turquoise-400 to-clinical-400 p-2 rounded-xl shadow-lg mb-2';
+                                            e.target.parentElement.innerHTML = '<svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.384l-4.614-1.76a1 1 0 00-.836 1.838l7 3a1 1 0 00.788 0l7-3a1 1 0 00-.836-1.838L14.394 7.667a.999.999 0 01-.356.384l4.614 1.76a1 1 0 00.836-1.838l-7-3zM3.5 10.5a1 1 0 01-1-1v-1a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1zm5 0a1 1 0 01-1-1v-1a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1zm5 0a1 1 0 01-1-1v-1a1 1 0 011-1h1a1 1 0 011 1v1a1 1 0 01-1 1h-1z"/></svg>';
+                                        }}
+                                    />
                                 </div>
                             )}
                             <button 
@@ -9605,7 +11000,7 @@ Responde en formato JSON con esta estructura:
                         </div>
                         {!sidebarCollapsed && (
                             <div className="text-xs font-bold text-turquoise-400 uppercase tracking-widest pl-14 mb-4 animate-in">
-                                Producción
+                                A TU CASA
                             </div>
                         )}
                         <nav className="flex-1 px-4 py-4 space-y-2 relative z-10 overflow-y-auto overflow-x-hidden">
@@ -9643,14 +11038,22 @@ Responde en formato JSON con esta estructura:
                                 <Icons.Menu size={24}/>
                             </button>
                             <div className="font-bold text-slate-800 flex items-center gap-2 brand-font">
-                                <Icons.Activity size={18} className="text-turquoise-600"/> Bitácora Producción
+                                <img 
+                                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" 
+                                    alt="IHSS Logo" 
+                                    className="w-5 h-5 object-contain"
+                                    onError={(e) => {
+                                        e.target.style.display = 'none';
+                                    }}
+                                />
+                                IHSS A TU CASA
                             </div>
                             <div className="w-8"></div>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative z-10">
-                            {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} />}
+                            {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={{name: userName, role: role, ...currentUserData}} patients={patients} users={users} />}
                             {view === 'reports' && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} />}
-                            {view === 'pacientes' && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={{name: userName, role: role}} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} />}
+                            {view === 'pacientes' && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={{name: userName, role: role, ...currentUserData}} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} users={users} />}
                             {view === 'config' && (role === 'admin' || role === 'superadmin') && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} rutaTemplateCurrent={rutaTemplateCurrent} importRutaTemplateFromExcel={importRutaTemplateFromExcel} importRutaTemplateFromWord={importRutaTemplateFromWord} importRutaTemplateFromPDF={importRutaTemplateFromPDF} saveRutaTemplate={saveRutaTemplate} loadRutaTemplateCurrent={loadRutaTemplateCurrent} />}
                             {view === 'users' && (role === 'admin' || role === 'superadmin') && <UserManagementBlock users={users} onAddUser={addUser} onUpdateUser={updateUser} onDeleteUser={deleteUser} />}
                         </div>
