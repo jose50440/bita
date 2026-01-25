@@ -1538,17 +1538,34 @@
             } catch { return ''; }
         };
 
-        const CalendarioBlock = ({ kits, patients, setView, currentUser, users = [], role }) => {
+        const nextMonthWorkday = (y, m, d) => {
+            const next = new Date(y, m, d);
+            const day = next.getDay();
+            if (day === 0) next.setDate(next.getDate() + 1);
+            if (day === 6) next.setDate(next.getDate() - 1);
+            return next.toISOString().split('T')[0];
+        };
+
+        const CALENDAR_OMITTED_KEY = 'calendar_omitted';
+
+        const CalendarioBlock = ({ kits, patients, setView, currentUser, users = [], role, onSaveKit }) => {
             const userDept = (currentUser?.departamento || '').toLowerCase();
             const userRoles = currentUser?.rolesDepartamento || [];
             const isRev = userDept === 'farmacia' && userRoles.includes('revision y asignacion');
             const isCC = userDept === 'contact center' && userRoles.includes('agente contact center');
             const isAdmin = role === 'admin' || role === 'superadmin';
             const [calendarView, setCalendarView] = useState('years');
-            const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+            const [selectedYear, setSelectedYear] = useState(Math.max(2026, new Date().getFullYear()));
             const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
             const [selectedDay, setSelectedDay] = useState(null);
-            const [semaphoreFilter, setSemaphoreFilter] = useState('all'); // 'all' | 'red' | 'orange' | 'green'
+            const [semaphoreFilter, setSemaphoreFilter] = useState('all');
+            const [omitted, setOmitted] = useState(() => {
+                try {
+                    const v = localStorage.getItem(CALENDAR_OMITTED_KEY);
+                    return v ? JSON.parse(v) : {};
+                } catch { return {}; }
+            });
+            const [suggestionModal, setSuggestionModal] = useState(null);
 
             const fieldToCheck = isCC ? 'agenteContactCenter' : 'usuarioRevisionAsignacion';
             const currentUserName = (currentUser?.name || currentUser?.username || '').trim().toLowerCase();
@@ -1566,7 +1583,7 @@
             }, [users, currentUser, isRev, isCC, currentUserName]);
 
             const getSemaphoreForPatient = (p, klist) => {
-                const list = (klist || kits.filter(k => k.patientId === p.id)).filter(Boolean);
+                const list = (klist || kits.filter(k => k.patientId === p.id && !k._suggestion)).filter(Boolean);
                 if (isRev) {
                     if (list.length === 0) return 'green';
                     const sorted = [...list].sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0));
@@ -1602,6 +1619,48 @@
                 });
             }, [kits, patients, isAdmin, fieldToCheck, availableUserNames]);
 
+            const suggestions = useMemo(() => {
+                const out = [];
+                const base = isAdmin ? kits : kitsForRole;
+                base.forEach(k => {
+                    const fe = (k.fechaEntregaKit || '').toString().trim();
+                    if (!fe || !/^\d{4}-\d{2}-\d{2}$/.test(fe)) return;
+                    const [y, m, d] = fe.split('-').map(Number);
+                    const nextY = m === 12 ? y + 1 : y;
+                    const nextM = m === 12 ? 1 : m + 1;
+                    const suggested = nextMonthWorkday(nextY, nextM - 1, d);
+                    const key = `${k.patientId}_${k.id}_${suggested}`;
+                    if (omitted[key]) return;
+                    const pt = patients.find(p => p.id === k.patientId);
+                    if (!pt) return;
+                    if (!isAdmin) {
+                        const assignee = (pt[fieldToCheck] || '').trim().toLowerCase();
+                        if (!availableUserNames.some(n => n && assignee === n)) return;
+                    }
+                    out.push({
+                        _suggestion: true,
+                        _sourceKit: k,
+                        _key: key,
+                        patientId: k.patientId,
+                        patient: pt,
+                        suggestedDate: suggested,
+                        medicamentos: (k.medicamentos || []).map(m => ({ ...m })),
+                        id: 'sug_' + key,
+                    });
+                });
+                return out;
+            }, [isAdmin, kits, kitsForRole, patients, fieldToCheck, availableUserNames, omitted]);
+
+            const suggestionsByDate = useMemo(() => {
+                const map = {};
+                suggestions.forEach(s => {
+                    const d = s.suggestedDate;
+                    if (!map[d]) map[d] = [];
+                    map[d].push(s);
+                });
+                return map;
+            }, [suggestions]);
+
             const kitsByDate = useMemo(() => {
                 const map = {};
                 kitsForRole.forEach(k => {
@@ -1610,11 +1669,17 @@
                     if (!map[d]) map[d] = [];
                     map[d].push(k);
                 });
+                Object.entries(suggestionsByDate || {}).forEach(([d, arr]) => {
+                    if (!map[d]) map[d] = [];
+                    map[d].push(...arr);
+                });
                 return map;
-            }, [kitsForRole]);
+            }, [kitsForRole, suggestionsByDate]);
 
             const daySemaphore = (dateStr) => {
-                const dayKits = kitsByDate[dateStr] || [];
+                const dayKits = (kitsByDate[dateStr] || []).filter(k => !k._suggestion);
+                const daySug = (suggestionsByDate[dateStr] || []).filter(s => !omitted[s._key]);
+                if (daySug.length > 0 && dayKits.length === 0) return 'blue';
                 if (dayKits.length === 0) return 'green';
                 let red = false, orange = false;
                 const seen = new Set();
@@ -1633,8 +1698,9 @@
             };
 
             const dayDetailData = useMemo(() => {
-                if (!selectedDay) return { patients: [], kits: [], bySem: {} };
-                const dayKits = (kitsByDate[selectedDay] || []);
+                if (!selectedDay) return { patients: [], kits: [], suggestions: [], bySem: {} };
+                const dayKits = (kitsByDate[selectedDay] || []).filter(k => !k._suggestion);
+                const daySug = (suggestionsByDate[selectedDay] || []).filter(s => !omitted[s._key]);
                 const seen = new Set();
                 const out = [];
                 dayKits.forEach(k => {
@@ -1643,11 +1709,14 @@
                     seen.add(pt.id);
                     const patientKits = kitsForRole.filter(kk => kk.patientId === pt.id);
                     const sem = getSemaphoreForPatient(pt, patientKits);
-                    out.push({ patient: pt, semaphore: sem, kits: dayKits.filter(kk => kk.patientId === pt.id) });
+                    out.push({ patient: pt, semaphore: sem, kits: dayKits.filter(kk => kk.patientId === pt.id), suggestion: null });
                 });
-                const bySem = { red: out.filter(x => x.semaphore === 'red'), orange: out.filter(x => x.semaphore === 'orange'), green: out.filter(x => x.semaphore === 'green') };
-                return { patients: out, kits: dayKits, bySem };
-            }, [selectedDay, kitsByDate, patients, kitsForRole]);
+                daySug.forEach(s => {
+                    out.push({ patient: s.patient, semaphore: 'blue', kits: [], suggestion: s });
+                });
+                const bySem = { red: out.filter(x => x.semaphore === 'red'), orange: out.filter(x => x.semaphore === 'orange'), green: out.filter(x => x.semaphore === 'green'), blue: out.filter(x => x.semaphore === 'blue') };
+                return { patients: out, kits: dayKits, suggestions: daySug, bySem };
+            }, [selectedDay, kitsByDate, suggestionsByDate, patients, kitsForRole, omitted]);
 
             const filteredDayDetail = useMemo(() => {
                 const { patients: list } = dayDetailData;
@@ -1659,26 +1728,92 @@
             const days = [];
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                const dayKits = kitsByDate[dateStr] || [];
+                const dayKits = (kitsByDate[dateStr] || []).filter(k => !k._suggestion);
+                const daySug = (suggestionsByDate[dateStr] || []).filter(s => !omitted[s._key]);
                 const status = daySemaphore(dateStr);
-                days.push({ day: d, dateStr, count: dayKits.length, status });
+                const count = dayKits.length + daySug.length;
+                days.push({ day: d, dateStr, count, status });
             }
 
+            const handleOmitSuggestion = (s) => {
+                setOmitted(prev => {
+                    const next = { ...prev, [s._key]: true };
+                    try { localStorage.setItem(CALENDAR_OMITTED_KEY, JSON.stringify(next)); } catch (_) {}
+                    return next;
+                });
+                setSuggestionModal(null);
+            };
+
+            const handleAcceptSuggestion = async (s) => {
+                if (!onSaveKit || !s.patient) return;
+                const suggestedDate = s.suggestionModalDate || s.suggestedDate;
+                const payload = {
+                    fechaArmado: suggestedDate,
+                    medicamentos: (s.medicamentos || []).map(m => ({ ...m })),
+                    dni: s.patient.dni,
+                    nombre: s.patient.nombre,
+                    patientId: s.patient.id,
+                    digitador: (currentUser?.name || currentUser?.username || '').trim(),
+                    deliveryMode: (s._sourceKit?.deliveryMode || 'ventanilla'),
+                    triggerMeds: (s.medicamentos || []).length ? `${(s.medicamentos || []).length}/${(s.medicamentos || []).length}` : '',
+                };
+                if ((s._sourceKit?.deliveryMode || '').toLowerCase() === 'ventanilla') payload.recetaImpresa = true;
+                try {
+                    await onSaveKit(null, payload, s.patient.id, false);
+                    setOmitted(prev => {
+                        const next = { ...prev, [s._key]: true };
+                        try { localStorage.setItem(CALENDAR_OMITTED_KEY, JSON.stringify(next)); } catch (_) {}
+                        return next;
+                    });
+                    setSuggestionModal(null);
+                } catch (e) {
+                    alert('Error al crear kit: ' + (e?.message || e));
+                }
+            };
+
+            const openDayModal = (dateStr) => {
+                setSelectedDay(dateStr);
+            };
+            const closeDayModal = () => {
+                setSelectedDay(null);
+                setSuggestionModal(null);
+            };
+
+            const goToPatientKit = (patient, kit) => {
+                try {
+                    sessionStorage.setItem('editKitFromReports', JSON.stringify({
+                        kitId: kit?.id,
+                        patientId: patient.id,
+                        kitData: kit || {},
+                        patient: patient,
+                        viewOnly: true,
+                    }));
+                } catch (_) {}
+                setView('pacientes');
+                closeDayModal();
+            };
+
+            const yearOptions = useMemo(() => {
+                const start = 2026;
+                const end = Math.max(2032, new Date().getFullYear() + 2);
+                return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+            }, []);
+
             return (
-                <div className="w-full max-w-6xl mx-auto space-y-6 animate-in">
+                <div className="w-full min-w-0 max-w-6xl mx-auto space-y-6 animate-in">
                     <div className="flex flex-wrap items-center justify-between gap-4">
-                        <h2 className="text-2xl font-bold text-slate-800 brand-font">Calendario</h2>
-                        <button onClick={() => setView('pacientes')} className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-bold text-slate-600 flex items-center gap-2">
+                        <h2 className="text-2xl md:text-3xl font-bold text-slate-800 brand-font tracking-tight">Calendario</h2>
+                        <button onClick={() => setView('pacientes')} className="px-4 py-2.5 rounded-xl border border-slate-200 hover:border-turquoise-300 hover:bg-turquoise-50 text-sm font-bold text-slate-600 flex items-center gap-2 transition-all">
                             <Icons.Users size={18}/> Ir a Pacientes
                         </button>
                     </div>
-                    <div className="bg-white rounded-3xl shadow-soft border border-slate-100 p-6">
+                    <div className="bg-white/80 backdrop-blur rounded-3xl shadow-soft border border-slate-100 overflow-hidden">
                         {calendarView === 'years' && (
-                            <div>
-                                <h4 className="font-bold text-lg text-slate-800 mb-4">Seleccione el Año</h4>
-                                <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
-                                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
-                                        <button key={year} onClick={() => { setSelectedYear(year); setCalendarView('months'); }} className="p-4 rounded-xl border-2 border-slate-200 hover:border-turquoise-500 hover:bg-turquoise-50 transition-all text-center font-bold text-slate-700 hover:text-turquoise-600">
+                            <div className="p-6 md:p-8">
+                                <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Seleccione el año</h4>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                                    {yearOptions.map(year => (
+                                        <button key={year} onClick={() => { setSelectedYear(year); setCalendarView('months'); }} className="p-4 md:p-5 rounded-2xl border-2 border-slate-200 hover:border-turquoise-400 hover:bg-turquoise-50/80 transition-all text-center font-bold text-slate-700 hover:text-turquoise-600 text-lg">
                                             {year}
                                         </button>
                                     ))}
@@ -1686,85 +1821,133 @@
                             </div>
                         )}
                         {calendarView === 'months' && (
-                            <div>
-                                <div className="flex justify-between items-center mb-4">
-                                    <button onClick={() => setCalendarView('years')} className="text-slate-400 hover:text-slate-600 flex items-center gap-2"><Icons.ArrowLeft size={16}/> Años</button>
-                                    <h4 className="font-bold text-lg text-slate-800">{selectedYear}</h4>
-                                    <div className="w-20" />
+                            <div className="p-6 md:p-8">
+                                <div className="flex justify-between items-center mb-6">
+                                    <button onClick={() => setCalendarView('years')} className="text-slate-400 hover:text-slate-600 flex items-center gap-2 text-sm font-bold"><Icons.ArrowLeft size={18}/> Años</button>
+                                    <h4 className="font-bold text-xl text-slate-800">{selectedYear}</h4>
+                                    <div className="w-24" />
                                 </div>
-                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
                                     {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map((m, i) => (
-                                        <button key={i} onClick={() => { setSelectedMonth(i + 1); setCalendarView('days'); }} className="p-4 rounded-xl border-2 border-slate-200 hover:border-turquoise-500 hover:bg-turquoise-50 transition-all text-center font-bold text-slate-700 hover:text-turquoise-600">{m}</button>
+                                        <button key={i} onClick={() => { setSelectedMonth(i + 1); setCalendarView('days'); }} className="p-4 rounded-2xl border-2 border-slate-200 hover:border-turquoise-400 hover:bg-turquoise-50/80 transition-all text-center font-bold text-slate-700 hover:text-turquoise-600">
+                                            {m}
+                                        </button>
                                     ))}
                                 </div>
                             </div>
                         )}
                         {calendarView === 'days' && (
-                            <div>
-                                <div className="flex justify-between items-center mb-4">
-                                    <button onClick={() => setCalendarView('months')} className="text-slate-400 hover:text-slate-600 flex items-center gap-2"><Icons.ArrowLeft size={16}/> Meses</button>
-                                    <h4 className="font-bold text-lg text-slate-800">
+                            <div className="p-6 md:p-8">
+                                <div className="flex justify-between items-center mb-6">
+                                    <button onClick={() => setCalendarView('months')} className="text-slate-400 hover:text-slate-600 flex items-center gap-2 text-sm font-bold"><Icons.ArrowLeft size={18}/> Meses</button>
+                                    <h4 className="font-bold text-xl text-slate-800">
                                         {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][selectedMonth - 1]} {selectedYear}
                                     </h4>
-                                    <div className="w-20" />
+                                    <div className="flex gap-2">
+                                        <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"/> Verde</span>
+                                        <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"/> Naranja</span>
+                                        <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"/> Rojo</span>
+                                        <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"/> Sugerencia</span>
+                                    </div>
                                 </div>
-                                <div className="grid grid-cols-7 gap-2 mb-2">
+                                <div className="grid grid-cols-7 gap-1.5 md:gap-2 mb-2">
                                     {['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(l => <div key={l} className="text-center text-xs font-bold text-slate-500 py-2">{l}</div>)}
                                 </div>
-                                <div className="grid grid-cols-7 gap-2">
+                                <div className="grid grid-cols-7 gap-1.5 md:gap-2">
                                     {Array.from({ length: new Date(selectedYear, selectedMonth - 1, 1).getDay() }, (_, i) => <div key={`e${i}`} />)}
                                     {days.map(({ day, dateStr, count, status }) => (
                                         <button
                                             key={day}
-                                            onClick={() => setSelectedDay(dateStr)}
-                                            className={`p-3 rounded-lg border-2 transition-all text-center font-bold ${
+                                            onClick={() => openDayModal(dateStr)}
+                                            className={`p-2.5 md:p-3 rounded-xl border-2 transition-all text-center font-bold text-sm ${
                                                 status === 'red' ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100' :
                                                 status === 'orange' ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100' :
+                                                status === 'blue' ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' :
                                                 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
-                                            } ${selectedDay === dateStr ? 'ring-2 ring-turquoise-500' : ''}`}
+                                            } ${selectedDay === dateStr ? 'ring-2 ring-offset-2 ring-turquoise-500' : ''}`}
                                         >
-                                            <div className="text-sm">{day}</div>
+                                            <div>{day}</div>
                                             {count > 0 && (
-                                                <div className="flex items-center justify-center gap-1 mt-1">
-                                                    <span className={`w-2 h-2 rounded-full ${status === 'red' ? 'bg-red-500' : status === 'orange' ? 'bg-amber-500' : 'bg-green-500'}`} />
-                                                    <span className="text-xs">{count}</span>
+                                                <div className="flex items-center justify-center gap-1 mt-0.5">
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${status === 'red' ? 'bg-red-500' : status === 'orange' ? 'bg-amber-500' : status === 'blue' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                                    <span className="text-[10px] md:text-xs">{count}</span>
                                                 </div>
                                             )}
                                         </button>
                                     ))}
                                 </div>
-                                {selectedDay && (
-                                    <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                        <h5 className="font-bold text-slate-800 mb-3">
-                                            Programado para {new Date(selectedDay + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                        </h5>
-                                        <div className="flex flex-wrap gap-2 mb-3">
-                                            <button onClick={() => setSemaphoreFilter('all')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${semaphoreFilter === 'all' ? 'bg-slate-600 text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>Todos</button>
-                                            <button onClick={() => setSemaphoreFilter('red')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${semaphoreFilter === 'red' ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}>Rojo</button>
-                                            <button onClick={() => setSemaphoreFilter('orange')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${semaphoreFilter === 'orange' ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}>Naranja</button>
-                                            <button onClick={() => setSemaphoreFilter('green')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${semaphoreFilter === 'green' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>Verde</button>
-                                        </div>
-                                        <div className="space-y-2">
-                                            {filteredDayDetail.length === 0 ? (
-                                                <p className="text-sm text-slate-500">No hay pacientes en este día.</p>
-                                            ) : (
-                                                filteredDayDetail.map(({ patient, semaphore }) => (
-                                                    <div key={patient.id} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-slate-200">
-                                                        <span className={`w-4 h-4 rounded-full flex-shrink-0 ${semaphore === 'red' ? 'bg-red-500' : semaphore === 'orange' ? 'bg-amber-500' : 'bg-green-500'}`} title={semaphore === 'red' ? 'Pendiente' : semaphore === 'orange' ? 'En CC' : 'Listo'} />
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="font-semibold text-slate-800">{patient.nombre}</div>
-                                                            <div className="text-xs text-slate-500">{patient.dni}</div>
-                                                        </div>
-                                                        <button onClick={() => { setView('pacientes'); }} className="text-xs font-bold text-turquoise-600 hover:text-turquoise-700">Ver</button>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         )}
                     </div>
+
+                    {selectedDay && (
+                        <Modal isOpen={!!selectedDay} onClose={closeDayModal} title={`${new Date(selectedDay + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`} maxWidth="max-w-2xl">
+                            <div className="space-y-4">
+                                <div className="flex flex-wrap gap-2">
+                                    {['all','red','orange','green','blue'].map(s => (
+                                        <button key={s} onClick={() => setSemaphoreFilter(s)} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                            semaphoreFilter === s ? (s === 'all' ? 'bg-slate-600 text-white' : s === 'red' ? 'bg-red-600 text-white' : s === 'orange' ? 'bg-amber-600 text-white' : s === 'green' ? 'bg-green-600 text-white' : 'bg-blue-600 text-white') :
+                                            s === 'all' ? 'bg-slate-200 text-slate-600' : s === 'red' ? 'bg-red-100 text-red-700' : s === 'orange' ? 'bg-amber-100 text-amber-700' : s === 'green' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                                        }`}>
+                                            {s === 'all' ? 'Todos' : s === 'red' ? 'Rojo' : s === 'orange' ? 'Naranja' : s === 'green' ? 'Verde' : 'Sugerencias'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+                                    {filteredDayDetail.length === 0 ? (
+                                        <p className="text-sm text-slate-500 py-4 text-center">No hay registros para este día.</p>
+                                    ) : (
+                                        filteredDayDetail.map(({ patient, semaphore, kits: pKits, suggestion }) => (
+                                            <div key={suggestion ? suggestion._key : patient.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 ${
+                                                semaphore === 'red' ? 'bg-red-50 border-red-200' : semaphore === 'orange' ? 'bg-amber-50 border-amber-200' : semaphore === 'blue' ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
+                                            }`}>
+                                                <span className={`w-4 h-4 rounded-full flex-shrink-0 ${semaphore === 'red' ? 'bg-red-500' : semaphore === 'orange' ? 'bg-amber-500' : semaphore === 'blue' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-semibold text-slate-800">{patient.nombre}</div>
+                                                    <div className="text-xs text-slate-500">{patient.dni}{suggestion ? ' · Sugerencia' : ''}</div>
+                                                </div>
+                                                {suggestion ? (
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => setSuggestionModal({ ...suggestion, suggestionModalDate: suggestion.suggestedDate })} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700">Aceptar / Omitir</button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => goToPatientKit(patient, (pKits || [])[0])} className="px-3 py-1.5 rounded-lg bg-turquoise-600 text-white text-xs font-bold hover:bg-turquoise-700">Ver</button>
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                <div className="pt-2 flex justify-end">
+                                    <button onClick={closeDayModal} className="px-5 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700">Cerrar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {suggestionModal && (
+                        <Modal isOpen={true} onClose={() => setSuggestionModal(null)} title="Sugerencia de kit" maxWidth="max-w-lg">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-600">Se sugiere crear un kit para <strong>{suggestionModal.patient?.nombre}</strong> el <strong>{suggestionModal.suggestionModalDate || suggestionModal.suggestedDate}</strong> con los mismos medicamentos del kit dispensado anteriormente.</p>
+                                <div className="p-3 bg-slate-50 rounded-xl">
+                                    <label className="text-xs font-bold text-slate-500 block mb-1">Fecha sugerida</label>
+                                    <input type="date" value={suggestionModal.suggestionModalDate || suggestionModal.suggestedDate || ''} onChange={e => setSuggestionModal({ ...suggestionModal, suggestionModalDate: e.target.value })} className="w-full p-2 border rounded-lg text-sm" />
+                                </div>
+                                {(suggestionModal.medicamentos || []).length > 0 && (
+                                    <div className="p-3 bg-slate-50 rounded-xl">
+                                        <div className="text-xs font-bold text-slate-500 mb-2">Medicamentos</div>
+                                        <ul className="text-sm text-slate-700 space-y-1">
+                                            {(suggestionModal.medicamentos || []).slice(0, 8).map((m, i) => <li key={i}>{m.nombre} × {m.cantidad}</li>)}
+                                            {(suggestionModal.medicamentos || []).length > 8 && <li className="text-slate-500">… y {(suggestionModal.medicamentos || []).length - 8} más</li>}
+                                        </ul>
+                                    </div>
+                                )}
+                                <div className="flex gap-3">
+                                    <button onClick={() => handleAcceptSuggestion(suggestionModal)} className="flex-1 py-3 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700">Aceptar</button>
+                                    <button onClick={() => handleOmitSuggestion(suggestionModal)} className="flex-1 py-3 rounded-xl bg-slate-500 text-white font-bold hover:bg-slate-600">Omitir</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
                 </div>
             );
         };
@@ -4383,7 +4566,7 @@
                 if (editKitData) {
                     try {
                         const parsed = JSON.parse(editKitData);
-                        const { kitData, patientId, patient: storedPatient } = parsed;
+                        const { kitData, patientId, patient: storedPatient, viewOnly } = parsed;
                         const patient = storedPatient || patients.find(p => p.id === patientId);
                         if (patient && kitData) {
                             handleSelectPatient(patient);
@@ -4402,7 +4585,7 @@
                                 recetaImpresa: !!kitData.recetaImpresa
                             });
                             setEditingKitId(kitData.id);
-                            setIsViewMode(false);
+                            setIsViewMode(!!viewOnly);
                             setShowKitForm(true);
                         }
                     } finally {
@@ -7695,8 +7878,11 @@ refrigeradoHtml +
                                 )}
                             </div>
                             <div className="grid gap-3">
-                                {patientKits.map(kit => (
-                                    <div key={kit.id} className="p-4 rounded-xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-4 relative group">
+                                {patientKits.map(kit => {
+                                    const sem = getPatientSemaphore(selectedPatient, patientKits);
+                                    const semBorder = sem === 'red' ? 'border-l-4 border-l-red-500 bg-red-50/30' : sem === 'orange' ? 'border-l-4 border-l-amber-500 bg-amber-50/30' : 'border-l-4 border-l-green-500 bg-green-50/30';
+                                    return (
+                                    <div key={kit.id} className={`p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-4 relative group ${semBorder}`}>
                                         <div className="flex-1">
                                             <div className="flex flex-wrap items-center gap-2 mb-2">
                                                 <span className="bg-turquoise-50 text-turquoise-700 px-2 py-1 rounded text-xs font-bold border border-turquoise-100">
@@ -7755,7 +7941,8 @@ refrigeradoHtml +
                                             )}
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                                 {patientKits.length === 0 && (
                                     <div className="text-center py-10 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
                                         No hay kits registrados para este paciente.
@@ -11396,7 +11583,7 @@ Responde en formato JSON con esta estructura:
                         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} patients={patients} users={users} permissions={permissions} />}
                             {view === 'reports' && canViewReports && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} currentUser={currentUserForBlocks} users={users} />}
-                            {view === 'calendario' && showCalendario && <CalendarioBlock kits={kits} patients={patients} setView={setView} currentUser={currentUserForBlocks} users={users} role={role} />}
+                            {view === 'calendario' && showCalendario && <CalendarioBlock kits={kits} patients={patients} setView={setView} currentUser={currentUserForBlocks} users={users} role={role} onSaveKit={saveKit} />}
                             {view === 'despacho' && showDespacho && <DespachoListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} />}
                             {view === 'operaciones' && showOperaciones && <OperacionesListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} />}
                             {view === 'calidad' && showCalidad && <CalidadListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} />}
