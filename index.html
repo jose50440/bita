@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <link rel="icon" href="data:,">
     <title>IHSS A TU CASA - Plataforma de Dispensación</title>
     
@@ -261,8 +261,13 @@
     </script>
 
     <style>
+        html, body { overflow-x: hidden; -webkit-overflow-scrolling: touch; }
         body { font-family: 'Inter', sans-serif; background-color: #f0fdfa; }
         h1, h2, h3, h4, .brand-font { font-family: 'Poppins', sans-serif; }
+        @media (max-width: 767px) {
+            .mobile-header-height { height: 56px; min-height: 56px; }
+            .mobile-content-pt { padding-top: calc(56px + env(safe-area-inset-top, 0px)) !important; }
+        }
         .glass-panel { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05); }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -818,8 +823,8 @@
             }, [isOpen, onClose]);
             if (!isOpen) return null;
             return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in">
-                    <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidth} overflow-hidden flex flex-col max-h-[95vh] modal-animate`}>
+                <div className="fixed left-0 right-0 bottom-0 top-14 md:top-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in overflow-y-auto">
+                    <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidth} overflow-hidden flex flex-col max-h-[85vh] md:max-h-[90vh] modal-animate my-auto`}>
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                             <h3 className="font-bold text-lg text-slate-800 brand-font">{title}</h3>
                             <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"><Icons.X size={20}/></button>
@@ -841,7 +846,7 @@
             }, [isOpen, onClose]);
             if (!isOpen) return null;
             return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in">
+                <div className="fixed left-0 right-0 bottom-0 top-14 md:top-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col modal-animate p-6 text-center">
                         <h3 className="text-lg font-medium text-slate-900 mb-2">{title}</h3>
                         <p className="text-sm text-slate-500 mb-6">{message}</p>
@@ -1462,8 +1467,8 @@
             }
 
             return (
-                <div className="w-full max-w-6xl mx-auto space-y-8 animate-in">
-                    <div className="bg-gradient-to-r from-turquoise-600 to-clinical-600 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden">
+                <div className="w-full min-w-0 max-w-6xl mx-auto space-y-6 md:space-y-8 animate-in px-0">
+                    <div className="bg-gradient-to-r from-turquoise-600 to-clinical-600 rounded-2xl md:rounded-3xl p-5 md:p-8 text-white shadow-lg relative overflow-hidden">
                         <div className="relative z-10">
                             <h1 className="text-3xl font-bold brand-font mb-2">¡Hola, {userName}!</h1>
                             <p className="opacity-90 text-sm font-medium uppercase tracking-wider">Plataforma de Dispensación</p>
@@ -1507,7 +1512,7 @@
                             <button 
                                 key={c.id} 
                                 onClick={() => setView(c.id)} 
-                                className="group relative bg-white p-6 rounded-3xl shadow-soft border border-slate-100 hover:shadow-xl transition-all duration-300 text-left hover:-translate-y-1 overflow-hidden"
+                                className="group relative bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl shadow-soft border border-slate-100 hover:shadow-xl transition-all duration-300 text-left hover:-translate-y-1 overflow-hidden touch-manipulation min-h-[100px]"
                             >
                                 <div className={`absolute top-0 right-0 w-24 h-24 ${c.color} opacity-10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
                                 <div className={`w-12 h-12 rounded-2xl ${c.color} flex items-center justify-center text-white mb-4 shadow-md group-hover:scale-110 transition-transform`}>
@@ -1986,7 +1991,7 @@
                 });
             }, [listadoParaTab, patients, listaEsperaSearch]);
             return (
-                <div className="w-full max-w-5xl mx-auto space-y-6 animate-in">
+                <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <h2 className="text-2xl font-bold text-slate-800 brand-font">Lista de espera — Despacho de medicamentos</h2>
                         <p className="text-sm text-slate-500">Kits que vienen de Revisión y asignación</p>
@@ -2465,7 +2470,7 @@
             const isDespacho = vistaPrincipal === 'despacho';
 
             return (
-                <div className="w-full max-w-5xl mx-auto space-y-6 animate-in">
+                <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <h2 className="text-2xl font-bold text-slate-800 brand-font">Operaciones — Lista de espera</h2>
                         <p className="text-sm text-slate-500">{isDespacho ? 'Vista solo lectura: kits en Despacho de medicamentos' : 'Mi lista de espera y bitácora del departamento'}</p>
@@ -2897,46 +2902,124 @@
         // --- BLOCK: CALIDAD LISTA DE ESPERA ---
         const CalidadListaEsperaBlock = ({ kits, patients, onSaveKit, currentUser, users = [] }) => {
             const [vistaPrincipal, setVistaPrincipal] = useState('calidad'); // 'despacho' | 'operaciones' | 'calidad'
+            const [listaEsperaTab, setListaEsperaTab] = useState('ventanilla'); // 'ventanilla' | 'ruta'
             const [listaEsperaSearch, setListaEsperaSearch] = useState('');
             const [showVerModal, setShowVerModal] = useState(false);
             const [verKit, setVerKit] = useState(null);
             const [showTrabajarForm, setShowTrabajarForm] = useState(false);
             const [trabajarKit, setTrabajarKit] = useState(null);
-            const [trabajarData, setTrabajarData] = useState({ observacionesCalidad: '' });
+            const [trabajarKitLocal, setTrabajarKitLocal] = useState(null); // copia editable para meds
+            const [trabajarData, setTrabajarData] = useState({
+                observacionesCalidad: '',
+                btp: '',
+                btg: '',
+                tipoBolsaVerde: 'GRANDE',
+                incidenciasActivo: false,
+                incidencias: [] // [{ tipo: 'medicamento', medIdx: number } | { tipo: 'otra', texto: string }]
+            });
             const [trabajarGuardado, setTrabajarGuardado] = useState(false);
+            const [trabajarEnviadoLogistica, setTrabajarEnviadoLogistica] = useState(false);
+            const [incidenciaMedIdx, setIncidenciaMedIdx] = useState(null);
+            const [incidenciaTipoSel, setIncidenciaTipoSel] = useState('error_cantidad');
+            const [incidenciaOtraTexto, setIncidenciaOtraTexto] = useState('');
+            const [bitacoraCarpetasSearch, setBitacoraCarpetasSearch] = useState('');
+            const [bitacoraFechaAbierta, setBitacoraFechaAbierta] = useState(null);
+            const [bitacoraModalSearch, setBitacoraModalSearch] = useState('');
+
+            const formatearFechaBitacora = (f) => {
+                if (!f) return '';
+                const d = new Date(f + 'T12:00:00');
+                return d.toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' });
+            };
+
+            useEffect(() => {
+                setBitacoraFechaAbierta(null);
+                setBitacoraModalSearch('');
+                if (vistaPrincipal === 'despacho' || vistaPrincipal === 'operaciones') setListaEsperaTab('ventanilla');
+                if (vistaPrincipal === 'despacho' || vistaPrincipal === 'operaciones') setBitacoraCarpetasSearch('');
+            }, [vistaPrincipal]);
+
+            const toUpper = (v) => (v != null && v !== '' ? String(v).toUpperCase() : v);
+            const safeNumber = (v) => { const n = parseInt(String(v || '0'), 10); return isNaN(n) ? '' : n; };
+            const calcularMedCounter = (meds) => {
+                const m = meds || [];
+                const total = m.length;
+                const dispensados = m.filter(x => x.dispensar !== false).length;
+                return { dispensados, total, str: total ? `${dispensados}/${total}` : '0/0' };
+            };
 
             const abrirVer = (kit) => { setVerKit(kit); setShowVerModal(true); };
             const cerrarVer = () => { setVerKit(null); setShowVerModal(false); };
             const abrirTrabajar = (kit) => {
-                setTrabajarKit(kit);
+                const meds = (kit.medicamentos || []).map(m => ({
+                    ...m,
+                    dispensar: m.dispensar !== false,
+                    observaciones: m.observaciones || '',
+                    dispensacionParcial: !!m.dispensacionParcial,
+                    tipo: m.tipo || 'no cronico',
+                    cantidadReceta: m.cantidadReceta ?? m.cantidad
+                }));
+                const k = { ...kit, medicamentos: meds };
+                setTrabajarKit(k);
+                setTrabajarKitLocal(JSON.parse(JSON.stringify(k)));
                 setTrabajarGuardado(false);
-                setTrabajarData({ observacionesCalidad: (kit.observacionesCalidad || '').trim() });
+                setTrabajarEnviadoLogistica(false);
+                setTrabajarData({
+                    observacionesCalidad: (kit.observacionesCalidad || '').trim(),
+                    btp: (kit.btp != null && kit.btp !== '') ? String(kit.btp) : '',
+                    btg: (kit.btg != null && kit.btg !== '') ? String(kit.btg) : '',
+                    tipoBolsaVerde: kit.tipoBolsaVerde === 'PEQUEÑA' ? 'PEQUEÑA' : 'GRANDE',
+                    incidenciasActivo: false,
+                    incidencias: Array.isArray(kit.incidenciasCalidad) ? [...kit.incidenciasCalidad] : []
+                });
                 setShowTrabajarForm(true);
             };
             const cerrarTrabajar = () => {
                 setTrabajarKit(null);
+                setTrabajarKitLocal(null);
                 setTrabajarGuardado(false);
-                setTrabajarData({ observacionesCalidad: '' });
+                setTrabajarEnviadoLogistica(false);
+                setTrabajarData({ observacionesCalidad: '', btp: '', btg: '', tipoBolsaVerde: 'GRANDE', incidenciasActivo: false, incidencias: [] });
+                setIncidenciaMedIdx(null);
+                setIncidenciaTipoSel('error_cantidad');
+                setIncidenciaOtraTexto('');
                 setShowTrabajarForm(false);
             };
             const handleTrabajarSubmit = async (e) => {
                 e.preventDefault();
-                if (!trabajarKit || !onSaveKit) return;
-                const today = new Date().toISOString().split('T')[0];
+                if (!trabajarKit || !trabajarKitLocal || !onSaveKit) return;
                 const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                const today = new Date().toISOString().split('T')[0];
                 const payload = {
                     revisadoCalidad: true,
                     fechaRevisionCalidad: today,
                     horaRevisionCalidad: now,
                     usuarioCalidad: (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim() || '',
-                    observacionesCalidad: (trabajarData.observacionesCalidad || '').trim() || (trabajarKit.observacionesCalidad || '')
+                    observacionesCalidad: (trabajarData.observacionesCalidad || '').trim() || (trabajarKit.observacionesCalidad || ''),
+                    medicamentos: trabajarKitLocal.medicamentos || [],
+                    btp: trabajarData.btp.trim() || null,
+                    btg: trabajarData.btg.trim() || null,
+                    tipoBolsaVerde: trabajarData.tipoBolsaVerde || 'GRANDE',
+                    incidenciasCalidad: (trabajarData.incidencias || []).length ? trabajarData.incidencias : null
                 };
                 try {
                     await onSaveKit(trabajarKit.id, payload, trabajarKit.patientId, true);
+                    setTrabajarKit(prev => prev ? { ...prev, ...payload } : null);
+                    setTrabajarKitLocal(prev => prev ? { ...prev, ...payload } : null);
                     setTrabajarGuardado(true);
-                    setTimeout(cerrarTrabajar, 800);
                 } catch (err) {
                     alert('Error al guardar: ' + (err?.message || err));
+                }
+            };
+            const handleEnviarALogistica = async () => {
+                if (!trabajarKit || !onSaveKit) return;
+                const today = new Date().toISOString().split('T')[0];
+                try {
+                    await onSaveKit(trabajarKit.id, { fechaEntregaLogistica: today }, trabajarKit.patientId, true);
+                    setTrabajarEnviadoLogistica(true);
+                    setTimeout(cerrarTrabajar, 600);
+                } catch (err) {
+                    alert('Error al enviar a logística: ' + (err?.message || err));
                 }
             };
 
@@ -2948,6 +3031,8 @@
                     return !k.enviadoAOperaciones;
                 }).sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0));
             }, [kits]);
+            const listaDespachoVentanilla = useMemo(() => listaKitsDespacho.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsDespacho]);
+            const listaDespachoRuta = useMemo(() => listaKitsDespacho.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsDespacho]);
 
             // Lista Operaciones (solo lectura): lista de espera de Operaciones — kits enviados a Ops, pendientes de trabajar (vienen en camino a Calidad)
             const listaKitsOperaciones = useMemo(() => {
@@ -2956,6 +3041,8 @@
                     return enviado && !k.trabajadoOperaciones;
                 }).sort((a, b) => new Date(b.fechaEnvioOperaciones || b.fechaEnvioComplemento || 0) - new Date(a.fechaEnvioOperaciones || a.fechaEnvioComplemento || 0));
             }, [kits]);
+            const listaOpsVentanilla = useMemo(() => listaKitsOperaciones.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsOperaciones]);
+            const listaOpsRuta = useMemo(() => listaKitsOperaciones.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsOperaciones]);
 
             // Mi lista Calidad: kits enviados desde Operaciones, pendientes de revisar (!revisadoCalidad)
             const listaKitsCalidad = useMemo(() => {
@@ -2967,6 +3054,40 @@
                     return new Date(fechaB) - new Date(fechaA);
                 });
             }, [kits]);
+            const listaCalidadVentanilla = useMemo(() => listaKitsCalidad.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsCalidad]);
+            const listaCalidadRuta = useMemo(() => listaKitsCalidad.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsCalidad]);
+
+            const listadoDespacho = listaEsperaTab === 'ventanilla' ? listaDespachoVentanilla : listaDespachoRuta;
+            const listadoOps = listaEsperaTab === 'ventanilla' ? listaOpsVentanilla : listaOpsRuta;
+            const listadoCalidad = listaEsperaTab === 'ventanilla' ? listaCalidadVentanilla : listaCalidadRuta;
+
+            const bitacoraCalidad = useMemo(() => {
+                const porFecha = {};
+                (kits || []).forEach(k => {
+                    if (!k.revisadoCalidad) return;
+                    const fa = (k.fechaRevisionCalidad || '').toString().trim();
+                    if (!fa) return;
+                    porFecha[fa] = porFecha[fa] || [];
+                    porFecha[fa].push(k);
+                });
+                return Object.entries(porFecha).map(([f, arr]) => ({ fecha: f, kits: arr, count: arr.length })).sort((a, b) => b.fecha.localeCompare(a.fecha));
+            }, [kits]);
+            const bitacoraCalidadFiltrada = useMemo(() => {
+                const t = (bitacoraCarpetasSearch || '').trim().toLowerCase();
+                if (!t) return bitacoraCalidad;
+                return bitacoraCalidad.filter(({ fecha }) => formatearFechaBitacora(fecha).toLowerCase().includes(t) || (fecha || '').toLowerCase().includes(t));
+            }, [bitacoraCalidad, bitacoraCarpetasSearch]);
+            const kitsBitacoraCalidadDia = bitacoraFechaAbierta ? (bitacoraCalidad.find(d => d.fecha === bitacoraFechaAbierta)?.kits || []) : [];
+            const kitsBitacoraCalidadDiaFiltrados = useMemo(() => {
+                const t = (bitacoraModalSearch || '').trim().toLowerCase();
+                if (!t) return kitsBitacoraCalidadDia;
+                return kitsBitacoraCalidadDia.filter(k => {
+                    const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                    const n = (k.nombre || (pt?.nombre || '')).toLowerCase();
+                    const d = (k.dni || (pt?.dni || '')).toString().toLowerCase();
+                    return n.includes(t) || d.includes(t);
+                });
+            }, [kitsBitacoraCalidadDia, patients, bitacoraModalSearch]);
 
             const renderRowDespacho = (kit) => {
                 const pt = (patients || []).find(p => p.id === kit.patientId || (p.dni && kit.dni && String(p.dni).trim() === String(kit.dni).trim()));
@@ -3042,7 +3163,37 @@
                 );
             };
 
-            const listaActual = vistaPrincipal === 'despacho' ? listaKitsDespacho : vistaPrincipal === 'operaciones' ? listaKitsOperaciones : listaKitsCalidad;
+            const renderRowBitacoraCalidad = (kit) => {
+                const pt = (patients || []).find(p => p.id === kit.patientId || (p.dni && kit.dni && String(p.dni).trim() === String(kit.dni).trim()));
+                const yaLogistica = !!(kit.fechaEntregaLogistica && String(kit.fechaEntregaLogistica).trim());
+                return (
+                    <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-slate-800">{kit.nombre || pt?.nombre || '—'}</span>
+                                {!!kit.complemento && <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold uppercase">Complemento</span>}
+                                {yaLogistica && <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold">Enviado a logística</span>}
+                            </div>
+                            <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                <span>DNI: {kit.dni || pt?.dni || '—'}</span>
+                                <span className="font-mono">Revisión: {kit.fechaRevisionCalidad || '—'} {kit.horaRevisionCalidad || ''}</span>
+                                <span className={kit.deliveryMode === 'ruta' ? 'text-emerald-600 font-semibold' : 'text-indigo-600 font-semibold'}>{kit.deliveryMode === 'ruta' ? 'Ruta' : kit.deliveryMode === 'ventanilla' ? 'Ventanilla' : '—'}</span>
+                                <span>{(kit.medicamentos || []).length} med(s)</span>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button onClick={() => { setBitacoraFechaAbierta(null); setBitacoraModalSearch(''); abrirTrabajar(kit); }} className="px-4 py-2 rounded-xl bg-green-600 text-white font-bold text-sm hover:bg-green-700 transition-colors btn-hover-effect flex items-center gap-2">
+                                <Icons.Edit size={16}/> Modificar
+                            </button>
+                            <button onClick={() => abrirVer(kit)} className="px-4 py-2 rounded-xl bg-slate-500 text-white font-bold text-sm hover:bg-slate-600 transition-colors btn-hover-effect flex items-center gap-2">
+                                <Icons.Eye size={16}/> Visualizar
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            const listaActual = vistaPrincipal === 'despacho' ? listadoDespacho : vistaPrincipal === 'operaciones' ? listadoOps : listadoCalidad;
             const listaFiltrada = useMemo(() => {
                 const t = (listaEsperaSearch || '').trim().toLowerCase();
                 if (!t) return listaActual;
@@ -3053,47 +3204,107 @@
                     return n.includes(t) || d.includes(t);
                 });
             }, [listaActual, patients, listaEsperaSearch]);
+            const isDespacho = vistaPrincipal === 'despacho';
+            const isOps = vistaPrincipal === 'operaciones';
+            const isCalidad = vistaPrincipal === 'calidad';
 
             return (
-                <div className="w-full max-w-5xl mx-auto space-y-6 animate-in">
+                <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <h2 className="text-2xl font-bold text-slate-800 brand-font">Calidad — Lista de espera</h2>
                         <p className="text-sm text-slate-500">Despacho y Operaciones en solo lectura (kits en camino). En Mi lista trabajas y revisas.</p>
                     </div>
                     <div className="flex flex-wrap gap-3">
                         <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl">
-                            <button onClick={() => setVistaPrincipal('despacho')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${vistaPrincipal === 'despacho' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Lista Despacho (solo lectura)</button>
-                            <button onClick={() => setVistaPrincipal('operaciones')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${vistaPrincipal === 'operaciones' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Lista Operaciones (solo lectura)</button>
-                            <button onClick={() => setVistaPrincipal('calidad')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${vistaPrincipal === 'calidad' ? 'bg-white text-green-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Mi lista Calidad (trabajar)</button>
+                            <button onClick={() => setVistaPrincipal('despacho')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isDespacho ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Lista Despacho (solo lectura)</button>
+                            <button onClick={() => setVistaPrincipal('operaciones')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isOps ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Lista Operaciones (solo lectura)</button>
+                            <button onClick={() => setVistaPrincipal('calidad')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isCalidad ? 'bg-white text-green-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Mi lista Calidad (trabajar)</button>
+                        </div>
+                        <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl w-fit">
+                            <button onClick={() => setListaEsperaTab('ventanilla')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${listaEsperaTab === 'ventanilla' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Ventanilla</button>
+                            <button onClick={() => setListaEsperaTab('ruta')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${listaEsperaTab === 'ruta' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Ruta</button>
+                            {isCalidad && (
+                                <button onClick={() => setListaEsperaTab('bitacora')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${listaEsperaTab === 'bitacora' ? 'bg-white text-green-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Bitácora</button>
+                            )}
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-3xl shadow-soft border border-slate-100 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                <span className="font-bold text-slate-700">
-                                    {vistaPrincipal === 'despacho' ? 'Lista Despacho (solo lectura)' : 
-                                     vistaPrincipal === 'operaciones' ? 'Lista Operaciones (solo lectura)' : 
-                                     'Lista de espera Calidad'}
-                                </span>
-                                <div className="relative w-full sm:w-56">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
-                                    <input type="text" placeholder="Buscar por nombre o DNI..." value={listaEsperaSearch} onChange={e=>setListaEsperaSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-green-300 focus:ring-1 focus:ring-green-200" />
+                    {listaEsperaTab !== 'bitacora' ? (
+                        <div className="bg-white rounded-3xl shadow-soft border border-slate-100 overflow-hidden">
+                            <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <span className="font-bold text-slate-700">
+                                        {listaFiltrada.length}{listaActual.length !== listaFiltrada.length ? ` de ${listaActual.length}` : ''} kit(s) — {listaEsperaTab === 'ventanilla' ? 'Ventanilla' : 'Ruta'}
+                                        {isDespacho ? ' (Despacho)' : isOps ? ' (Operaciones)' : ' (Calidad)'}
+                                    </span>
+                                    <div className="relative w-full sm:w-64">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                        <input type="text" placeholder="Buscar por nombre o DNI..." value={listaEsperaSearch} onChange={e=>setListaEsperaSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-green-300 focus:ring-1 focus:ring-green-200" />
+                                    </div>
                                 </div>
                             </div>
+                            <div className="divide-y divide-slate-100 max-h-[60vh] overflow-y-auto">
+                                {listaFiltrada.length === 0 ? (
+                                    <div className="p-12 text-center text-slate-500">
+                                        <Icons.Box size={48} className="mx-auto mb-3 opacity-40"/>
+                                        <p className="font-medium">{listaActual.length === 0 ? (isDespacho ? 'No hay kits en Despacho' : isOps ? 'No hay kits en Operaciones' : 'No hay kits pendientes de revisar en Calidad') : 'Sin resultados para la búsqueda'}</p>
+                                    </div>
+                                ) : isDespacho ? listaFiltrada.map(k => renderRowDespacho(k)) :
+                                  isOps ? listaFiltrada.map(k => renderRowOperaciones(k)) :
+                                  listaFiltrada.map(k => renderRowCalidad(k))
+                                }
+                            </div>
                         </div>
-                        <div className="divide-y divide-slate-100">
-                            {listaFiltrada.length === 0 ? (
-                                <div className="p-12 text-center text-slate-500">
-                                    <Icons.Box size={48} className="mx-auto mb-3 opacity-40"/>
-                                    <p className="font-medium">{listaActual.length === 0 ? `No hay kits en ${vistaPrincipal === 'despacho' ? 'Despacho' : vistaPrincipal === 'operaciones' ? 'Operaciones' : 'Calidad'}` : 'Sin resultados para la búsqueda'}</p>
+                    ) : (
+                        <div className="bg-white rounded-3xl shadow-soft border border-slate-100 overflow-hidden">
+                            <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <span className="font-bold text-slate-700">Bitácora — Revisados en Calidad por día</span>
+                                    <div className="relative w-full sm:w-56">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                        <input type="text" placeholder="Buscar por fecha..." value={bitacoraCarpetasSearch} onChange={e=>setBitacoraCarpetasSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-green-300 focus:ring-1 focus:ring-green-200" />
+                                    </div>
                                 </div>
-                            ) : vistaPrincipal === 'despacho' ? listaFiltrada.map(k => renderRowDespacho(k)) :
-                              vistaPrincipal === 'operaciones' ? listaFiltrada.map(k => renderRowOperaciones(k)) :
-                              listaFiltrada.map(k => renderRowCalidad(k))
-                            }
+                            </div>
+                            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[60vh] overflow-y-auto">
+                                {bitacoraCalidadFiltrada.length === 0 ? (
+                                    <div className="col-span-full p-12 text-center text-slate-500">
+                                        <Icons.Folder size={48} className="mx-auto mb-3 opacity-40"/>
+                                        <p className="font-medium">{bitacoraCalidad.length === 0 ? 'No hay registros en bitácora' : 'Sin resultados'}</p>
+                                    </div>
+                                ) : bitacoraCalidadFiltrada.map(({ fecha, kits: ks, count }) => (
+                                    <button key={fecha} onClick={() => setBitacoraFechaAbierta(fecha)} className="flex items-center gap-3 p-4 rounded-2xl border-2 border-slate-200 hover:border-green-400 hover:bg-green-50/50 transition-all text-left btn-hover-effect group">
+                                        <div className="p-2.5 rounded-xl bg-green-100 text-green-700 group-hover:bg-green-200"><Icons.Folder size={24}/></div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-bold text-slate-800 truncate">{formatearFechaBitacora(fecha)}</div>
+                                            <div className="text-xs text-slate-500">{count} kit(s)</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
+
+                    {bitacoraFechaAbierta && (
+                        <Modal isOpen={true} onClose={() => { setBitacoraFechaAbierta(null); setBitacoraModalSearch(''); }} title={`Bitácora Calidad — ${formatearFechaBitacora(bitacoraFechaAbierta)}`} maxWidth="max-w-4xl">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-500">Kits revisados en Calidad este día. Puedes modificar aunque ya se hayan enviado a logística.</p>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <div className="relative flex-1 min-w-[180px]">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                        <input type="text" placeholder="Buscar por nombre o DNI..." value={bitacoraModalSearch} onChange={e=>setBitacoraModalSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl border border-slate-200 text-sm outline-none focus:border-green-300 focus:ring-1 focus:ring-green-200" />
+                                    </div>
+                                    <span className="text-sm text-slate-500">{kitsBitacoraCalidadDiaFiltrados.length !== kitsBitacoraCalidadDia.length ? `${kitsBitacoraCalidadDiaFiltrados.length} de ${kitsBitacoraCalidadDia.length}` : `${kitsBitacoraCalidadDia.length} kit(s)`}</span>
+                                </div>
+                                <div className="divide-y divide-slate-100 max-h-[50vh] overflow-y-auto rounded-xl border border-slate-100">
+                                    {kitsBitacoraCalidadDiaFiltrados.map(k => renderRowBitacoraCalidad(k))}
+                                </div>
+                                <div className="flex justify-end pt-2">
+                                    <button onClick={() => { setBitacoraFechaAbierta(null); setBitacoraModalSearch(''); }} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
 
                     {showVerModal && verKit && (
                         <Modal isOpen={true} onClose={cerrarVer} title="Ver kit" maxWidth="max-w-2xl">
@@ -3124,48 +3335,165 @@
                     )}
 
                     {showTrabajarForm && trabajarKit && (
-                        <Modal isOpen={true} onClose={cerrarTrabajar} title="Revisar kit — Calidad" maxWidth="max-w-2xl">
-                            {trabajarGuardado ? (
+                        <Modal isOpen={true} onClose={cerrarTrabajar} title={trabajarGuardado ? (trabajarEnviadoLogistica ? "Enviado a logística" : "Revisión guardada — Calidad") : "Trabajar kit — Calidad"} maxWidth="max-w-4xl">
+                            {trabajarEnviadoLogistica ? (
                                 <div className="text-center py-8">
-                                    <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                                        <Icons.CheckCircle size={28} className="text-green-600"/>
+                                    <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4"><Icons.CheckCircle size={28} className="text-emerald-600"/></div>
+                                    <p className="font-bold text-emerald-800 text-lg">Kit enviado a logística</p>
+                                    <div className="pt-4"><button type="button" onClick={cerrarTrabajar} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700">Cerrar</button></div>
+                                </div>
+                            ) : trabajarGuardado ? (
+                                <div className="space-y-4">
+                                    <div className="text-center py-4">
+                                        <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3"><Icons.CheckCircle size={28} className="text-green-600"/></div>
+                                        <p className="font-bold text-green-800 text-lg">{(trabajarKit?.fechaEntregaLogistica && String(trabajarKit.fechaEntregaLogistica).trim()) ? 'Revisión actualizada correctamente' : 'Revisión registrada correctamente'}</p>
+                                        <p className="text-sm text-slate-500 mt-1">{(trabajarKit?.fechaEntregaLogistica && String(trabajarKit.fechaEntregaLogistica).trim()) ? 'El kit ya fue enviado a logística. Los cambios se guardaron.' : 'El kit sale de tu lista de espera. Envía a logística para continuar.'}</p>
                                     </div>
-                                    <p className="font-bold text-green-800 text-lg">Revisión registrada correctamente</p>
-                                    <p className="text-sm text-slate-500 mt-1">El kit sale de tu lista de espera.</p>
+                                    {(!trabajarKit?.fechaEntregaLogistica || !String(trabajarKit.fechaEntregaLogistica).trim()) ? (
+                                        <button type="button" onClick={handleEnviarALogistica} className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 flex items-center justify-center gap-2">
+                                            ✓ Enviar a logística
+                                        </button>
+                                    ) : null}
+                                    <div className="pt-2"><button type="button" onClick={cerrarTrabajar} className="w-full py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700">Cerrar</button></div>
                                 </div>
                             ) : (
-                                <form onSubmit={handleTrabajarSubmit} className="space-y-4">
+                                <form onSubmit={handleTrabajarSubmit} className="space-y-5">
                                     {(() => {
                                         const pt = (patients || []).find(p => p.id === trabajarKit.patientId || (p.dni && trabajarKit.dni && String(p.dni).trim() === String(trabajarKit.dni).trim()));
+                                        const k = trabajarKitLocal || trabajarKit;
+                                        const meds = k.medicamentos || [];
+                                        const horaRevision = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                                         return (
                                             <>
-                                                <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl">
-                                                    <div><span className="text-[10px] font-bold text-slate-400 block">DNI</span><span className="font-mono">{trabajarKit.dni || pt?.dni || '—'}</span></div>
-                                                    <div><span className="text-[10px] font-bold text-slate-400 block">Nombre</span><span>{trabajarKit.nombre || pt?.nombre || '—'}</span></div>
-                                                    <div><span className="text-[10px] font-bold text-slate-400 block">Enviado desde Ops</span><span className="font-mono">{trabajarKit.fechaEnvioCalidad || trabajarKit.fechaEntregaCalidad || '—'}</span></div>
-                                                    <div><span className="text-[10px] font-bold text-slate-400 block">Modo</span><span>{trabajarKit.deliveryMode === 'ruta' ? 'Ruta' : trabajarKit.deliveryMode === 'ventanilla' ? 'Ventanilla' : '—'}</span></div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-xl border border-slate-100">
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI</label><input type="text" value={trabajarKit.dni || pt?.dni || '—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-700" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nombre</label><input type="text" value={(pt?.nombre || trabajarKit.nombre || '—')} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-700" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Usuario impresión (Rev. y asignación)</label><input type="text" value={trabajarKit.digitador || '—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Contact Center asignado</label><input type="text" value={(()=>{const n=(pt?.agenteContactCenter||trabajarKit.agenteContactCenter||'').trim(); if(!n)return '—'; const u=(users||[]).find(x=>((x.nombre||x.username||'').trim().toLowerCase())===n.toLowerCase()); return u?(u.nombre||u.username||n):n;})()} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Usuario Despacho</label><input type="text" value={trabajarKit.usuarioDespachoMedicamentos || '—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Usuario Operaciones</label><input type="text" value={trabajarKit.usuarioOperaciones || '—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Usuario Calidad</label><input type="text" value={(currentUser?.name||currentUser?.nombre||currentUser?.username||'—')} disabled className="w-full p-2.5 border rounded-lg text-sm bg-green-50 text-green-800 font-semibold" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Fecha marcado impreso</label><input type="text" value={trabajarKit.fechaRecetaImpresa || trabajarKit.fechaArmado || '—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Fecha envío kit (Ops → Calidad)</label><input type="text" value={trabajarKit.fechaEnvioCalidad || trabajarKit.fechaEntregaCalidad || '—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Hora revisión (automática)</label><input type="text" value={horaRevision} disabled className="w-full p-2.5 border rounded-lg text-sm bg-green-50 text-green-800 font-mono" /></div>
                                                 </div>
-                                                {(trabajarKit.medicamentos || []).length > 0 && (
-                                                    <div className="p-4 bg-slate-50 rounded-xl">
-                                                        <h5 className="text-xs font-bold text-slate-500 mb-2">Medicamentos</h5>
-                                                        <ul className="text-sm text-slate-700 space-y-1">
-                                                            {(trabajarKit.medicamentos || []).slice(0, 12).map((m, i) => <li key={i}>{m.nombre} × {m.cantidad}</li>)}
-                                                            {(trabajarKit.medicamentos || []).length > 12 && <li className="text-slate-500">… y {(trabajarKit.medicamentos || []).length - 12} más</li>}
-                                                        </ul>
+                                                {(trabajarKit.deliveryMode || '').toLowerCase() === 'ruta' && (trabajarKit.direccionEntrega || trabajarKit.direccionAlternativa) && (
+                                                    <div className="p-4 bg-violet-50 rounded-xl border border-violet-200">
+                                                        <h5 className="text-xs font-bold text-violet-700 uppercase mb-2">Dirección confirmada (ruta)</h5>
+                                                        <input type="text" value={trabajarKit.direccionEntrega || trabajarKit.direccionAlternativa || '—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-white text-slate-700" />
                                                     </div>
                                                 )}
+                                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                                    <div className="flex items-center justify-between mb-3"><h5 className="text-xs font-bold text-slate-500 uppercase">Medicamentos asignados</h5><span className="text-lg font-bold text-turquoise-600 tabular-nums">{calcularMedCounter(meds).str}</span></div>
+                                                    <div className="space-y-3 max-h-60 overflow-y-auto">
+                                                        {meds.map((m, i) => {
+                                                            const va = m.dispensar !== false;
+                                                            const parcial = !!m.dispensacionParcial;
+                                                            const bg = !va ? 'bg-red-50 border-red-200' : parcial ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200';
+                                                            const label = !va ? 'No dispensado' : parcial ? 'Dispensación parcial' : 'Dispensación completa';
+                                                            const tipoStr = (m.tipo || 'no cronico').toLowerCase();
+                                                            return (
+                                                                <div key={i} className={`p-3 rounded-lg border-2 ${bg}`}>
+                                                                    <div className="flex items-start justify-between gap-3 mb-2">
+                                                                        <div className="flex-1">
+                                                                            <span className={`font-semibold ${!va?'text-red-800':parcial?'text-amber-800':'text-green-800'}`}>{m.nombre || '—'}</span>
+                                                                            <span className="ml-2 text-base font-bold text-slate-800 uppercase">{tipoStr}</span>
+                                                                            {m.observaciones && <p className={`text-xs mt-1 ${!va?'text-red-700':'text-slate-600'}`}>Obs: {m.observaciones}</p>}
+                                                                        </div>
+                                                                        <span className={`text-xs font-bold ${!va?'text-red-600':parcial?'text-amber-600':'text-green-600'}`}>{label}</span>
+                                                                    </div>
+                                                                    <div className="mt-2 pt-2 border-t border-slate-200 space-y-2">
+                                                                        <div className="flex flex-wrap items-center gap-3">
+                                                                            <div className="px-3 py-2 rounded-lg bg-slate-100 border border-slate-200">
+                                                                                <span className="text-[10px] font-bold text-slate-500 uppercase block">ID Receta / Cantidad receta</span>
+                                                                                <span className="font-mono text-sm text-slate-700">{m.idReceta || '—'} / {m.cantidadReceta ?? m.cantidad ?? '—'}</span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Cantidad registrada</label>
+                                                                                <input type="text" value={m.cantidad || ''} onChange={e=>{const nm=[...(k.medicamentos||[])]; nm[i]={...nm[i], cantidad:e.target.value}; setTrabajarKitLocal({...k, medicamentos:nm});}} className="w-20 p-2 border rounded-lg text-sm bg-white border-slate-200 font-mono" placeholder="—" />
+                                                                            </div>
+                                                                        </div>
+                                                                        {va && (
+                                                                            <div className="flex flex-wrap items-center gap-3">
+                                                                                <span className="text-[10px] font-bold text-slate-500 uppercase">Dispensación parcial</span>
+                                                                                <div className="flex gap-1">
+                                                                                    <button type="button" onClick={()=>{const nm=[...(k.medicamentos||[])]; nm[i]={...nm[i], dispensacionParcial:false}; setTrabajarKitLocal({...k, medicamentos:nm});}} className={`px-3 py-1 rounded-lg text-xs font-bold ${!parcial?'bg-slate-200 text-slate-700':'bg-slate-100 text-slate-500'}`}>No</button>
+                                                                                    <button type="button" onClick={()=>{const nm=[...(k.medicamentos||[])]; nm[i]={...nm[i], dispensacionParcial:true}; setTrabajarKitLocal({...k, medicamentos:nm});}} className={`px-3 py-1 rounded-lg text-xs font-bold ${parcial?'bg-amber-200 text-amber-800':'bg-slate-100 text-slate-500'}`}>Sí</button>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                        {meds.length === 0 && <p className="text-slate-400 text-sm">Sin medicamentos</p>}
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                                    <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">BTP</label><input type="text" value={trabajarData.btp} onChange={e=>setTrabajarData({...trabajarData, btp:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white" placeholder="Cantidad" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">BTG</label><input type="text" value={trabajarData.btg} onChange={e=>setTrabajarData({...trabajarData, btg:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white" placeholder="Cantidad" /></div>
+                                                    <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo bolsa verde</label><select value={trabajarData.tipoBolsaVerde} onChange={e=>setTrabajarData({...trabajarData, tipoBolsaVerde:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white"><option value="GRANDE">GRANDE</option><option value="PEQUEÑA">PEQUEÑA</option></select></div>
+                                                </div>
+                                                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <h5 className="text-xs font-bold text-amber-800 uppercase">Incidencias</h5>
+                                                        <button type="button" onClick={()=>{ setTrabajarData({...trabajarData, incidenciasActivo:!trabajarData.incidenciasActivo}); setIncidenciaMedIdx(null); }} className={`px-4 py-2 rounded-xl text-sm font-bold ${trabajarData.incidenciasActivo?'bg-amber-600 text-white':'bg-amber-100 text-amber-800'}`}>{trabajarData.incidenciasActivo ? 'Activado' : 'Activar'}</button>
+                                                    </div>
+                                                    {trabajarData.incidenciasActivo && (
+                                                        <div className="space-y-3">
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {meds.map((m, idx)=>(
+                                                                    <button key={idx} type="button" onClick={()=>{ setIncidenciaMedIdx(idx); setIncidenciaTipoSel('error_cantidad'); setIncidenciaOtraTexto(''); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${incidenciaMedIdx===idx?'bg-amber-200 border-amber-500 ring-2 ring-amber-400':'bg-white border-amber-300 text-amber-800'}`}>+ {m.nombre||'Med '+(idx+1)}</button>
+                                                                ))}
+                                                                <button type="button" onClick={()=>{const t=prompt('Descripción incidencia (otra):'); if(t&&t.trim()) setTrabajarData({...trabajarData, incidencias:[...(trabajarData.incidencias||[]), {tipo:'otra', texto:t.trim()}]});}} className="px-3 py-1.5 rounded-lg bg-amber-200 text-amber-900 text-xs font-bold">+ Otra</button>
+                                                            </div>
+                                                            {incidenciaMedIdx !== null && meds[incidenciaMedIdx] && (
+                                                                <div className="p-3 rounded-xl bg-white border-2 border-amber-300 space-y-2">
+                                                                    <p className="text-xs font-bold text-amber-800">Qué incidencia pasó en <span className="font-bold text-base uppercase">{(meds[incidenciaMedIdx].tipo||'no cronico')}</span> — {meds[incidenciaMedIdx].nombre || 'Med '+(incidenciaMedIdx+1)}</p>
+                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                        <select value={incidenciaTipoSel} onChange={e=>setIncidenciaTipoSel(e.target.value)} className="p-2 rounded-lg border border-amber-300 text-sm font-medium bg-white">
+                                                                            <option value="error_cantidad">Error de cantidad de medicamentos</option>
+                                                                            <option value="falta_stock">Falta de stock</option>
+                                                                            <option value="daniado">Dañado</option>
+                                                                            <option value="otro">Otro</option>
+                                                                        </select>
+                                                                        {incidenciaTipoSel === 'otro' && <input type="text" value={incidenciaOtraTexto} onChange={e=>setIncidenciaOtraTexto(e.target.value)} placeholder="Describe..." className="p-2 rounded-lg border border-amber-300 text-sm flex-1 min-w-[120px]" />}
+                                                                        <button type="button" disabled={incidenciaTipoSel==='otro'&&!incidenciaOtraTexto.trim()} onClick={()=>{const med=meds[incidenciaMedIdx]; const inc={tipo:'medicamento', medIdx:incidenciaMedIdx, medicamento:med.nombre, tipoMed:med.tipo||'no cronico', incidenciaTipo:incidenciaTipoSel, incidenciaTexto:incidenciaTipoSel==='otro'?incidenciaOtraTexto.trim():null}; setTrabajarData({...trabajarData, incidencias:[...((trabajarData.incidencias||[]).filter(x=>!(x.tipo==='medicamento'&&x.medIdx===incidenciaMedIdx))), inc]}); setIncidenciaMedIdx(null); setIncidenciaOtraTexto(''); }} className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">Añadir</button>
+                                                                        <button type="button" onClick={()=>{ setIncidenciaMedIdx(null); setIncidenciaOtraTexto(''); }} className="px-3 py-2 rounded-lg bg-slate-200 text-slate-700 text-sm font-bold">Cancelar</button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {(trabajarData.incidencias||[]).length>0 && (
+                                                                <ul className="text-sm text-slate-700 space-y-2">
+                                                                    {(trabajarData.incidencias||[]).map((inc,j)=>(
+                                                                        <li key={j} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white/80 border border-amber-200">
+                                                                            <span className="flex-1 min-w-0">
+                                                                                {inc.tipo==='medicamento' ? (
+                                                                                    <><span className="font-bold text-base text-slate-800">{(inc.tipoMed||'no cronico').toUpperCase()}</span> — {inc.medicamento}{inc.incidenciaTipo ? <span className="text-amber-700 font-medium"> · {inc.incidenciaTipo==='error_cantidad'?'Error de cantidad':inc.incidenciaTipo==='falta_stock'?'Falta de stock':inc.incidenciaTipo==='daniado'?'Dañado':inc.incidenciaTexto||'Otro'}</span> : null}</>
+                                                                                ) : (
+                                                                                    <span>{inc.texto}</span>
+                                                                                )}
+                                                                            </span>
+                                                                            <button type="button" onClick={()=>setTrabajarData({...trabajarData, incidencias:(trabajarData.incidencias||[]).filter((_,i)=>i!==j)})} className="text-red-600 hover:underline text-xs font-bold shrink-0">Quitar</button>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="p-4 bg-green-50 rounded-xl border border-green-200">
+                                                    <label className="text-[10px] font-bold text-green-800 uppercase block mb-2">Observaciones calidad</label>
+                                                    <textarea className="w-full p-3 border border-green-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-green-300 outline-none" rows={2} value={trabajarData.observacionesCalidad||''} onChange={e=>setTrabajarData({...trabajarData, observacionesCalidad:e.target.value})} placeholder="Observaciones de la revisión..." />
+                                                </div>
+                                                <p className="text-xs text-slate-500">Hora de revisión automática. Al guardar se registra la revisión y el kit sale de tu lista. Luego puedes enviar a logística.</p>
+                                                <div className="flex gap-3 pt-2">
+                                                    <button type="submit" className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700">Guardar</button>
+                                                    <button type="button" onClick={cerrarTrabajar} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
+                                                </div>
                                             </>
                                         );
                                     })()}
-                                    <div className="p-4 bg-green-50 rounded-xl border border-green-200">
-                                        <label className="text-[10px] font-bold text-green-800 uppercase block mb-2">Observaciones calidad</label>
-                                        <textarea className="w-full p-3 border border-green-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-green-300 focus:border-green-400 outline-none" rows={3} value={trabajarData.observacionesCalidad || ''} onChange={e => setTrabajarData({ ...trabajarData, observacionesCalidad: e.target.value })} placeholder="Observaciones de la revisión..." />
-                                    </div>
-                                    <p className="text-xs text-slate-500">Al guardar se registra la revisión y el kit sale de tu lista de espera.</p>
-                                    <div className="flex gap-3 pt-2">
-                                        <button type="submit" className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700">Guardar revisión</button>
-                                        <button type="button" onClick={cerrarTrabajar} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
-                                    </div>
                                 </form>
                             )}
                         </Modal>
@@ -10915,10 +11243,10 @@ Responde en formato JSON con esta estructura:
             const NavItem = ({ id, label, icon: Icon }) => (
                 <button 
                     onClick={() => { setView(id); setMobileMenuOpen(false); }} 
-                    className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect ${view === id ? 'bg-gradient-to-r from-turquoise-500 to-turquoise-600 text-white shadow-lg' : 'hover:bg-turquoise-800/50 text-turquoise-300'} ${sidebarCollapsed ? 'justify-center' : ''}`}
+                    className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation ${view === id ? 'bg-gradient-to-r from-turquoise-500 to-turquoise-600 text-white shadow-lg' : 'hover:bg-turquoise-800/50 text-turquoise-300'} ${sidebarCollapsed ? 'justify-center' : ''}`}
                 >
-                    <Icon size={20} className={view === id ? 'text-white' : 'text-turquoise-400 group-hover:text-white'} />
-                    <span className={`whitespace-nowrap transition-opacity duration-300 ${sidebarCollapsed ? 'hidden opacity-0 w-0' : 'block opacity-100'}`}>
+                    <Icon size={20} className={view === id ? 'text-white' : 'text-turquoise-400 group-hover:text-white shrink-0'} />
+                    <span className={`whitespace-nowrap transition-opacity duration-300 text-left ${sidebarCollapsed ? 'hidden opacity-0 w-0' : 'block opacity-100'}`}>
                         {label}
                     </span>
                 </button>
@@ -10930,10 +11258,10 @@ Responde en formato JSON con esta estructura:
             };
 
             return (
-                <div className="flex h-screen bg-[#f0fdfa] font-sans overflow-hidden">
+                <div className="flex h-screen bg-[#f0fdfa] font-sans overflow-hidden overflow-x-hidden">
                     {mobileMenuOpen && ( 
-                        <div className="fixed inset-0 z-50 bg-turquoise-900/95 backdrop-blur-sm flex flex-col md:hidden animate-in">
-                            <div className="p-4 flex justify-between items-center border-b border-turquoise-800">
+                        <div className="fixed inset-0 z-[100] bg-turquoise-900/95 backdrop-blur-sm flex flex-col md:hidden animate-in" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                            <div className="p-4 flex justify-between items-center border-b border-turquoise-800 shrink-0">
                                 <div className="font-bold text-white text-xl flex items-center gap-2 brand-font">
                                     <img 
                                         src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" 
@@ -10945,11 +11273,11 @@ Responde en formato JSON con esta estructura:
                                     />
                                     IHSS A TU CASA
                                 </div>
-                                <button onClick={() => setMobileMenuOpen(false)} className="text-white p-2 bg-turquoise-800 rounded-full btn-hover-effect">
+                                <button onClick={() => setMobileMenuOpen(false)} className="text-white p-3 min-w-[44px] min-h-[44px] flex items-center justify-center bg-turquoise-800 rounded-full btn-hover-effect touch-manipulation" aria-label="Cerrar menú">
                                     <Icons.X size={24}/>
                                 </button>
                             </div>
-                            <div className="p-6 space-y-4">
+                            <div className="p-6 space-y-1 overflow-y-auto flex-1">
                                 <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
                                 {canViewReports && <NavItem id="reports" label={role === 'supervisor' ? 'Reportes de mi Dept.' : 'Reportes'} icon={Icons.List} />}
                                 {showCalendario && <NavItem id="calendario" label="Calendario" icon={Icons.Calendar} />}
@@ -10959,8 +11287,8 @@ Responde en formato JSON con esta estructura:
                                 {canViewPacientes && <NavItem id="pacientes" label="Pacientes" icon={Icons.Users} />}
                                 {canViewConfig && <NavItem id="config" label="Configuración" icon={Icons.Settings} />}
                                 {canViewConfig && <NavItem id="users" label="Usuarios" icon={Icons.UserCog} />}
-                                <div className="pt-8 border-t border-turquoise-800">
-                                    <button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl bg-turquoise-800 text-white font-bold btn-hover-effect">
+                                <div className="pt-6 mt-4 border-t border-turquoise-800">
+                                    <button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl bg-turquoise-800 text-white font-bold btn-hover-effect touch-manipulation">
                                         <Icons.LogOut size={20}/> Desconectar
                                     </button>
                                 </div>
@@ -11047,25 +11375,25 @@ Responde en formato JSON con esta estructura:
                         </div>
                     </aside>
 
-                    <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#f0fdfa] relative transition-all duration-300">
-                        <div className="md:hidden bg-white/80 backdrop-blur-md p-4 shadow-sm flex justify-between items-center z-20">
-                            <button onClick={() => setMobileMenuOpen(true)} className="text-slate-600 p-1 btn-hover-effect">
+                    <main className="flex-1 flex flex-col h-full overflow-hidden overflow-x-hidden bg-[#f0fdfa] relative transition-all duration-300 min-w-0">
+                        <header className="md:hidden fixed top-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur-md shadow-sm flex justify-between items-center h-14 shrink-0 border-b border-slate-200" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+                            <button onClick={() => setMobileMenuOpen(true)} className="text-slate-600 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 btn-hover-effect touch-manipulation rounded-xl" aria-label="Abrir menú">
                                 <Icons.Menu size={24}/>
                             </button>
-                            <div className="font-bold text-slate-800 flex items-center gap-2 brand-font">
+                            <div className="font-bold text-slate-800 flex items-center gap-2 brand-font text-base truncate flex-1 justify-center">
                                 <img 
                                     src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" 
                                     alt="IHSS Logo" 
-                                    className="w-5 h-5 object-contain"
+                                    className="w-5 h-5 object-contain shrink-0"
                                     onError={(e) => {
                                         e.target.style.display = 'none';
                                     }}
                                 />
-                                IHSS A TU CASA
+                                <span className="truncate">IHSS A TU CASA</span>
                             </div>
-                            <div className="w-8"></div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative z-10">
+                            <div className="w-10 shrink-0" aria-hidden="true"></div>
+                        </header>
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} patients={patients} users={users} permissions={permissions} />}
                             {view === 'reports' && canViewReports && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} currentUser={currentUserForBlocks} users={users} />}
                             {view === 'calendario' && showCalendario && <CalendarioBlock kits={kits} patients={patients} setView={setView} currentUser={currentUserForBlocks} users={users} role={role} />}
