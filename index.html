@@ -268,6 +268,30 @@
             .mobile-header-height { height: 56px; min-height: 56px; }
             .mobile-content-pt { padding-top: calc(56px + env(safe-area-inset-top, 0px)) !important; }
         }
+        /* Móvil horizontal: adaptar a viewport reducido en altura */
+        @media (max-width: 767px) and (orientation: landscape) {
+            html, body {
+                height: 100vh;
+                height: 100dvh;
+                min-height: 100vh;
+                min-height: 100dvh;
+                max-height: 100vh;
+                max-height: 100dvh;
+                overflow: hidden;
+                -webkit-overflow-scrolling: touch;
+            }
+            #root { height: 100%; min-height: 0; }
+            .app-layout {
+                height: 100% !important;
+                min-height: 0 !important;
+                max-height: 100% !important;
+            }
+            .mobile-header-height { height: 44px; min-height: 44px; }
+            .mobile-content-pt { padding-top: calc(44px + env(safe-area-inset-top, 0px)) !important; }
+            .main-col { min-height: 0 !important; }
+            .mobile-content-area { min-height: 0 !important; }
+            .mobile-modal-top { top: 44px !important; }
+        }
         .glass-panel { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05); }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -823,7 +847,7 @@
             }, [isOpen, onClose]);
             if (!isOpen) return null;
             return (
-                <div className="fixed left-0 right-0 bottom-0 top-14 md:top-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in overflow-y-auto">
+                <div className="mobile-modal-top fixed left-0 right-0 bottom-0 top-14 md:top-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in overflow-y-auto">
                     <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidth} overflow-hidden flex flex-col max-h-[85vh] md:max-h-[90vh] modal-animate my-auto`}>
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                             <h3 className="font-bold text-lg text-slate-800 brand-font">{title}</h3>
@@ -846,7 +870,7 @@
             }, [isOpen, onClose]);
             if (!isOpen) return null;
             return (
-                <div className="fixed left-0 right-0 bottom-0 top-14 md:top-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in">
+                <div className="mobile-modal-top fixed left-0 right-0 bottom-0 top-14 md:top-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col modal-animate p-6 text-center">
                         <h3 className="text-lg font-medium text-slate-900 mb-2">{title}</h3>
                         <p className="text-sm text-slate-500 mb-6">{message}</p>
@@ -11445,7 +11469,7 @@ Responde en formato JSON con esta estructura:
             };
 
             return (
-                <div className="flex h-screen bg-[#f0fdfa] font-sans overflow-hidden overflow-x-hidden">
+                <div className="app-layout flex h-screen bg-[#f0fdfa] font-sans overflow-hidden overflow-x-hidden">
                     {mobileMenuOpen && ( 
                         <div className="fixed inset-0 z-[100] bg-turquoise-900/95 backdrop-blur-sm flex flex-col md:hidden animate-in" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
                             <div className="p-4 flex justify-between items-center border-b border-turquoise-800 shrink-0">
@@ -11562,8 +11586,8 @@ Responde en formato JSON con esta estructura:
                         </div>
                     </aside>
 
-                    <main className="flex-1 flex flex-col h-full overflow-hidden overflow-x-hidden bg-[#f0fdfa] relative transition-all duration-300 min-w-0">
-                        <header className="md:hidden fixed top-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur-md shadow-sm flex justify-between items-center h-14 shrink-0 border-b border-slate-200" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+                    <main className="main-col flex-1 flex flex-col h-full overflow-hidden overflow-x-hidden bg-[#f0fdfa] relative transition-all duration-300 min-w-0">
+                        <header className="md:hidden mobile-header-height fixed top-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur-md shadow-sm flex justify-between items-center h-14 shrink-0 border-b border-slate-200" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
                             <button onClick={() => setMobileMenuOpen(true)} className="text-slate-600 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 btn-hover-effect touch-manipulation rounded-xl" aria-label="Abrir menú">
                                 <Icons.Menu size={24}/>
                             </button>
@@ -11580,7 +11604,7 @@ Responde en formato JSON con esta estructura:
                             </div>
                             <div className="w-10 shrink-0" aria-hidden="true"></div>
                         </header>
-                        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
+                        <div className="mobile-content-area flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} patients={patients} users={users} permissions={permissions} />}
                             {view === 'reports' && canViewReports && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} currentUser={currentUserForBlocks} users={users} />}
                             {view === 'calendario' && showCalendario && <CalendarioBlock kits={kits} patients={patients} setView={setView} currentUser={currentUserForBlocks} users={users} role={role} onSaveKit={saveKit} />}
