@@ -358,12 +358,18 @@
         
         .fab-button:hover {
             transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 6px 20px rgb(0, 0, 0);
         }
         
         .fab-menu-item {
             margin-bottom: 0.75rem;
             animation: slideInUp 0.2s ease-out;
+        }
+        
+        /* Iconos elegantes: trazo refinado y antialiasing */
+        .icon-elegant {
+            stroke-width: 1.75;
+            -webkit-font-smoothing: antialiased;
         }
     </style>
 </head>
@@ -767,24 +773,24 @@
         const { useState, useEffect, useMemo } = React;
         
         // --- ICONS ---
-        const Icon = ({ path, className = "w-5 h-5", size = 20 }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>;
+        const Icon = ({ path, className = "w-5 h-5", size = 20 }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={`icon-elegant ${className || "w-5 h-5"}`.trim()} style={{ flexShrink: 0 }}>{path}</svg>;
         const Icons = {
             Activity: (p) => <Icon {...p} path={<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>} />,
             AlertCircle: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></>} />,
-            Users: (p) => <Icon {...p} path={<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>} />,
+            Users: (p) => <Icon {...p} path={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></>} />,
             Search: (p) => <Icon {...p} path={<><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></>} />,
-            LogOut: (p) => <Icon {...p} path={<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>} />,
+            LogOut: (p) => <Icon {...p} path={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></>} />,
             Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></>} />,
             Calendar: (p) => <Icon {...p} path={<><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></>} />,
-            Settings: (p) => <Icon {...p} path={<circle cx="12" cy="12" r="3"></circle>} />,
+            Settings: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></>} />,
             Plus: (p) => <Icon {...p} path={<><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></>} />,
-            Trash: (p) => <Icon {...p} path={<polyline points="3 6 5 6 21 6"></polyline>} />,
-            Printer: (p) => <Icon {...p} path={<polyline points="6 9 6 2 18 2 18 9"></polyline>} />,
+            Trash: (p) => <Icon {...p} path={<><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></>} />,
+            Printer: (p) => <Icon {...p} path={<><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></>} />,
             ChevronsRight: (p) => <Icon {...p} path={<polyline points="13 17 18 12 13 7"></polyline>} />,
-            UserCog: (p) => <Icon {...p} path={<circle cx="12" cy="7" r="4"></circle>} />,
-            Menu: (p) => <Icon {...p} path={<line x1="3" y1="12" x2="21" y2="12"></line>} />,
-            X: (p) => <Icon {...p} path={<line x1="18" y1="6" x2="6" y2="18"></line>} />,
-            FileText: (p) => <Icon {...p} path={<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>} />,
+            UserCog: (p) => <Icon {...p} path={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></>} />,
+            Menu: (p) => <Icon {...p} path={<><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line></>} />,
+            X: (p) => <Icon {...p} path={<><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></>} />,
+            FileText: (p) => <Icon {...p} path={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></>} />,
             Upload: (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></>} />,
             Edit: (p) => <Icon {...p} path={<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></>} />,
             ArrowLeft: (p) => <Icon {...p} path={<><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></>} />,
@@ -793,7 +799,7 @@
             Redo: (p) => <Icon {...p} path={<><polyline points="21 7 21 1 15 1"></polyline><path d="M3 12v6a2 2 0 0 0 2 2h16"></path><path d="M21 12l-9-9-9 9"></path></>} />,
             Minus: (p) => <Icon {...p} path={<line x1="5" y1="12" x2="19" y2="12"></line>} />,
             Folder: (p) => <Icon {...p} path={<><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></>} />,
-            LayoutDashboard: (p) => <Icon {...p} path={<><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></>} />,
+            LayoutDashboard: (p) => <Icon {...p} path={<><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></>} />,
             List: (p) => <Icon {...p} path={<><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></>} />,
             Download: (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></>} />,
             Bot: (p) => <Icon {...p} path={<><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></>} />,
@@ -807,9 +813,9 @@
             RefreshCw: (p) => <Icon {...p} path={<><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></>} />,
             Layout: (p) => <Icon {...p} path={<><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></>} />,
             Type: (p) => <Icon {...p} path={<><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></>} />,
-            Image: (p) => <Icon {...p} path={<><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></>} />,
-            Grid: (p) => <Icon {...p} path={<><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></>} />,
-            QrCode: (p) => <Icon {...p} path={<><rect x="3" y="3" width="8" height="8"></rect><rect x="13" y="3" width="8" height="8"></rect><rect x="3" y="13" width="8" height="8"></rect><rect x="13" y="13" width="8" height="8"></rect></>} />,
+            Image: (p) => <Icon {...p} path={<><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m21 15-5-5L5 21"></path></>} />,
+            Grid: (p) => <Icon {...p} path={<><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></>} />,
+            QrCode: (p) => <Icon {...p} path={<><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></>} />,
             AlignLeft: (p) => <Icon {...p} path={<><line x1="21" y1="10" x2="7" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="7" y2="18"></line></>} />,
             AlignCenter: (p) => <Icon {...p} path={<><line x1="18" y1="10" x2="6" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="18" y1="18" x2="6" y2="18"></line></>} />,
             AlignRight: (p) => <Icon {...p} path={<><line x1="21" y1="10" x2="7" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="7" y2="18"></line></>} />,
@@ -1447,10 +1453,11 @@
             useEffect(() => { const t = setInterval(()=>setTime(new Date()),1000); return ()=>clearInterval(t); }, []);
             const userDept = (currentUser?.departamento || '').toLowerCase();
             const userRoles = currentUser?.rolesDepartamento || [];
-            const { showCalendario, showDespacho, showOperaciones, canViewReports, canViewConfig, canViewPacientes } = permissions || {};
+            const { showCalendario, showDespacho, showOperaciones, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo } = permissions || {};
             const allCards = [
                 { id: 'reports', label: 'Reportes y Carpetas', icon: Icons.List, color: 'bg-amber-500', desc: 'Ver kits por fecha', allow: () => !!canViewReports && (role === 'admin' || role === 'superadmin') },
                 { id: 'reports', label: 'Reportes de mi Departamento', icon: Icons.List, color: 'bg-amber-500', desc: 'Generar reportes de tu departamento', allow: () => !!canViewReports && role === 'supervisor' },
+                { id: 'bitacora', label: 'Bitácora de trabajo', icon: Icons.Activity, color: 'bg-violet-600', desc: 'Mi trabajo del día en Contact Center', allow: () => !!showBitacoraTrabajo },
                 { id: 'calendario', label: 'Calendario', icon: Icons.Calendar, color: 'bg-emerald-500', desc: 'Ver programación y semáforos', allow: () => !!showCalendario },
                 { id: 'despacho', label: 'Lista de espera', icon: Icons.Box, color: 'bg-violet-500', desc: 'Kits de Revisión y asignación', allow: () => !!showDespacho },
                 { id: 'operaciones', label: 'Lista de espera Operaciones', icon: Icons.Box, color: 'bg-amber-600', desc: 'Kits enviados por Despacho', allow: () => !!showOperaciones },
@@ -1572,7 +1579,7 @@
 
         const CALENDAR_OMITTED_KEY = 'calendar_omitted';
 
-        const CalendarioBlock = ({ kits, patients, setView, currentUser, users = [], role, onSaveKit }) => {
+        const CalendarioBlock = ({ kits, patients, setView, currentUser, users = [], role, onSaveKit, permissions = {} }) => {
             const userDept = (currentUser?.departamento || '').toLowerCase();
             const userRoles = currentUser?.rolesDepartamento || [];
             const isRev = userDept === 'farmacia' && userRoles.includes('revision y asignacion');
@@ -1781,7 +1788,10 @@
                     deliveryMode: (s._sourceKit?.deliveryMode || 'ventanilla'),
                     triggerMeds: (s.medicamentos || []).length ? `${(s.medicamentos || []).length}/${(s.medicamentos || []).length}` : '',
                 };
-                if ((s._sourceKit?.deliveryMode || '').toLowerCase() === 'ventanilla') payload.recetaImpresa = true;
+                if ((s._sourceKit?.deliveryMode || '').toLowerCase() === 'ventanilla') {
+                    payload.recetaImpresa = true;
+                    payload.fechaImpresionReceta = new Date().toISOString().split('T')[0];
+                }
                 try {
                     await onSaveKit(null, payload, s.patient.id, false);
                     setOmitted(prev => {
@@ -1803,17 +1813,43 @@
                 setSuggestionModal(null);
             };
 
-            const goToPatientKit = (patient, kit) => {
+            const { showCalidad, showBitacoraTrabajo, showOperaciones } = permissions || {};
+            const goToPatientKit = (patient, kit, opts = {}) => {
                 try {
-                    sessionStorage.setItem('editKitFromReports', JSON.stringify({
-                        kitId: kit?.id,
-                        patientId: patient.id,
-                        kitData: kit || {},
-                        patient: patient,
-                        viewOnly: true,
-                    }));
+                    if (opts.openPatientOnly) {
+                        sessionStorage.setItem('editKitFromReports', JSON.stringify({
+                            patientId: patient.id,
+                            patient: patient,
+                            openPatientOnly: true,
+                        }));
+                    } else {
+                        sessionStorage.setItem('editKitFromReports', JSON.stringify({
+                            kitId: kit?.id,
+                            patientId: patient.id,
+                            kitData: kit || {},
+                            patient: patient,
+                            viewOnly: true,
+                        }));
+                    }
                 } catch (_) {}
                 setView('pacientes');
+                closeDayModal();
+            };
+            const goToTrabajar = (patient, pKits, dateStr) => {
+                try {
+                    if (isCC && showBitacoraTrabajo) {
+                        sessionStorage.setItem('trabajarFromCalendar', JSON.stringify({ area: 'cc', date: dateStr, patientId: patient.id }));
+                        setView('bitacora');
+                    } else if (isRev && (showOperaciones || showCalidad)) {
+                        const kit = (pKits && pKits[0]) || null;
+                        if (!kit) { alert('No hay kit para trabajar para este paciente en este día.'); return; }
+                        sessionStorage.setItem('trabajarFromCalendar', JSON.stringify({ area: 'rev', kitId: kit.id, patientId: patient.id }));
+                        setView(showOperaciones ? 'operaciones' : 'calidad');
+                    } else {
+                        alert('No tienes acceso al formulario de trabajo para tu área.');
+                        return;
+                    }
+                } catch (_) {}
                 closeDayModal();
             };
 
@@ -1935,7 +1971,12 @@
                                                         <button onClick={() => setSuggestionModal({ ...suggestion, suggestionModalDate: suggestion.suggestedDate })} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700">Aceptar / Omitir</button>
                                                     </div>
                                                 ) : (
-                                                    <button onClick={() => goToPatientKit(patient, (pKits || [])[0])} className="px-3 py-1.5 rounded-lg bg-turquoise-600 text-white text-xs font-bold hover:bg-turquoise-700">Ver</button>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => goToPatientKit(patient, (pKits || [])[0], { openPatientOnly: true })} className="px-3 py-1.5 rounded-lg bg-turquoise-600 text-white text-xs font-bold hover:bg-turquoise-700">Ver</button>
+                                                        {((isCC && showBitacoraTrabajo) || (isRev && (showOperaciones || showCalidad))) && (
+                                                            <button onClick={() => goToTrabajar(patient, pKits || [], selectedDay)} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">Trabajar</button>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         ))
@@ -2197,6 +2238,13 @@
                     return nombre.includes(t) || dni.includes(t);
                 });
             }, [listadoParaTab, patients, listaEsperaSearch]);
+
+            useEffect(() => {
+                if (listaEsperaTab === 'bitacora') return;
+                if (listaEsperaTab === 'ventanilla' && listaKitsVentanilla.length === 0 && listaKitsRuta.length > 0) setListaEsperaTab('ruta');
+                else if (listaEsperaTab === 'ruta' && listaKitsRuta.length === 0 && listaKitsVentanilla.length > 0) setListaEsperaTab('ventanilla');
+            }, [listaEsperaTab, listaKitsVentanilla.length, listaKitsRuta.length]);
+
             return (
                 <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
                     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -2235,7 +2283,7 @@
                     <div className="bg-white rounded-3xl shadow-soft border border-slate-100 overflow-hidden">
                         <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-3">
-                                <span className="font-bold text-slate-700">Bitácora — Todo lo trabajado en el día, por carpetas</span>
+                                <span className="font-bold text-slate-700">Bitácora Lista de Despacho — Envíos a Operaciones por fecha</span>
                                 <div className="relative w-full sm:w-56">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
                                     <input type="text" placeholder="Buscar por fecha (ej. 2025-01, ene)..." value={bitacoraCarpetasSearch} onChange={e=>setBitacoraCarpetasSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-200" />
@@ -2397,6 +2445,7 @@
             const [trabajarGuardado, setTrabajarGuardado] = useState(false);
             const [trabajarKitActualizado, setTrabajarKitActualizado] = useState(null);
             const [viñetasImpresas, setViñetasImpresas] = useState(false);
+            const [editandoDesdeBitacora, setEditandoDesdeBitacora] = useState(false);
 
             useEffect(() => {
                 setBitacoraFechaAbierta(null);
@@ -2504,15 +2553,18 @@
 
             const abrirVer = (kit) => { setVerKit(kit); setShowVerModal(true); };
             const cerrarVer = () => { setVerKit(null); setShowVerModal(false); };
-            const abrirTrabajar = (kit) => {
+            const abrirTrabajar = (kit, desdeBitacora = false) => {
                 setTrabajarKit(kit);
                 setTrabajarGuardado(false);
                 setTrabajarKitActualizado(null);
+                setEditandoDesdeBitacora(!!desdeBitacora);
                 const today = new Date().toISOString().split('T')[0];
                 const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                const fa = (kit.fechaArmado || '').toString().slice(0, 10) || today;
+                const ho = (kit.horaOperaciones || '').toString().trim() || now;
                 setTrabajarData({
-                    fechaArmado: today,
-                    horaOperaciones: now,
+                    fechaArmado: desdeBitacora ? fa : today,
+                    horaOperaciones: desdeBitacora ? ho : now,
                     isRefrigerated: !!kit.isRefrigerated,
                     cantRefriGlobal: kit.cantRefriGlobal != null ? String(kit.cantRefriGlobal) : ''
                 });
@@ -2523,9 +2575,21 @@
                 setTrabajarKitActualizado(null);
                 setTrabajarGuardado(false);
                 setViñetasImpresas(false);
+                setEditandoDesdeBitacora(false);
                 setTrabajarData({ fechaArmado: '', horaOperaciones: '', isRefrigerated: false, cantRefriGlobal: '' });
                 setShowTrabajarForm(false);
             };
+            useEffect(() => {
+                try {
+                    const raw = sessionStorage.getItem('trabajarFromCalendar');
+                    if (!raw) return;
+                    const data = JSON.parse(raw);
+                    if ((data.area || '') !== 'rev' || !data.kitId) return;
+                    sessionStorage.removeItem('trabajarFromCalendar');
+                    const kit = (kits || []).find(k => k.id === data.kitId);
+                    if (kit) abrirTrabajar(kit);
+                } catch (_) {}
+            }, [kits]);
             const handleTrabajarSubmit = async (e) => {
                 e.preventDefault();
                 if (!trabajarKit || !onSaveKit) return;
@@ -2598,11 +2662,18 @@
                 );
             };
 
+            const esOperadorQueTrabajo = (kit) => {
+                const u = (kit.usuarioOperaciones || '').trim().toLowerCase();
+                const c = (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim().toLowerCase();
+                return !!u && !!c && u === c;
+            };
+
             const renderRowBitacoraOps = (kit) => {
                 const pt = (patients || []).find(p => p.id === kit.patientId || (p.dni && kit.dni && String(p.dni).trim() === String(kit.dni).trim()));
                 const isRuta = (kit.deliveryMode || '').toLowerCase() === 'ruta';
                 const isVentanilla = (kit.deliveryMode || '').toLowerCase() === 'ventanilla';
                 const hasRefri = !!kit.isRefrigerated || !!(kit.cantRefriGlobal && parseInt(kit.cantRefriGlobal, 10) > 0);
+                const puedeEditar = esOperadorQueTrabajo(kit);
                 return (
                     <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4">
                         <div className="flex-1 min-w-0">
@@ -2617,6 +2688,16 @@
                             </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
+                            {puedeEditar && (
+                                <button 
+                                    type="button" 
+                                    onClick={() => abrirTrabajar(kit, true)} 
+                                    className="px-3 py-2 rounded-xl bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 transition-colors btn-hover-effect flex items-center gap-1.5"
+                                    title="Editar kit (solo el operador que lo trabajó)"
+                                >
+                                    <Icons.Edit size={14}/> Editar
+                                </button>
+                            )}
                             {isRuta && printRutaVignette && (
                                 <button 
                                     type="button" 
@@ -2675,6 +2756,14 @@
             }, [kitsBitacoraDia, patients, bitacoraModalSearch]);
 
             const isDespacho = vistaPrincipal === 'despacho';
+
+            useEffect(() => {
+                if (listaEsperaTab === 'bitacora') return;
+                const ventanilla = isDespacho ? listaDespachoVentanilla : listaOpsVentanilla;
+                const ruta = isDespacho ? listaDespachoRuta : listaOpsRuta;
+                if (listaEsperaTab === 'ventanilla' && ventanilla.length === 0 && ruta.length > 0) setListaEsperaTab('ruta');
+                else if (listaEsperaTab === 'ruta' && ruta.length === 0 && ventanilla.length > 0) setListaEsperaTab('ventanilla');
+            }, [listaEsperaTab, vistaPrincipal, isDespacho, listaDespachoVentanilla.length, listaDespachoRuta.length, listaOpsVentanilla.length, listaOpsRuta.length]);
 
             return (
                 <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
@@ -2807,9 +2896,14 @@
                     )}
 
                     {showTrabajarForm && trabajarKit && (
-                        <Modal isOpen={true} onClose={cerrarTrabajar} title={trabajarGuardado ? "Kit guardado — Imprimir viñetas" : "Trabajar kit — Operaciones"} maxWidth="max-w-4xl">
+                        <Modal isOpen={true} onClose={cerrarTrabajar} title={trabajarGuardado ? (editandoDesdeBitacora ? "Cambios guardados" : "Kit guardado — Imprimir viñetas") : (editandoDesdeBitacora ? "Editar kit — Operaciones" : "Trabajar kit — Operaciones")} maxWidth="max-w-4xl">
                             {trabajarGuardado ? (
-                                (() => {
+                                editandoDesdeBitacora ? (
+                                    <div className="space-y-4">
+                                        <p className="text-sm text-slate-600">Los cambios se guardaron. La información del kit se actualizó y se verá reflejada en los siguientes departamentos sin necesidad de reenviar.</p>
+                                        <button type="button" onClick={cerrarTrabajar} className="w-full py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar</button>
+                                    </div>
+                                ) : (() => {
                                     const k = trabajarKitActualizado || trabajarKit;
                                     const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
                                     const isRuta = (k.deliveryMode || '').toLowerCase() === 'ruta';
@@ -2871,7 +2965,8 @@
                                                                 await onSaveKit(k.id, { 
                                                                     enviadoACalidad: true,
                                                                     fechaEnvioCalidad: today,
-                                                                    horaEnvioCalidad: now
+                                                                    horaEnvioCalidad: now,
+                                                                    ...(k.deliveryMode && { deliveryMode: k.deliveryMode })
                                                                 }, k.patientId, true);
                                                                 alert('Kit enviado a Calidad exitosamente.');
                                                                 cerrarTrabajar();
@@ -3107,7 +3202,7 @@
         };
 
         // --- BLOCK: CALIDAD LISTA DE ESPERA ---
-        const CalidadListaEsperaBlock = ({ kits, patients, onSaveKit, currentUser, users = [] }) => {
+        const CalidadListaEsperaBlock = ({ kits, patients, onSaveKit, onRefreshKits, currentUser, users = [] }) => {
             const [vistaPrincipal, setVistaPrincipal] = useState('calidad'); // 'despacho' | 'operaciones' | 'calidad'
             const [listaEsperaTab, setListaEsperaTab] = useState('ventanilla'); // 'ventanilla' | 'ruta'
             const [listaEsperaSearch, setListaEsperaSearch] = useState('');
@@ -3121,6 +3216,7 @@
                 btp: '',
                 btg: '',
                 tipoBolsaVerde: 'GRANDE',
+                tipoDespachoRefrigerado: '',
                 incidenciasActivo: false,
                 incidencias: [] // [{ tipo: 'medicamento', medIdx: number } | { tipo: 'otra', texto: string }]
             });
@@ -3171,11 +3267,13 @@
                 setTrabajarKitLocal(JSON.parse(JSON.stringify(k)));
                 setTrabajarGuardado(false);
                 setTrabajarEnviadoLogistica(false);
+                const hasRefri = !!(kit.isRefrigerated || (kit.cantRefriGlobal && parseInt(String(kit.cantRefriGlobal), 10) > 0));
                 setTrabajarData({
                     observacionesCalidad: (kit.observacionesCalidad || '').trim(),
                     btp: (kit.btp != null && kit.btp !== '') ? String(kit.btp) : '',
                     btg: (kit.btg != null && kit.btg !== '') ? String(kit.btg) : '',
-                    tipoBolsaVerde: kit.tipoBolsaVerde === 'PEQUEÑA' ? 'PEQUEÑA' : 'GRANDE',
+                    tipoBolsaVerde: kit.tipoBolsaVerde === 'PEQUEÑA' ? 'PEQUEÑA' : kit.tipoBolsaVerde === 'NINGUNA' ? 'NINGUNA' : 'GRANDE',
+                    tipoDespachoRefrigerado: hasRefri ? (kit.tipoDespachoRefrigerado === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO') : 'SOLO KIT',
                     incidenciasActivo: false,
                     incidencias: Array.isArray(kit.incidenciasCalidad) ? [...kit.incidenciasCalidad] : []
                 });
@@ -3186,7 +3284,7 @@
                 setTrabajarKitLocal(null);
                 setTrabajarGuardado(false);
                 setTrabajarEnviadoLogistica(false);
-                setTrabajarData({ observacionesCalidad: '', btp: '', btg: '', tipoBolsaVerde: 'GRANDE', incidenciasActivo: false, incidencias: [] });
+                setTrabajarData({ observacionesCalidad: '', btp: '', btg: '', tipoBolsaVerde: 'GRANDE', tipoDespachoRefrigerado: '', incidenciasActivo: false, incidencias: [] });
                 setIncidenciaMedIdx(null);
                 setIncidenciaTipoSel('error_cantidad');
                 setIncidenciaOtraTexto('');
@@ -3207,7 +3305,8 @@
                     btp: trabajarData.btp.trim() || null,
                     btg: trabajarData.btg.trim() || null,
                     tipoBolsaVerde: trabajarData.tipoBolsaVerde || 'GRANDE',
-                    incidenciasCalidad: (trabajarData.incidencias || []).length ? trabajarData.incidencias : null
+                    incidenciasCalidad: (trabajarData.incidencias || []).length ? trabajarData.incidencias : null,
+                    tipoDespachoRefrigerado: (trabajarData.tipoDespachoRefrigerado || '').trim() || null
                 };
                 try {
                     await onSaveKit(trabajarKit.id, payload, trabajarKit.patientId, true);
@@ -3229,6 +3328,18 @@
                     alert('Error al enviar a logística: ' + (err?.message || err));
                 }
             };
+
+            useEffect(() => {
+                try {
+                    const raw = sessionStorage.getItem('trabajarFromCalendar');
+                    if (!raw) return;
+                    const data = JSON.parse(raw);
+                    if ((data.area || '') !== 'rev' || !data.kitId) return;
+                    sessionStorage.removeItem('trabajarFromCalendar');
+                    const kit = (kits || []).find(k => k.id === data.kitId);
+                    if (kit) abrirTrabajar(kit);
+                } catch (_) {}
+            }, [kits]);
 
             // Lista Despacho (solo lectura): kits con receta impresa, no enviados a Operaciones
             const listaKitsDespacho = useMemo(() => {
@@ -3254,7 +3365,8 @@
             // Mi lista Calidad: kits enviados desde Operaciones, pendientes de revisar (!revisadoCalidad)
             const listaKitsCalidad = useMemo(() => {
                 return (kits || []).filter(k => {
-                    return !!k.enviadoACalidad && !k.revisadoCalidad;
+                    const enviado = !!(k.enviadoACalidad || k.fechaEnvioCalidad);
+                    return enviado && !k.revisadoCalidad;
                 }).sort((a, b) => {
                     const fechaA = a.fechaEnvioCalidad || a.fechaEntregaCalidad || '';
                     const fechaB = b.fechaEnvioCalidad || b.fechaEntregaCalidad || '';
@@ -3262,11 +3374,19 @@
                 });
             }, [kits]);
             const listaCalidadVentanilla = useMemo(() => listaKitsCalidad.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsCalidad]);
-            const listaCalidadRuta = useMemo(() => listaKitsCalidad.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsCalidad]);
+            const listaCalidadRuta = useMemo(() => listaKitsCalidad.filter(k => (k.deliveryMode || '').toLowerCase() !== 'ventanilla'), [listaKitsCalidad]);
 
             const listadoDespacho = listaEsperaTab === 'ventanilla' ? listaDespachoVentanilla : listaDespachoRuta;
             const listadoOps = listaEsperaTab === 'ventanilla' ? listaOpsVentanilla : listaOpsRuta;
             const listadoCalidad = listaEsperaTab === 'ventanilla' ? listaCalidadVentanilla : listaCalidadRuta;
+
+            useEffect(() => {
+                if (listaEsperaTab === 'bitacora') return;
+                const ventanilla = vistaPrincipal === 'despacho' ? listaDespachoVentanilla : vistaPrincipal === 'operaciones' ? listaOpsVentanilla : listaCalidadVentanilla;
+                const ruta = vistaPrincipal === 'despacho' ? listaDespachoRuta : vistaPrincipal === 'operaciones' ? listaOpsRuta : listaCalidadRuta;
+                if (listaEsperaTab === 'ventanilla' && ventanilla.length === 0 && ruta.length > 0) setListaEsperaTab('ruta');
+                else if (listaEsperaTab === 'ruta' && ruta.length === 0 && ventanilla.length > 0) setListaEsperaTab('ventanilla');
+            }, [listaEsperaTab, vistaPrincipal, listaDespachoVentanilla.length, listaDespachoRuta.length, listaOpsVentanilla.length, listaOpsRuta.length, listaCalidadVentanilla.length, listaCalidadRuta.length]);
 
             const bitacoraCalidad = useMemo(() => {
                 const porFecha = {};
@@ -3425,7 +3545,7 @@
                         <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl">
                             <button onClick={() => setVistaPrincipal('despacho')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isDespacho ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Lista Despacho (solo lectura)</button>
                             <button onClick={() => setVistaPrincipal('operaciones')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isOps ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Lista Operaciones (solo lectura)</button>
-                            <button onClick={() => setVistaPrincipal('calidad')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isCalidad ? 'bg-white text-green-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Mi lista Calidad (trabajar)</button>
+                            <button onClick={() => { setVistaPrincipal('calidad'); if (onRefreshKits) onRefreshKits(); }} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isCalidad ? 'bg-white text-green-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Mi lista Calidad (trabajar)</button>
                         </div>
                         <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl w-fit">
                             <button onClick={() => setListaEsperaTab('ventanilla')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${listaEsperaTab === 'ventanilla' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Ventanilla</button>
@@ -3444,9 +3564,16 @@
                                         {listaFiltrada.length}{listaActual.length !== listaFiltrada.length ? ` de ${listaActual.length}` : ''} kit(s) — {listaEsperaTab === 'ventanilla' ? 'Ventanilla' : 'Ruta'}
                                         {isDespacho ? ' (Despacho)' : isOps ? ' (Operaciones)' : ' (Calidad)'}
                                     </span>
-                                    <div className="relative w-full sm:w-64">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
-                                        <input type="text" placeholder="Buscar por nombre o DNI..." value={listaEsperaSearch} onChange={e=>setListaEsperaSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-green-300 focus:ring-1 focus:ring-green-200" />
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {onRefreshKits && (
+                                            <button type="button" onClick={() => onRefreshKits()} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-green-100 text-green-700 hover:bg-green-200 font-bold text-sm transition-colors btn-hover-effect" title="Refrescar lista desde Firebase">
+                                                <Icons.RefreshCw size={16}/> Refrescar
+                                            </button>
+                                        )}
+                                        <div className="relative w-full sm:w-64">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                            <input type="text" placeholder="Buscar por nombre o DNI..." value={listaEsperaSearch} onChange={e=>setListaEsperaSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-green-300 focus:ring-1 focus:ring-green-200" />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -3455,6 +3582,9 @@
                                     <div className="p-12 text-center text-slate-500">
                                         <Icons.Box size={48} className="mx-auto mb-3 opacity-40"/>
                                         <p className="font-medium">{listaActual.length === 0 ? (isDespacho ? 'No hay kits en Despacho' : isOps ? 'No hay kits en Operaciones' : 'No hay kits pendientes de revisar en Calidad') : 'Sin resultados para la búsqueda'}</p>
+                                        {isCalidad && listaActual.length === 0 && onRefreshKits && (
+                                            <p className="text-sm mt-2">Si acaba de enviar kits desde Operaciones, pulse <button type="button" onClick={() => onRefreshKits()} className="font-bold text-green-600 hover:underline">Refrescar</button>.</p>
+                                        )}
                                     </div>
                                 ) : isDespacho ? listaFiltrada.map(k => renderRowDespacho(k)) :
                                   isOps ? listaFiltrada.map(k => renderRowOperaciones(k)) :
@@ -3639,7 +3769,7 @@
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
                                                     <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">BTP</label><input type="text" value={trabajarData.btp} onChange={e=>setTrabajarData({...trabajarData, btp:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white" placeholder="Cantidad" /></div>
                                                     <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">BTG</label><input type="text" value={trabajarData.btg} onChange={e=>setTrabajarData({...trabajarData, btg:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white" placeholder="Cantidad" /></div>
-                                                    <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo bolsa verde</label><select value={trabajarData.tipoBolsaVerde} onChange={e=>setTrabajarData({...trabajarData, tipoBolsaVerde:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white"><option value="GRANDE">GRANDE</option><option value="PEQUEÑA">PEQUEÑA</option></select></div>
+                                                    <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo bolsa verde</label><select value={trabajarData.tipoBolsaVerde} onChange={e=>setTrabajarData({...trabajarData, tipoBolsaVerde:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white"><option value="GRANDE">GRANDE</option><option value="PEQUEÑA">PEQUEÑA</option><option value="NINGUNA">NINGUNA</option></select></div>
                                                 </div>
                                                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
                                                     <div className="flex items-center justify-between mb-2">
@@ -3693,6 +3823,19 @@
                                                     <label className="text-[10px] font-bold text-green-800 uppercase block mb-2">Observaciones calidad</label>
                                                     <textarea className="w-full p-3 border border-green-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-green-300 outline-none" rows={2} value={trabajarData.observacionesCalidad||''} onChange={e=>setTrabajarData({...trabajarData, observacionesCalidad:e.target.value})} placeholder="Observaciones de la revisión..." />
                                                 </div>
+                                                {(() => {
+                                                    const hasRefri = !!(k.isRefrigerated || (k.cantRefriGlobal && parseInt(String(k.cantRefriGlobal), 10) > 0));
+                                                    const opciones = hasRefri ? ['SOLO REFRIGERADO', 'KIT + REFRIGERADO'] : ['SOLO KIT'];
+                                                    const valor = trabajarData.tipoDespachoRefrigerado && opciones.includes(trabajarData.tipoDespachoRefrigerado) ? trabajarData.tipoDespachoRefrigerado : opciones[0];
+                                                    return (
+                                                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                                            <label className="text-[10px] font-bold text-slate-600 uppercase block mb-2">Tipo despacho {hasRefri ? '(refrigerado)' : '(kit)'}</label>
+                                                            <select value={valor} onChange={e=>setTrabajarData({...trabajarData, tipoDespachoRefrigerado:e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-turquoise-300 outline-none">
+                                                                {opciones.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                            </select>
+                                                        </div>
+                                                    );
+                                                })()}
                                                 <p className="text-xs text-slate-500">Hora de revisión automática. Al guardar se registra la revisión y el kit sale de tu lista. Luego puedes enviar a logística.</p>
                                                 <div className="flex gap-3 pt-2">
                                                     <button type="submit" className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700">Guardar</button>
@@ -4063,6 +4206,149 @@
             );
         };
 
+        // --- BLOCK: BITÁCORA DE TRABAJO (CONTACT CENTER) ---
+        const BitacoraTrabajoBlock = ({ kits, patients, currentUser }) => {
+            const u = (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim().toLowerCase();
+            const formatearFechaBitacoraCC = (f) => {
+                if (!f) return '';
+                const d = new Date(f + 'T12:00:00');
+                return d.toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' });
+            };
+            const confirmadosPorDia = useMemo(() => {
+                if (!u) return [];
+                const porFecha = {};
+                (kits || []).forEach(k => {
+                    const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                    const cc = (k.contactCenter || pt?.agenteContactCenter || '').trim().toLowerCase();
+                    if (!cc || cc !== u) return;
+                    const fc = (k.fechaConfirmacionContactCenter || '').toString().slice(0, 10);
+                    if (!fc) return;
+                    if (!porFecha[fc]) porFecha[fc] = [];
+                    porFecha[fc].push(k);
+                });
+                return Object.entries(porFecha)
+                    .map(([f, arr]) => ({ fecha: f, kits: arr.sort((a, b) => new Date(b.fechaConfirmacionContactCenter || 0) - new Date(a.fechaConfirmacionContactCenter || 0)), count: arr.length }))
+                    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+            }, [kits, patients, currentUser?.name, currentUser?.nombre, currentUser?.username]);
+            const [bitacoraFechaAbierta, setBitacoraFechaAbierta] = useState(null);
+            const [bitacoraModalSearch, setBitacoraModalSearch] = useState('');
+            const [bitacoraCarpetasSearch, setBitacoraCarpetasSearch] = useState('');
+            useEffect(() => {
+                try {
+                    const raw = sessionStorage.getItem('trabajarFromCalendar');
+                    if (!raw) return;
+                    const data = JSON.parse(raw);
+                    if ((data.area || '') !== 'cc' || !data.date) return;
+                    sessionStorage.removeItem('trabajarFromCalendar');
+                    setBitacoraFechaAbierta(data.date);
+                } catch (_) {}
+            }, []);
+            return (
+                <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <h2 className="text-2xl font-bold text-slate-800 brand-font">Bitácora de trabajo — Contact Center</h2>
+                        <p className="text-sm text-slate-500">Carpetas por día trabajado</p>
+                    </div>
+                    <div className="bg-white rounded-3xl shadow-soft border border-slate-100 overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <span className="font-bold text-slate-700">Días con kits confirmados</span>
+                                <div className="relative w-full sm:w-64">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                    <input type="text" placeholder="Buscar por fecha (ej. 2025-01, ene)..." value={bitacoraCarpetasSearch} onChange={e=>setBitacoraCarpetasSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[60vh] overflow-y-auto">
+                            {(() => {
+                                const t = (bitacoraCarpetasSearch || '').trim().toLowerCase();
+                                const filtered = !t ? confirmadosPorDia : confirmadosPorDia.filter(({ fecha }) => {
+                                    const fmt = formatearFechaBitacoraCC(fecha).toLowerCase();
+                                    return fmt.includes(t) || (fecha || '').toLowerCase().includes(t);
+                                });
+                                if (filtered.length === 0) return (
+                                    <div className="col-span-full p-12 text-center text-slate-500">
+                                        <Icons.Folder size={48} className="mx-auto mb-3 opacity-40"/>
+                                        <p className="font-medium">{confirmadosPorDia.length === 0 ? 'No hay días con kits confirmados' : 'Sin resultados para la búsqueda'}</p>
+                                        <p className="text-sm mt-1">{confirmadosPorDia.length === 0 ? 'Los kits que confirmes en Contact Center aparecerán agrupados por día.' : 'Pruebe otro término (ej. año-mes o nombre del mes).'}</p>
+                                    </div>
+                                );
+                                return filtered.map(({ fecha, kits: ks, count }) => (
+                                    <button key={fecha} onClick={() => setBitacoraFechaAbierta(fecha)} className="flex items-center gap-3 p-4 rounded-2xl border-2 border-slate-200 hover:border-violet-400 hover:bg-violet-50/50 transition-all text-left btn-hover-effect group">
+                                        <div className="p-2.5 rounded-xl bg-violet-100 text-violet-700 group-hover:bg-violet-200"><Icons.Folder size={24}/></div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-bold text-slate-800 truncate">{formatearFechaBitacoraCC(fecha)}</div>
+                                            <div className="text-xs text-slate-500">{count} kit(s) confirmado(s)</div>
+                                        </div>
+                                    </button>
+                                ));
+                            })()}
+                        </div>
+                    </div>
+                    {bitacoraFechaAbierta && (
+                        <Modal isOpen={true} onClose={() => { setBitacoraFechaAbierta(null); setBitacoraModalSearch(''); }} title={`Bitácora CC — ${formatearFechaBitacoraCC(bitacoraFechaAbierta)}`} maxWidth="max-w-4xl">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-500">Kits confirmados este día.</p>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <div className="relative flex-1 min-w-[180px]">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                        <input type="text" placeholder="Buscar por nombre o DNI..." value={bitacoraModalSearch} onChange={e=>setBitacoraModalSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl border border-slate-200 text-sm outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200" />
+                                    </div>
+                                    <span className="text-sm text-slate-500">
+                                        {(() => {
+                                            const kitsDia = confirmadosPorDia.find(d => d.fecha === bitacoraFechaAbierta)?.kits || [];
+                                            const t = (bitacoraModalSearch || '').trim().toLowerCase();
+                                            const filtered = !t ? kitsDia : kitsDia.filter(k => {
+                                                const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                                                const n = (k.nombre || (pt?.nombre || '')).toLowerCase();
+                                                const d = (k.dni || (pt?.dni || '')).toString().toLowerCase();
+                                                return n.includes(t) || d.includes(t);
+                                            });
+                                            return filtered.length !== kitsDia.length ? `${filtered.length} de ${kitsDia.length}` : `${kitsDia.length} kit(s)`;
+                                        })()}
+                                    </span>
+                                </div>
+                                <div className="divide-y divide-slate-100 max-h-[50vh] overflow-y-auto rounded-xl border border-slate-100">
+                                    {(() => {
+                                        const kitsDia = confirmadosPorDia.find(d => d.fecha === bitacoraFechaAbierta)?.kits || [];
+                                        const t = (bitacoraModalSearch || '').trim().toLowerCase();
+                                        const filtered = !t ? kitsDia : kitsDia.filter(k => {
+                                            const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                                            const n = (k.nombre || (pt?.nombre || '')).toLowerCase();
+                                            const d = (k.dni || (pt?.dni || '')).toString().toLowerCase();
+                                            return n.includes(t) || d.includes(t);
+                                        });
+                                        return filtered.map(k => {
+                                            const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                                            return (
+                                                <div key={k.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="font-bold text-slate-800">{k.nombre || pt?.nombre || '—'}</span>
+                                                            {!!k.complemento && <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold uppercase">Complemento</span>}
+                                                        </div>
+                                                        <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                                            <span>DNI: {k.dni || pt?.dni || '—'}</span>
+                                                            <span className="font-mono">{k.fechaConfirmacionContactCenter || '—'}</span>
+                                                            <span className={k.deliveryMode === 'ruta' ? 'text-emerald-600 font-semibold' : 'text-indigo-600 font-semibold'}>{k.deliveryMode === 'ruta' ? 'Ruta' : k.deliveryMode === 'ventanilla' ? 'Ventanilla' : '—'}</span>
+                                                            <span>{(k.medicamentos || []).length} med(s)</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        });
+                                    })()}
+                                </div>
+                                <div className="flex justify-end pt-2">
+                                    <button onClick={() => { setBitacoraFechaAbierta(null); setBitacoraModalSearch(''); }} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+                </div>
+            );
+        };
+
         // --- BLOCK: PACIENTES ---
         const PatientManagementBlock = ({ patients: patientsProp, kits: kitsProp, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts, printRutaVignette, users = [] }) => {
             const [searchTerm, setSearchTerm] = useState('');
@@ -4071,7 +4357,11 @@
             const [showPatientForm, setShowPatientForm] = useState(false);
             const [editingPatientId, setEditingPatientId] = useState(null);
             const [confirmData, setConfirmData] = useState(null);
-            const [activePatientTab, setActivePatientTab] = useState('general'); // 'general' o 'asignados'
+            const [activePatientTab, setActivePatientTab] = useState('general'); // 'general' | 'asignados' | 'bitacora'
+            const [bitacoraRevTab, setBitacoraRevTab] = useState('creados');
+            const [bitacoraRevCarpetasSearch, setBitacoraRevCarpetasSearch] = useState('');
+            const [bitacoraRevFechaAbierta, setBitacoraRevFechaAbierta] = useState(null);
+            const [bitacoraRevModalSearch, setBitacoraRevModalSearch] = useState('');
             const [showMassAssignModal, setShowMassAssignModal] = useState(false);
             const [selectedFolderKey, setSelectedFolderKey] = useState(null); // null = lista carpetas; userName = detalle carpeta
             const [carteraSearch, setCarteraSearch] = useState('');
@@ -4590,27 +4880,29 @@
                 if (editKitData) {
                     try {
                         const parsed = JSON.parse(editKitData);
-                        const { kitData, patientId, patient: storedPatient, viewOnly } = parsed;
+                        const { kitData, patientId, patient: storedPatient, viewOnly, openPatientOnly } = parsed;
                         const patient = storedPatient || patients.find(p => p.id === patientId);
-                        if (patient && kitData) {
+                        if (patient) {
                             handleSelectPatient(patient);
-                            const meds = (kitData.medicamentos || []).map(m => ({
-                                ...m,
-                                dispensar: m.dispensar !== false,
-                                observaciones: m.observaciones || '',
-                                recetaFisicaVerificada: !!m.recetaFisicaVerificada
-                            }));
-                            setKitData({
-                                ...kitData,
-                                medicamentos: meds,
-                                phoneHighlight: kitData.phoneHighlight || '',
-                                direccionEntrega: kitData.direccionEntrega || '',
-                                gpsValue: kitData.gpsValue || '',
-                                recetaImpresa: !!kitData.recetaImpresa
-                            });
-                            setEditingKitId(kitData.id);
-                            setIsViewMode(!!viewOnly);
-                            setShowKitForm(true);
+                            if (kitData && !openPatientOnly) {
+                                const meds = (kitData.medicamentos || []).map(m => ({
+                                    ...m,
+                                    dispensar: m.dispensar !== false,
+                                    observaciones: m.observaciones || '',
+                                    recetaFisicaVerificada: !!m.recetaFisicaVerificada
+                                }));
+                                setKitData({
+                                    ...kitData,
+                                    medicamentos: meds,
+                                    phoneHighlight: kitData.phoneHighlight || '',
+                                    direccionEntrega: kitData.direccionEntrega || '',
+                                    gpsValue: kitData.gpsValue || '',
+                                    recetaImpresa: !!kitData.recetaImpresa
+                                });
+                                setEditingKitId(kitData.id);
+                                setIsViewMode(!!viewOnly);
+                                setShowKitForm(true);
+                            }
                         }
                     } finally {
                         sessionStorage.removeItem('editKitFromReports');
@@ -4791,6 +5083,50 @@
             };
 
             const folderSoloLectura = !!(needsTabs && activePatientTab === 'asignados' && selectedFolderKey && patientsByUser[selectedFolderKey] && !patientsByUser[selectedFolderKey].canCreateInFolder);
+
+            const userDisplayRev = () => (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim().toLowerCase();
+            const formatearFechaBitacoraRev = (f) => {
+                if (!f) return '';
+                const d = new Date(f + 'T12:00:00');
+                return d.toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' });
+            };
+            const creadosPorDia = useMemo(() => {
+                if (!isRevisionAsignacion) return [];
+                const u = userDisplayRev();
+                if (!u) return [];
+                const plist = (allPatients && allPatients.length > 0) ? allPatients : patients;
+                const porFecha = {};
+                (kits || []).forEach(k => {
+                    const fa = (k.fechaArmado || '').toString().slice(0, 10);
+                    if (!fa) return;
+                    const d = (k.digitador || '').trim().toLowerCase();
+                    const pt = (plist || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                    const ra = (pt?.usuarioRevisionAsignacion || '').trim().toLowerCase();
+                    if (d !== u && ra !== u) return;
+                    if (!porFecha[fa]) porFecha[fa] = [];
+                    porFecha[fa].push(k);
+                });
+                return Object.entries(porFecha)
+                    .map(([f, arr]) => ({ fecha: f, kits: arr.sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0)), count: arr.length }))
+                    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+            }, [kits, allPatients, patients, isRevisionAsignacion, currentUser?.name, currentUser?.nombre, currentUser?.username]);
+            const impresosPorDia = useMemo(() => {
+                if (!isRevisionAsignacion) return [];
+                const u = userDisplayRev();
+                if (!u) return [];
+                const porFecha = {};
+                (kits || []).forEach(k => {
+                    const fi = (k.fechaImpresionReceta || '').toString().slice(0, 10);
+                    if (!fi || !k.recetaImpresa) return;
+                    const d = (k.digitador || '').trim().toLowerCase();
+                    if (d !== u) return;
+                    if (!porFecha[fi]) porFecha[fi] = [];
+                    porFecha[fi].push(k);
+                });
+                return Object.entries(porFecha)
+                    .map(([f, arr]) => ({ fecha: f, kits: arr.sort((a, b) => new Date(b.fechaImpresionReceta || 0) - new Date(a.fechaImpresionReceta || 0)), count: arr.length }))
+                    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+            }, [kits, isRevisionAsignacion, currentUser?.name, currentUser?.nombre, currentUser?.username]);
 
             const assignableUsersForFilter = useMemo(() => {
                 const out = [];
@@ -5143,6 +5479,7 @@
                         finalData.triggerMeds = total ? `${dispensados}/${total}` : '';
                         if (kitData.deliveryMode === 'ventanilla') {
                             finalData.recetaImpresa = true;
+                            finalData.fechaImpresionReceta = new Date().toISOString().split('T')[0];
                         }
                     } else if (isCCFormView) {
                         if (!(kitData.deliveryMode === 'ventanilla' || kitData.deliveryMode === 'ruta')) {
@@ -5153,12 +5490,21 @@
                         finalData.direccionEntrega = kitData.esUbicacionPrincipal ? (selectedPatientFullData?.direccion || selectedPatient?.direccion || '').trim() : (kitData.direccionAlternativa || '').trim();
                         finalData.observationsEnabled = !!kitData.observacionesEntregaEnabled || kitData.tipoTelefonoCC === 'otro';
                         finalData.observations = kitData.observacionesEntrega || '';
-                        finalData.confirmadoPorContactCenter = true;
-                        finalData.fechaConfirmacionContactCenter = new Date().toISOString().split('T')[0];
-                        const ccFields = ['deliveryMode','fechaEntregaKit','tipoTelefonoCC','phoneHighlight','esUbicacionPrincipal','direccionAlternativa','direccionEntrega','observacionesEntregaEnabled','observacionesEntrega','observationsEnabled','observations','gpsStatus','gpsValue','observacionesRegresoEnabled','observacionesRegresoFarmacia','confirmadoPorContactCenter','fechaConfirmacionContactCenter'];
+                        const yaConfirmado = !!kitData.confirmadoPorContactCenter;
+                        if (!yaConfirmado) {
+                            finalData.confirmadoPorContactCenter = true;
+                            finalData.fechaConfirmacionContactCenter = new Date().toISOString().split('T')[0];
+                        }
+                        const ccFieldsEdit = ['deliveryMode','fechaEntregaKit','tipoTelefonoCC','phoneHighlight','esUbicacionPrincipal','direccionAlternativa','direccionEntrega','observacionesEntregaEnabled','observacionesEntrega','observationsEnabled','observations','gpsStatus','gpsValue','observacionesRegresoEnabled','observacionesRegresoFarmacia'];
+                        const ccFieldsFirstConfirm = [...ccFieldsEdit, 'confirmadoPorContactCenter', 'fechaConfirmacionContactCenter'];
+                        const ccFields = yaConfirmado ? ccFieldsEdit : ccFieldsFirstConfirm;
                         const filtered = {};
                         ccFields.forEach(f => { if (finalData[f] !== undefined) filtered[f] = finalData[f]; });
-                        finalData = { ...filtered, digitador: finalData.digitador, dni: finalData.dni, nombre: finalData.nombre, patientId: finalData.patientId, medicamentos: finalData.medicamentos };
+                        if (yaConfirmado) {
+                            finalData = filtered;
+                        } else {
+                            finalData = { ...filtered, digitador: finalData.digitador, dni: finalData.dni, nombre: finalData.nombre, patientId: finalData.patientId, medicamentos: finalData.medicamentos };
+                        }
                     } else if (isDespachoFormView) {
                         const m = kitData.medicamentos || [];
                         const total = m.length;
@@ -5204,6 +5550,11 @@
                     }
                     
                     if (isCCFormView && !finalData.devueltoPorContactCenter) {
+                        if (!!kitData.confirmadoPorContactCenter) {
+                            alert('Kit actualizado. Los cambios se reflejan en todos los departamentos del flujo.');
+                            closeKitForm();
+                            return;
+                        }
                         setKitData(prev => ({ ...prev, confirmadoPorContactCenter: true }));
                         return;
                     }
@@ -5228,8 +5579,10 @@
                     const total = m.length;
                     const dispensados = m.filter(x => x.dispensar !== false).length;
                     const triggerMeds = total ? `${dispensados}/${total}` : '';
+                    const today = new Date().toISOString().split('T')[0];
                     const payload = {
                         recetaImpresa: true,
+                        fechaImpresionReceta: today,
                         medicamentos: kitData.medicamentos,
                         triggerMeds,
                         digitador: currentUser.name,
@@ -6624,6 +6977,41 @@ html +
                 }
             `;
 
+            // CSS viñeta VENTANILLA — 71mm x 145mm vertical, márgenes 10mm arriba/abajo
+            const getPrintVignetteCSSVentanilla = () => `
+                @page { size: 71mm 145mm; margin: 10mm 0; }
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                html, body { width: 71mm; min-height: 125mm; height: 125mm; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, Helvetica, sans-serif; text-transform: uppercase; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .sheet { width: 71mm; min-height: 125mm; height: 125mm; padding: 0.8mm 0.9mm; overflow: hidden; background: #fff; position: relative; display: flex; flex-direction: column; gap: 1.1mm; }
+                .v-logos-row { display: flex; align-items: center; justify-content: space-between; padding: 0.8mm 0.9mm; margin: 0; border: 0.4mm solid #000; border-radius: 2.5mm; background: #fff; }
+                .v-logo { width: 32mm; height: 15mm; object-fit: contain; flex-shrink: 0; }
+                .v-title-full { font-size: 2.9mm; font-weight: 800; text-align: center; color: #000; line-height: 1.25; letter-spacing: 0.06mm; padding: 0.9mm 0.8mm; margin: 0; border: 0.4mm solid #000; border-radius: 2.5mm; background: #f9f9f9; }
+                .v-box { border: 0.4mm solid #000; border-radius: 2.5mm; padding: 0.7mm 0.9mm; margin: 0; }
+                .v-name-box { font-family: 'Segoe UI', Arial Black, Arial, sans-serif; font-size: 7.5mm; font-weight: 900; color: #000; line-height: 1.15; letter-spacing: 0.08mm; word-wrap: break-word; text-align: center; background: #fafafa; }
+                .v-dni-box { font-family: 'Segoe UI', Arial Black, Arial, sans-serif; font-size: 7.5mm; font-weight: 900; color: #000; line-height: 1.15; letter-spacing: 0.06mm; word-wrap: break-word; text-align: center; background: #fafafa; display: flex; flex-direction: column; gap: 0.3mm; }
+                .v-dni-box .v-dni-head { display: flex; align-items: center; justify-content: center; gap: 0.5mm; }
+                .v-dni-box .v-dni-label { font-size: 2mm; font-weight: 800; }
+                .v-fecha-box, .v-cc-box { display: flex; flex-direction: column; gap: 0.25mm; }
+                .v-fecha-box, .v-cc-box { align-items: center; text-align: center; }
+                .v-fecha-box .v-box-head, .v-cc-box .v-box-head { justify-content: center; }
+                .v-fecha-box .v-box-label, .v-cc-box .v-box-label { font-size: 1.8mm; font-weight: 800; color: #000; }
+                .v-fecha-box .v-box-value { font-size: 4.2mm; font-weight: 700; color: #000; word-wrap: break-word; line-height: 1.15; text-align: center; }
+                .v-cc-box .v-box-value { font-size: 3mm; font-weight: 700; color: #000; word-wrap: break-word; line-height: 1.15; text-align: center; }
+                .v-fecha-box .v-box-head, .v-cc-box .v-box-head { display: flex; align-items: center; gap: 0.5mm; }
+                .v-meds { display: flex; align-items: center; justify-content: center; gap: 0.7mm; font-size: 6mm; font-weight: 900; color: #000; }
+                .v-meds .v-icon { width: 5mm; height: 5mm; flex-shrink: 0; stroke-width: 1.75; color: #000; }
+                .v-refri { display: flex; align-items: center; justify-content: center; gap: 0.7mm; padding: 0.6mm 0.8mm; border: 0.4mm solid #000; border-radius: 2.5mm; margin: 0; background: #fff3cd; font-size: 2.8mm; font-weight: 900; }
+                .v-refri-icon { width: 4mm; height: 4mm; flex-shrink: 0; stroke-width: 1.75; color: #000; }
+                .v-ventanilla { border: 1.2mm solid #000; padding: 2mm 1.4mm; text-align: center; font-size: 7.5mm; font-weight: 900; color: #000; margin: 0; letter-spacing: 0.2mm; background: linear-gradient(to bottom, #f5f5f5 0%, #e8e8e8 100%); display: flex; align-items: center; justify-content: center; gap: 1.2mm; border-radius: 2.5mm; flex-shrink: 0; }
+                .v-ventanilla.has-obs { padding: 1.4mm 1.2mm; font-size: 6mm; margin: 0; }
+                .v-ventanilla .v-icon { width: 6mm; height: 6mm; margin: 0; }
+                .v-ventanilla.has-obs .v-icon { width: 5mm; height: 5mm; }
+                .v-obs { font-size: 1.8mm; font-weight: 700; color: #000; line-height: 1.3; word-wrap: break-word; padding: 0.7mm 0.9mm; margin: 0; border: 0.4mm solid #000; border-radius: 2.5mm; background: #fafafa; text-align: center; }
+                .v-footer { margin-top: auto; padding: 2mm 1.2mm; font-size: 4.8mm; text-align: center; color: #000; font-weight: 700; border: 0.5mm solid #000; border-radius: 2.5mm; letter-spacing: 0.05mm; line-height: 1.3; }
+                .v-icon { width: 3.5mm; height: 3.5mm; flex-shrink: 0; stroke-width: 1.75; color: #000; }
+                @media print { body * { visibility: hidden; } .sheet, .sheet * { visibility: visible; } .sheet { position: absolute; left: 0; top: 0; } }
+            `;
+
             // Función para generar QR Code de geolocalización
             const generateGeoQR = async (gpsValue) => {
                 if (!gpsValue || !String(gpsValue).trim()) {
@@ -6723,128 +7111,71 @@ html +
 
             // Función para imprimir viñeta RUTA (movida dentro de App - ver más abajo)
 
-            // Función para imprimir viñeta VENTANILLA
+            // Función para imprimir viñeta VENTANILLA — 71mm x 180mm, vertical, profesional
             const printVentanillaVignette = async (kit, patient) => {
-                // Obtener datos actualizados de la base de datos antes de imprimir
                 let updatedKit = kit;
                 let updatedPatient = patient || selectedPatientFullData || {};
-                
-                if (kit && kit.id && firebaseInitialized && db) {
+                if (kit?.id && firebaseInitialized && db) {
                     try {
-                        const kitDoc = await db.collection('prod_kits').doc(kit.id).get();
-                        if (kitDoc.exists) {
-                            updatedKit = { id: kitDoc.id, ...kitDoc.data() };
-                            console.log('✅ Kit actualizado desde base de datos (Ventanilla):', updatedKit);
-                        }
-                    } catch (error) {
-                        console.warn('⚠️ No se pudo obtener kit actualizado, usando datos locales:', error);
-                    }
+                        const d = await db.collection('prod_kits').doc(kit.id).get();
+                        if (d.exists) updatedKit = { id: d.id, ...d.data() };
+                    } catch (e) { console.warn('Kit actualizado no disponible:', e); }
                 }
-                
-                // Obtener datos actualizados del paciente si hay patientId
-                if (updatedKit && updatedKit.patientId && firebaseInitialized && db) {
+                if (updatedKit?.patientId && firebaseInitialized && db) {
                     try {
-                        const patientDoc = await db.collection('prod_patients').doc(updatedKit.patientId).get();
-                        if (patientDoc.exists) {
-                            updatedPatient = { id: patientDoc.id, ...patientDoc.data() };
-                            console.log('✅ Paciente actualizado desde base de datos (Ventanilla)');
-                        }
-                    } catch (error) {
-                        console.warn('⚠️ No se pudo obtener paciente actualizado, usando datos locales:', error);
-                    }
+                        const d = await db.collection('prod_patients').doc(updatedKit.patientId).get();
+                        if (d.exists) updatedPatient = { id: d.id, ...d.data() };
+                    } catch (e) { console.warn('Paciente actualizado no disponible:', e); }
                 }
-                
-                const patientData = updatedPatient;
-                const operatorName = currentUser?.name || currentUser?.email || auth?.currentUser?.email || 'OPERADOR';
-                const printedAt = new Date().toLocaleString('es-ES', { 
-                    year: 'numeric', 
-                    month: '2-digit', 
-                    day: '2-digit', 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                });
-                
-                // Usar triggerMeds si existe, sino usar medicamentos.length
-                let medicamentosCount = '0';
-                if (updatedKit.triggerMeds && String(updatedKit.triggerMeds).trim()) {
-                    medicamentosCount = String(updatedKit.triggerMeds);
-                } else if (updatedKit.medicamentos && Array.isArray(updatedKit.medicamentos)) {
-                    medicamentosCount = String(updatedKit.medicamentos.length);
-                }
-                
-                const data = {
-                    nombre: (updatedKit.nombre || patientData.nombre || '').toUpperCase(),
-                    dni: (updatedKit.dni || patientData.dni || '').toUpperCase(),
-                    fechaEntrega: updatedKit.fechaArmado || '',
-                    telefonoPrincipal: (patientData.telefono || '').toUpperCase(),
-                    telefonoRef: (patientData.telefonoFamiliar || '').toUpperCase(),
-                    medicamentos: medicamentosCount,
-                    contactCenter: (updatedKit.contactCenter || '').toUpperCase(),
-                    observaciones: (updatedKit.observations || updatedKit.observacionesEntrega || '').toUpperCase(),
-                    refrigerado: updatedKit.isRefrigerated || false,
-                    cantRefrigerados: updatedKit.isRefrigerated ? (updatedKit.cantRefriGlobal || 1) : 0,
-                    operatorName: operatorName.toUpperCase(),
-                    printedAt: printedAt.toUpperCase()
-                };
-                
-                // Asegurar URLs de logos bien formadas (usar rutas absolutas si son locales)
+                const pt = updatedPatient;
+                const nombre = (updatedKit.nombre || pt.nombre || '').toUpperCase();
+                const dni = (updatedKit.dni || pt.dni || '').toUpperCase();
+                const fechaEntrega = updatedKit.fechaArmado || '';
+                const contactCenterDisplay = formatAgenteContactCenterDisplay(pt.agenteContactCenter || updatedKit.agenteContactCenter, users);
+                const observaciones = (updatedKit.observations || updatedKit.observacionesEntrega || '').trim().toUpperCase();
+                const usuarioOperaciones = (updatedKit.usuarioOperaciones || currentUser?.name || currentUser?.email || 'OPERADOR').toUpperCase();
+                const medicamentos = updatedKit.medicamentos || [];
+                const totalMeds = medicamentos.length;
+                const dispensadosMeds = medicamentos.filter(m => m.dispensar !== false).length;
+                const cantidadMeds = totalMeds > 0 ? `${dispensadosMeds}/${totalMeds}` : '0/0';
+                const isRefrigerado = updatedKit.isRefrigerated || false;
+                const cantRefri = updatedKit.cantRefriGlobal || (isRefrigerado ? 1 : 0);
                 const logo1Url = LOGO1_URL || '/assets/logo1.png';
                 const logo2Url = LOGO2_URL || '/assets/logo2.png';
-                
-                // Construir HTML en un solo template literal
-                const telefonoRefHtml = data.telefonoRef ? `<div class="field-row"><div class="field-label">TEL. REFERENCIA:</div><div class="field-value">${escapeHtml(data.telefonoRef)}</div></div>` : '';
-                const contactCenterHtml = data.contactCenter ? `<div class="field-row"><div class="field-label">CONTACT CENTER:</div><div class="field-value">${escapeHtml(data.contactCenter)}</div></div>` : '';
-                const observacionesHtml = data.observaciones ? `<div class="section"><div class="section-title">OBSERVACIONES</div><div class="field-value" style="font-size: 2.8mm; line-height: 1.4; word-wrap: break-word; min-height: 8mm;">${escapeHtml(data.observaciones)}</div></div>` : '';
-                const refrigeradoHtml = data.refrigerado ? `<div class="refrigerado-box"><strong>❄ CONTIENE REFRIGERADO</strong> - CANTIDAD: ${escapeHtml(data.cantRefrigerados)}</div>` : '';
-                
-                // Construir URLs de logos de forma segura
                 const logo1Src = escapeHtml(logo1Url);
                 const logo2Src = escapeHtml(logo2Url);
-                
+                const obsHtml = observaciones ? '<div class="v-obs">' + escapeHtml(observaciones) + '</div>' : '';
+                const hasObs = !!observaciones;
+                const iconId = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>';
+                const iconCalendar = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>';
+                const iconPhone = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+                const iconWindow = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>';
+                const iconMeds = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>';
+                const iconRefri = '<svg class="v-refri-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+                const ventanillaClass = hasObs ? 'v-ventanilla has-obs' : 'v-ventanilla';
+                const nameHtml = '<div class="v-box v-name-box">' + escapeHtml(nombre) + '</div>';
+                const dniHtml = '<div class="v-box v-dni-box"><div class="v-dni-head">' + iconId + '<span class="v-dni-label">DNI / AFILIACIÓN</span></div><div>' + escapeHtml(dni) + '</div></div>';
+                const fechaHtml = '<div class="v-box v-fecha-box"><div class="v-box-head">' + iconCalendar + '<span class="v-box-label">FECHA DE ENTREGA</span></div><div class="v-box-value">' + escapeHtml(fechaEntrega) + '</div></div>';
+                const ccHtml = '<div class="v-box v-cc-box"><div class="v-box-head">' + iconPhone + '<span class="v-box-label">CONTACT CENTER</span></div><div class="v-box-value">' + escapeHtml(contactCenterDisplay) + '</div></div>';
+                const medsBoxHtml = '<div class="v-box v-meds">' + iconMeds + '<span>MEDICAMENTOS: ' + escapeHtml(cantidadMeds) + '</span></div>';
+                const refriBoxHtml = cantRefri > 0 ? '<div class="v-refri">' + iconRefri + '<span>REFRIGERADO: ' + escapeHtml(String(cantRefri)) + '</span></div>' : '';
                 const html = '<div class="sheet">' +
-'<div class="header">' +
-'<div class="header-logos">' +
-'<img src="' + logo1Src + '" alt="Logo 1" class="header-logo" onerror="this.style.display=\'none\'"/>' +
-'<img src="' + logo2Src + '" alt="Logo 2" class="header-logo" onerror="this.style.display=\'none\'"/>' +
-'</div>' +
-'<div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>' +
-'</div>' +
-'<div class="banner">ENTREGA EN VENTANILLA</div>' +
-'<div class="section">' +
-'<div class="section-title">INFORMACIÓN DEL DERECHOHABIENTE</div>' +
-'<div class="field-row">' +
-'<div class="field-label">NOMBRE COMPLETO:</div>' +
-'<div class="field-value-extra-large">' + escapeHtml(data.nombre) + '</div>' +
-'</div>' +
-'<div class="field-row">' +
-'<div class="field-label">DNI / AFILIACIÓN:</div>' +
-'<div class="field-value-large">' + escapeHtml(data.dni) + '</div>' +
-'</div>' +
-'<div class="field-row">' +
-'<div class="field-label">FECHA ENTREGA:</div>' +
-'<div class="field-value">' + escapeHtml(data.fechaEntrega) + '</div>' +
-'</div>' +
-'</div>' +
-'<div class="section">' +
-'<div class="section-title">CONTACTO Y SEGUIMIENTO</div>' +
-'<div class="field-row">' +
-'<div class="field-label">TELÉFONO:</div>' +
-'<div class="field-value-large">' + escapeHtml(data.telefonoPrincipal || '—') + '</div>' +
-'</div>' +
-telefonoRefHtml +
-'<div class="field-row">' +
-'<div class="field-label">MEDICAMENTOS:</div>' +
-'<div class="field-value-large" style="font-size: 5mm;">' + escapeHtml(data.medicamentos) + '</div>' +
-'</div>' +
-contactCenterHtml +
-'</div>' +
-'<div class="dashed-box">VENTANILLA</div>' +
-observacionesHtml +
-refrigeradoHtml +
-'<div class="footer">OP: ' + escapeHtml(data.operatorName) + ' | ' + escapeHtml(data.printedAt) + '</div>' +
-'</div>';
-                
-                buildPrintWindow(html, getPrintVignetteCSSVertical(), 'Imprimir Viñeta Ventanilla');
+                    '<div class="v-logos-row">' +
+                    '<img src="' + logo1Src + '" alt="Logo 1" class="v-logo" onerror="this.style.display=\'none\'"/>' +
+                    '<img src="' + logo2Src + '" alt="Logo 2" class="v-logo" onerror="this.style.display=\'none\'"/>' +
+                    '</div>' +
+                    '<div class="v-title-full">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>' +
+                    nameHtml +
+                    dniHtml +
+                    fechaHtml +
+                    ccHtml +
+                    medsBoxHtml +
+                    refriBoxHtml +
+                    '<div class="' + ventanillaClass + '">' + iconWindow + ' VENTANILLA</div>' +
+                    obsHtml +
+                    '<div class="v-footer">OPERACIONES: ' + escapeHtml(usuarioOperaciones) + '</div>' +
+                    '</div>';
+                buildPrintWindow(html, getPrintVignetteCSSVentanilla(), 'Imprimir Viñeta Ventanilla');
             };
 
             // Función para imprimir viñeta REFRIGERADO
@@ -7186,7 +7517,7 @@ refrigeradoHtml +
                             </div>
                         </Modal>
 
-                        <Modal isOpen={showKitForm} onClose={closeKitForm} title={isViewMode ? "Detalle del Kit" : isCCFormView ? "Contact Center — Confirmar kit" : isDespachoFormView ? "Despacho de medicamentos — Verificar recetas" : (editingKitId ? "Editar Kit" : "Nuevo Kit de Producción")} maxWidth="max-w-4xl">
+                        <Modal isOpen={showKitForm} onClose={closeKitForm} title={isViewMode ? "Detalle del Kit" : isCCFormView ? (kitData.confirmadoPorContactCenter ? "Contact Center — Actualizar kit" : "Contact Center — Confirmar kit") : isDespachoFormView ? "Despacho de medicamentos — Verificar recetas" : (editingKitId ? "Editar Kit" : "Nuevo Kit de Producción")} maxWidth="max-w-4xl">
                             <form onSubmit={handleKitSubmit} className="space-y-6">
                                 <fieldset disabled={isViewMode} className="space-y-6">
                                     {isRevAsigFormView ? (
@@ -7817,7 +8148,7 @@ refrigeradoHtml +
                                             </>
                                         ) : isCCFormView ? (
                                             <>
-                                                <button type="submit" className="flex-1 py-3 bg-turquoise-600 text-white font-bold rounded-xl shadow-lg hover:bg-turquoise-700 transition-colors btn-hover-effect">Guardar kit</button>
+                                                <button type="submit" className="flex-1 py-3 bg-turquoise-600 text-white font-bold rounded-xl shadow-lg hover:bg-turquoise-700 transition-colors btn-hover-effect">{kitData.confirmadoPorContactCenter ? 'Actualizar kit' : 'Guardar kit'}</button>
                                                 {kitData.confirmadoPorContactCenter && !kitData.devueltoPorContactCenter && (
                                                     <button type="button" onClick={handleRegresarARevisionAsignacion} className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 transition-colors btn-hover-effect">Regresar a Revisión y Asignación</button>
                                                 )}
@@ -7932,11 +8263,27 @@ refrigeradoHtml +
                                             </div>
                                         </div>
                                         <div className="flex flex-wrap gap-2 justify-end sm:justify-center items-start">
-                                            {(folderSoloLectura || kit.trabajadoOperaciones) ? (
-                                                <button onClick={() => openEditKit(kit, true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 text-xs font-bold" title={kit.trabajadoOperaciones ? "Solo visualización y reimprimir viñetas" : "Solo visualización"}>
-                                                    <Icons.Eye size={16}/> Visualizar
-                                                </button>
-                                            ) : (
+                                            {(() => {
+                                                const ccAsignado = (kit.contactCenter || '').trim().toLowerCase();
+                                                const ccYo = (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim().toLowerCase();
+                                                const esMiAsignado = !!ccAsignado && !!ccYo && ccAsignado === ccYo;
+                                                const ccPuedeModificar = isAgenteContactCenter && esMiAsignado;
+                                                const soloVisualizar = (folderSoloLectura || kit.trabajadoOperaciones) && !ccPuedeModificar;
+                                                if (soloVisualizar) {
+                                                    return (
+                                                        <button onClick={() => openEditKit(kit, true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 text-xs font-bold" title={kit.trabajadoOperaciones ? "Solo visualización y reimprimir viñetas" : "Solo visualización"}>
+                                                            <Icons.Eye size={16}/> Visualizar
+                                                        </button>
+                                                    );
+                                                }
+                                                if (ccPuedeModificar && (folderSoloLectura || kit.trabajadoOperaciones)) {
+                                                    return (
+                                                        <button onClick={() => openEditKit(kit, false)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 text-xs font-bold" title="Modificar información del kit (Contact Center)">
+                                                            <Icons.Edit size={16}/> Modificar
+                                                        </button>
+                                                    );
+                                                }
+                                                return (
                                                 <>
                                             <button onClick={() => openEditKit(kit, false)} className="text-slate-300 hover:text-orange-500 p-2 btn-hover-effect" title="Editar">
                                                 <Icons.Edit size={18}/>
@@ -7962,7 +8309,8 @@ refrigeradoHtml +
                                                 </button>
                                             )}
                                                 </>
-                                            )}
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                     );
@@ -8056,17 +8404,25 @@ refrigeradoHtml +
                         <div className="border-b border-slate-100 px-6">
                             <div className="flex gap-4">
                                 <button 
-                                    onClick={() => { setActivePatientTab('general'); setSelectedFolderKey(null); }} 
+                                    onClick={() => { setActivePatientTab('general'); setSelectedFolderKey(null); setBitacoraRevFechaAbierta(null); setBitacoraRevModalSearch(''); }} 
                                     className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activePatientTab === 'general' ? 'border-turquoise-500 text-turquoise-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                                 >
                                     Pacientes Generales
                                 </button>
                                 <button 
-                                    onClick={() => { setActivePatientTab('asignados'); setSelectedFolderKey(null); }} 
+                                    onClick={() => { setActivePatientTab('asignados'); setSelectedFolderKey(null); setBitacoraRevFechaAbierta(null); setBitacoraRevModalSearch(''); }} 
                                     className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activePatientTab === 'asignados' ? 'border-turquoise-500 text-turquoise-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                                 >
                                     Mis Asignados
                                 </button>
+                                {isRevisionAsignacion && (
+                                    <button 
+                                        onClick={() => { setActivePatientTab('bitacora'); setSelectedFolderKey(null); setSelectedPatient(null); setSelectedPatientFullData(null); }} 
+                                        className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activePatientTab === 'bitacora' ? 'border-amber-500 text-amber-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                                    >
+                                        Bitácora Rev.
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}
@@ -8236,7 +8592,119 @@ refrigeradoHtml +
                             </div>
                         )}
                         
-                        {needsTabs && activePatientTab === 'asignados' && Object.keys(patientsByUser).length > 0 ? (
+                        {activePatientTab === 'bitacora' && isRevisionAsignacion ? (
+                            <>
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <span className="font-bold text-slate-700">Bitácora — Revisión y asignación (carpetas por día trabajado)</span>
+                                        <div className="flex gap-2 p-1.5 bg-amber-100 rounded-xl w-fit">
+                                            <button onClick={() => { setBitacoraRevTab('creados'); setBitacoraRevFechaAbierta(null); }} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all btn-hover-effect ${bitacoraRevTab === 'creados' ? 'bg-white text-amber-800 shadow-sm' : 'text-amber-700 hover:bg-white/60'}`}>Creados y asignados</button>
+                                            <button onClick={() => { setBitacoraRevTab('impresos'); setBitacoraRevFechaAbierta(null); }} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all btn-hover-effect ${bitacoraRevTab === 'impresos' ? 'bg-white text-amber-800 shadow-sm' : 'text-amber-700 hover:bg-white/60'}`}>Impresos</button>
+                                        </div>
+                                        <div className="relative w-full sm:w-64">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                            <input type="text" placeholder="Buscar por fecha (ej. 2025-01, ene)..." value={bitacoraRevCarpetasSearch} onChange={e=>setBitacoraRevCarpetasSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-200" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[60vh] overflow-y-auto">
+                                    {(() => {
+                                        const porDia = bitacoraRevTab === 'creados' ? creadosPorDia : impresosPorDia;
+                                        const t = (bitacoraRevCarpetasSearch || '').trim().toLowerCase();
+                                        const filtered = !t ? porDia : porDia.filter(({ fecha }) => {
+                                            const fmt = formatearFechaBitacoraRev(fecha).toLowerCase();
+                                            return fmt.includes(t) || (fecha || '').toLowerCase().includes(t);
+                                        });
+                                        if (filtered.length === 0) return (
+                                            <div className="col-span-full p-12 text-center text-slate-500">
+                                                <Icons.Folder size={48} className="mx-auto mb-3 opacity-40"/>
+                                                <p className="font-medium">{porDia.length === 0 ? (bitacoraRevTab === 'creados' ? 'No hay días con kits creados/asignados' : 'No hay días con kits impresos') : 'Sin resultados para la búsqueda'}</p>
+                                                <p className="text-sm mt-1">{porDia.length === 0 ? (bitacoraRevTab === 'creados' ? 'Los kits que crees o asignes aparecerán agrupados por día.' : 'Los kits que imprimas aparecerán agrupados por día.') : 'Pruebe otro término (ej. año-mes o nombre del mes).'}</p>
+                                            </div>
+                                        );
+                                        return filtered.map(({ fecha, kits: ks, count }) => (
+                                            <button key={fecha} onClick={() => setBitacoraRevFechaAbierta(fecha)} className="flex items-center gap-3 p-4 rounded-2xl border-2 border-slate-200 hover:border-amber-400 hover:bg-amber-50/50 transition-all text-left btn-hover-effect group">
+                                                <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 group-hover:bg-amber-200"><Icons.Folder size={24}/></div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="font-bold text-slate-800 truncate">{formatearFechaBitacoraRev(fecha)}</div>
+                                                    <div className="text-xs text-slate-500">{count} kit(s) {bitacoraRevTab === 'creados' ? 'creado(s)/asignado(s)' : 'impreso(s)'}</div>
+                                                </div>
+                                            </button>
+                                        ));
+                                    })()}
+                                </div>
+                            </div>
+                            {bitacoraRevFechaAbierta && (
+                                <Modal isOpen={true} onClose={() => { setBitacoraRevFechaAbierta(null); setBitacoraRevModalSearch(''); }} title={`Bitácora Rev. — ${formatearFechaBitacoraRev(bitacoraRevFechaAbierta)} (${bitacoraRevTab === 'creados' ? 'Creados y asignados' : 'Impresos'})`} maxWidth="max-w-4xl">
+                                    <div className="space-y-4">
+                                        <p className="text-sm text-slate-500">Kits {bitacoraRevTab === 'creados' ? 'creados/asignados' : 'impresos'} este día. Ver / Editar para dispensar o revisar.</p>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <div className="relative flex-1 min-w-[180px]">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                                <input type="text" placeholder="Buscar por nombre o DNI..." value={bitacoraRevModalSearch} onChange={e=>setBitacoraRevModalSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl border border-slate-200 text-sm outline-none focus:border-amber-300 focus:ring-1 focus:ring-amber-200" />
+                                            </div>
+                                            <span className="text-sm text-slate-500">
+                                                {(() => {
+                                                    const porDia = bitacoraRevTab === 'creados' ? creadosPorDia : impresosPorDia;
+                                                    const kitsDia = porDia.find(d => d.fecha === bitacoraRevFechaAbierta)?.kits || [];
+                                                    const plist = (allPatients && allPatients.length > 0) ? allPatients : patients;
+                                                    const t = (bitacoraRevModalSearch || '').trim().toLowerCase();
+                                                    const filtered = !t ? kitsDia : kitsDia.filter(k => {
+                                                        const pt = (plist || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                                                        const n = (k.nombre || (pt?.nombre || '')).toLowerCase();
+                                                        const d = (k.dni || (pt?.dni || '')).toString().toLowerCase();
+                                                        return n.includes(t) || d.includes(t);
+                                                    });
+                                                    return filtered.length !== kitsDia.length ? `${filtered.length} de ${kitsDia.length}` : `${kitsDia.length} kit(s)`;
+                                                })()}
+                                            </span>
+                                        </div>
+                                        <div className="divide-y divide-slate-100 max-h-[50vh] overflow-y-auto rounded-xl border border-slate-100">
+                                            {(() => {
+                                                const porDia = bitacoraRevTab === 'creados' ? creadosPorDia : impresosPorDia;
+                                                const kitsDia = porDia.find(d => d.fecha === bitacoraRevFechaAbierta)?.kits || [];
+                                                const plist = (allPatients && allPatients.length > 0) ? allPatients : patients;
+                                                const t = (bitacoraRevModalSearch || '').trim().toLowerCase();
+                                                const filtered = !t ? kitsDia : kitsDia.filter(k => {
+                                                    const pt = (plist || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                                                    const n = (k.nombre || (pt?.nombre || '')).toLowerCase();
+                                                    const d = (k.dni || (pt?.dni || '')).toString().toLowerCase();
+                                                    return n.includes(t) || d.includes(t);
+                                                });
+                                                return filtered.map(kit => {
+                                                    const pt = (plist || []).find(p => p.id === kit.patientId || (p.dni && kit.dni && String(p.dni).trim() === String(kit.dni).trim()));
+                                                    return (
+                                                        <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <span className="font-bold text-slate-800">{kit.nombre || pt?.nombre || '—'}</span>
+                                                                    {!!kit.complemento && <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold uppercase">Complemento</span>}
+                                                                </div>
+                                                                <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                                                    <span>DNI: {kit.dni || pt?.dni || '—'}</span>
+                                                                    <span className="font-mono">{kit.fechaArmado || '—'}</span>
+                                                                    <span className={kit.deliveryMode === 'ruta' ? 'text-emerald-600 font-semibold' : 'text-indigo-600 font-semibold'}>{kit.deliveryMode === 'ruta' ? 'Ruta' : kit.deliveryMode === 'ventanilla' ? 'Ventanilla' : '—'}</span>
+                                                                    <span>{(kit.medicamentos || []).length} med(s)</span>
+                                                                    {kit.digitador && <span>Imprimió: {kit.digitador}</span>}
+                                                                </div>
+                                                            </div>
+                                                            <button onClick={() => openEditKit(kit, false)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-turquoise-50 text-turquoise-700 hover:bg-turquoise-100 border border-turquoise-200 text-xs font-bold" title="Ver / Editar kit">
+                                                                <Icons.Edit size={16}/> Ver / Editar
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                });
+                                            })()}
+                                        </div>
+                                        <div className="flex justify-end pt-2">
+                                            <button onClick={() => { setBitacoraRevFechaAbierta(null); setBitacoraRevModalSearch(''); }} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar</button>
+                                        </div>
+                                    </div>
+                                </Modal>
+                            )}
+                            </>
+                        ) : needsTabs && activePatientTab === 'asignados' && Object.keys(patientsByUser).length > 0 ? (
                             <div className="space-y-4">
                                 {!selectedFolderKey ? (
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -9904,7 +10372,7 @@ refrigeradoHtml +
                 return String(kitData?.direccionEntrega || '').trim();
             };
             
-            const resolveRutaPlaceholders = (kitData, patientData) => {
+            const resolveRutaPlaceholders = (kitData, patientData, users = [], contacts = []) => {
                 const gpsEnabled = getGpsEnabled(kitData);
                 const gpsCoords = getGpsCoords(kitData);
                 const direccionEntrega = resolveDeliveryAddressRuta(kitData);
@@ -9918,11 +10386,66 @@ refrigeradoHtml +
                 };
                 const TEL_PERSONAL_BOX = kitData.phoneHighlight === 'personal' ? renderBox(telPersonal) : (telPersonal || '');
                 const TEL_FAMILIAR_BOX = kitData.phoneHighlight === 'familiar' ? renderBox(telFamiliar) : (telFamiliar || '');
-                let contactCenter = '';
-                if (kitData.contactCenter) {
-                    const contactStr = String(kitData.contactCenter);
-                    contactCenter = contactStr.split(' --- ')[0].trim();
+                
+                // Obtener contact center con teléfono (similar a ventanilla)
+                const sep = ' ----- ';
+                let contactCenterDisplay = '';
+                const ccRaw = (kitData.contactCenter || patientData?.contactCenter || '').toString().trim();
+                const agenteName = (patientData?.agenteContactCenter || kitData?.agenteContactCenter || (ccRaw && !ccRaw.includes(' --- ') && !ccRaw.includes(' ----- ') ? ccRaw : '')).toString().trim();
+                
+                if (ccRaw) {
+                    if (ccRaw.includes(' --- ')) {
+                        const parts = ccRaw.split(' --- ');
+                        contactCenterDisplay = (parts[0] || '').trim() + sep + (parts[1] || '').trim();
+                    } else if (ccRaw.includes(sep)) {
+                        contactCenterDisplay = ccRaw;
+                    } else if (ccRaw.includes('---')) {
+                        const parts = ccRaw.split('---');
+                        contactCenterDisplay = (parts[0] || '').trim() + sep + (parts[1] || '').trim();
+                    } else {
+                        // Buscar en users o contacts
+                        const ulist = users || [];
+                        const u = ulist.find(x => { 
+                            const n = (x.nombre || x.username || x.name || '').trim().toLowerCase(); 
+                            return n && n === ccRaw.toLowerCase(); 
+                        });
+                        if (u) {
+                            const tel = (u.telefono || u.phone || u.movil || u.tel || '').toString().trim();
+                            contactCenterDisplay = tel ? (u.nombre || u.username || u.name || ccRaw) + sep + tel : (u.nombre || u.username || u.name || ccRaw);
+                        } else {
+                            const clist = contacts || [];
+                            const c = clist.find(x => (x.name || '').trim().toLowerCase() === ccRaw.toLowerCase());
+                            if (c && (c.phone || '').toString().trim()) {
+                                contactCenterDisplay = (c.name || ccRaw) + sep + (c.phone || '').toString().trim();
+                            } else {
+                                contactCenterDisplay = ccRaw;
+                            }
+                        }
+                    }
+                } else if (agenteName) {
+                    const ulist = users || [];
+                    const u = ulist.find(x => { 
+                        const n = (x.nombre || x.username || x.name || '').trim().toLowerCase(); 
+                        return n && n === agenteName.toLowerCase(); 
+                    });
+                    if (u) {
+                        const tel = (u.telefono || u.phone || u.movil || u.tel || '').toString().trim();
+                        contactCenterDisplay = tel ? (u.nombre || u.username || u.name || agenteName) + sep + tel : (u.nombre || u.username || u.name || agenteName);
+                    } else {
+                        const clist = contacts || [];
+                        const c = clist.find(x => (x.name || '').trim().toLowerCase() === agenteName.toLowerCase());
+                        if (c && (c.phone || '').toString().trim()) {
+                            contactCenterDisplay = (c.name || agenteName) + sep + (c.phone || '').toString().trim();
+                        } else {
+                            contactCenterDisplay = agenteName;
+                        }
+                    }
                 }
+                
+                if (!contactCenterDisplay || contactCenterDisplay === '—') {
+                    contactCenterDisplay = agenteName || '—';
+                }
+                
                 let fechaEntrega = '';
                 if (kitData.fechaEntregaKit) {
                     const date = new Date(kitData.fechaEntregaKit);
@@ -9935,12 +10458,26 @@ refrigeradoHtml +
                         fechaEntrega = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
                     }
                 }
-                let medsCount = '0';
-                if (kitData.triggerMeds && String(kitData.triggerMeds).trim()) {
-                    medsCount = String(kitData.triggerMeds);
-                } else if (kitData.medicamentos && Array.isArray(kitData.medicamentos)) {
-                    medsCount = String(kitData.medicamentos.length);
+                
+                // Calcular cantidad de medicamentos (formato dispensados/total)
+                const medicamentos = kitData.medicamentos || [];
+                const totalMeds = medicamentos.length;
+                const dispensadosMeds = medicamentos.filter(m => m.dispensar !== false).length;
+                const cantidadMeds = totalMeds > 0 ? `${dispensadosMeds}/${totalMeds}` : '0/0';
+                
+                // Observaciones de entrega
+                const observacionesEntrega = (kitData.observacionesEntrega || kitData.observations || kitData.obsRuta || '').trim().toUpperCase();
+                
+                // Construir QR_MAPS usando kit.gpsValue directamente
+                let qrMapsUrl = '';
+                if (kitData.gpsValue && String(kitData.gpsValue).trim() !== '') {
+                    const gps = String(kitData.gpsValue).trim();
+                    // Validar que tenga coma
+                    if (gps.includes(',')) {
+                        qrMapsUrl = 'https://www.google.com/maps?q=' + gps + '&kitId=' + (kitData.id || '') + '&dni=' + (patientData?.dni || kitData.dni || '');
+                    }
                 }
+                
                 return {
                     NOMBRE: (kitData.nombre || patientData?.nombre || '').toUpperCase(),
                     DNI: (kitData.dni || patientData?.dni || '').toUpperCase(),
@@ -9950,14 +10487,15 @@ refrigeradoHtml +
                     TEL_FAMILIAR: telFamiliar.toUpperCase(),
                     TEL_PERSONAL_BOX: TEL_PERSONAL_BOX,
                     TEL_FAMILIAR_BOX: TEL_FAMILIAR_BOX,
-                    MEDS_COUNT: medsCount.toUpperCase(),
+                    MEDS_COUNT: cantidadMeds,
                     DIRECCION_ENTREGA: direccionEntrega.toUpperCase(),
-                    INSTRUCCIONES_ENTREGA: (kitData.observations || kitData.observacionesEntrega || kitData.obsRuta || '').toUpperCase(),
-                    OBSERVACIONES: (kitData.observations || kitData.observacionesEntrega || kitData.obsRuta || '').toUpperCase(),
-                    CONTACT_CENTER: contactCenter.toUpperCase() || '—',
+                    INSTRUCCIONES_ENTREGA: observacionesEntrega,
+                    OBSERVACIONES: observacionesEntrega,
+                    CONTACT_CENTER: contactCenterDisplay.toUpperCase() || '—',
                     FECHA_ENTREGA: fechaEntrega || '—',
                     REFRIGERADO: (kitData.refrigerado === true || kitData.isRefrigerated === true) ? 'REFRIGERADO' : '',
-                    QR_MAPS: (gpsEnabled && gpsCoords) ? 'https://www.google.com/maps?q=' + gpsCoords.lat + ',' + gpsCoords.lng : null
+                    QR_MAPS: qrMapsUrl,
+                    HAS_GPS: gpsEnabled
                 };
             };
             
@@ -9973,8 +10511,27 @@ refrigeradoHtml +
                         .replace(/"/g, '&quot;')
                         .replace(/'/g, '&#39;');
                 };
+                
+                // Crear copia de los elementos para no modificar el original
+                const elements = [...template.elements];
+                
+                // Asegurar que la plantilla tenga el elemento QR_MAPS si no existe
+                let qrElement = elements.find(e => e.tokenKey === 'QR_MAPS');
+                if (!qrElement && resolvedData.QR_MAPS) {
+                    // Crear elemento QR_MAPS con valores por defecto
+                    qrElement = {
+                        tokenKey: 'QR_MAPS',
+                        xMm: 180,
+                        yMm: 5,
+                        wMm: 25,
+                        hMm: 25
+                    };
+                    // Agregar a la copia de elementos (no modificar el original)
+                    elements.push(qrElement);
+                }
+                
                 let elementsHtml = '';
-                template.elements.forEach(element => {
+                elements.forEach(element => {
                     const isHtmlToken = element.tokenKey === 'TEL_PERSONAL_BOX' || element.tokenKey === 'TEL_FAMILIAR_BOX';
                     const text = element.tokenKey ? (resolvedData[element.tokenKey] || '') : (element.text || '');
                     const style = element.style || {};
@@ -9987,16 +10544,13 @@ refrigeradoHtml +
                 });
                 let qrContainerHtml = '';
                 let qrScriptHtml = '';
-                if (resolvedData.QR_MAPS) {
-                    const qrElement = template.elements.find(e => e.tokenKey === 'QR_MAPS');
-                    if (qrElement) {
-                        const qrStyle = 'left: ' + qrElement.xMm + 'mm; top: ' + qrElement.yMm + 'mm; width: ' + qrElement.wMm + 'mm; height: ' + qrElement.hMm + 'mm; text-align: center; padding: 1mm;';
-                        qrContainerHtml = '<div class="cell" id="qr-container" style="' + qrStyle + '"></div>';
-                        const qrUrl = JSON.stringify(resolvedData.QR_MAPS);
-                        const qrScriptSrc = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>';
-                        const qrScriptCode = '<script>(function(){if(typeof QRCode !== "undefined"){var qrContainer = document.getElementById("qr-container");if(qrContainer){QRCode.toDataURL(' + qrUrl + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img = document.createElement("img");img.src = url;img.style.maxWidth = "100%";img.style.height = "auto";qrContainer.appendChild(img);}});}}})();<\/script>';
-                        qrScriptHtml = qrScriptSrc + qrScriptCode;
-                    }
+                if (resolvedData.QR_MAPS && qrElement) {
+                    const qrStyle = 'left: ' + qrElement.xMm + 'mm; top: ' + qrElement.yMm + 'mm; width: ' + qrElement.wMm + 'mm; height: ' + qrElement.hMm + 'mm; text-align: center; padding: 1mm;';
+                    qrContainerHtml = '<div class="cell" id="qr-container" style="' + qrStyle + '"></div>';
+                    const qrUrl = JSON.stringify(resolvedData.QR_MAPS);
+                    const qrScriptSrc = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>';
+                    const qrScriptCode = '<script>(function(){if(typeof QRCode !== "undefined"){var qrContainer = document.getElementById("qr-container");if(qrContainer){QRCode.toDataURL(' + qrUrl + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img = document.createElement("img");img.src = url;img.style.maxWidth = "100%";img.style.height = "auto";qrContainer.appendChild(img);}});}}})();<\/script>';
+                    qrScriptHtml = qrScriptSrc + qrScriptCode;
                 }
                 const printHtml = '<!DOCTYPE html>' +
 '<html>' +
@@ -10022,7 +10576,7 @@ qrScriptHtml +
                 return printHtml;
             };
             
-            // Función para imprimir viñeta RUTA (movida dentro de App para acceso a rutaTemplateCurrent)
+            // Función para imprimir viñeta RUTA con nueva plantilla HTML
             const printRutaVignette = async (kit, patient) => {
                 try {
                     // Obtener datos actualizados de la base de datos antes de imprimir
@@ -10056,198 +10610,161 @@ qrScriptHtml +
                     
                     const patientData = updatedPatient;
                     
-                    // Cargar plantilla actual si no está cargada
-                    if (!rutaTemplateCurrent) {
-                        await loadRutaTemplateCurrent();
-                    }
+                    // Generar token único para el QR
+                    const generateUniqueToken = () => {
+                        // Usar crypto.randomUUID si está disponible, sino generar token único
+                        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                            return crypto.randomUUID();
+                        }
+                        // Fallback: generar token único usando timestamp + random
+                        return 't_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                    };
                     
-                    // Si no hay plantilla, usar una por defecto
-                    let template = rutaTemplateCurrent;
-                    if (!template) {
-                        alert('No hay plantilla RUTA configurada. Por favor, suba una plantilla Excel en Configuración → Plantilla RUTA.');
-                        return;
-                    }
+                    const qrToken = generateUniqueToken();
+                    const baseUrl = window.location.origin || window.location.protocol + '//' + window.location.host;
+                    const qrUrl = baseUrl + '/q.html?t=' + encodeURIComponent(qrToken);
                     
-                    // Resolver placeholders con datos actualizados
-                    const resolvedData = resolveRutaPlaceholders(updatedKit, patientData);
-                    
-                    // Renderizar según formato (PDF, Word o Excel)
-                    let htmlDoc = '';
-                    
-                    if (template.format === 'pdf' && template.pdfBase64) {
-                        // Plantilla PDF: renderizar con PDF.js y sobrescribir tokens
+                    // Guardar token en la base de datos
+                    if (updatedKit && updatedKit.id && firebaseInitialized && db && saveKit) {
                         try {
-                            if (typeof pdfjsLib === 'undefined') {
-                                throw new Error('PDF.js no está disponible');
-                            }
-                            
-                            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                            
-                            // Convertir base64 a Uint8Array
-                            const binaryString = atob(template.pdfBase64);
-                            const bytes = new Uint8Array(binaryString.length);
-                            for (let i = 0; i < binaryString.length; i++) {
-                                bytes[i] = binaryString.charCodeAt(i);
-                            }
-                            
-                            const pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
-                            const page = await pdfDoc.getPage(1);
-                            const viewport = page.getViewport({ scale: 2.0 });
-                            
-                            // Crear canvas para renderizar PDF
-                            const canvas = document.createElement('canvas');
-                            const context = canvas.getContext('2d');
-                            canvas.height = viewport.height;
-                            canvas.width = viewport.width;
-                            
-                            await page.render({
-                                canvasContext: context,
-                                viewport: viewport
-                            }).promise;
-                            
-                            // Sobrescribir texto en posiciones detectadas por Gemini
-                            const elements = template.geminiAnalysis?.elements || template.elements || [];
-                            
-                            // Primero intentar usar elementos detectados por Gemini
-                            if (elements.length > 0) {
-                                elements.forEach(element => {
-                                    if (element.type === 'text' && element.token) {
-                                        // Limpiar token de {{ }} si viene con formato
-                                        const cleanToken = element.token.replace(/[{}]/g, '');
-                                        const value = resolvedData[cleanToken];
-                                        
-                                        if (value) {
-                                            const pos = element.position || {};
-                                            const style = element.style || {};
-                                            // Convertir mm a pixels (asumiendo 96 DPI: 1mm = 3.779px)
-                                            const x = (pos.x || 0) * 3.779;
-                                            const y = (pos.y || 0) * 3.779;
-                                            const fontSize = (style.fontSize || 12) * 1.5; // Ajustar tamaño
-                                            const fontWeight = style.fontWeight || 'bold';
-                                            const color = style.color || '#000000';
-                                            
-                                            context.save();
-                                            context.font = `${fontWeight} ${fontSize}px Arial`;
-                                            context.fillStyle = color;
-                                            context.textAlign = pos.align || 'left';
-                                            context.textBaseline = 'top';
-                                            
-                                            // Si el token es HTML (como TEL_PERSONAL_BOX), renderizar como texto normal
-                                            const textValue = String(value).replace(/<[^>]*>/g, '').trim();
-                                            if (textValue) {
-                                                context.fillText(textValue.toUpperCase(), x, y);
-                                            }
-                                            
-                                            context.restore();
-                                        }
-                                    }
-                                });
-                            } else {
-                                // Fallback: buscar tokens directamente en el texto del PDF
-                                console.warn('No se detectaron elementos en el análisis de Gemini, intentando extraer tokens del texto del PDF...');
-                                try {
-                                    const textContent = await page.getTextContent();
-                                    textContent.items.forEach((item) => {
-                                        if (item.str && item.str.includes('{{')) {
-                                            const tokenMatch = item.str.match(/\{\{(\w+)\}\}/);
-                                            if (tokenMatch) {
-                                                const token = tokenMatch[1];
-                                                const value = resolvedData[token];
-                                                if (value) {
-                                                    const transform = item.transform || [1, 0, 0, 1, 0, 0];
-                                                    const x = transform[4];
-                                                    const y = viewport.height - transform[5]; // Invertir Y
-                                                    
-                                                    context.save();
-                                                    context.font = `bold ${(item.height || 12) * 1.2}px Arial`;
-                                                    context.fillStyle = '#000000';
-                                                    context.textAlign = 'left';
-                                                    context.textBaseline = 'top';
-                                                    context.fillText(String(value).toUpperCase(), x, y);
-                                                    context.restore();
-                                                }
-                                            }
-                                        }
-                                    });
-                                } catch (textError) {
-                                    console.warn('Error extrayendo texto del PDF:', textError);
-                                }
-                            }
-                            
-                            // Generar QR si existe token QR_MAPS
-                            if (resolvedData.QR_MAPS && typeof QRCode !== 'undefined') {
-                                const qrElement = elements.find(e => {
-                                    const token = e.token || '';
-                                    return token.replace(/[{}]/g, '') === 'QR_MAPS';
-                                });
-                                if (qrElement) {
-                                    const qrPos = qrElement.position || {};
-                                    // Convertir mm a pixels (1mm = 3.779px a 96 DPI)
-                                    const qrX = (qrPos.x || 0) * 3.779;
-                                    const qrY = (qrPos.y || 0) * 3.779;
-                                    const qrSize = (qrElement.size || 30) * 3.779;
-                                    
-                                    // Generar QR en canvas temporal
-                                    const qrCanvas = document.createElement('canvas');
-                                    await new Promise((resolve) => {
-                                        QRCode.toCanvas(qrCanvas, resolvedData.QR_MAPS, { width: Math.round(qrSize), margin: 1 }, (err) => {
-                                            if (!err && qrCanvas) {
-                                                context.drawImage(qrCanvas, qrX, qrY);
-                                            }
-                                            resolve();
-                                        });
-                                    });
-                                }
-                            }
-                            
-                            // Convertir canvas a imagen y crear HTML para imprimir
-                            const imageDataUrl = canvas.toDataURL('image/png');
-                            const css = '@page { size: 210mm 71mm landscape; margin: 0; }' +
-                                'html, body { width: 210mm; height: 71mm; margin: 0; padding: 0; }' +
-                                '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }';
-                            
-                            htmlDoc = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Viñeta Ruta (PDF)</title>
-    <style>${css}</style>
-</head>
-<body style="margin:0;padding:0;">
-    <img src="${imageDataUrl}" style="width:210mm;height:71mm;object-fit:contain;" />
-</body>
-</html>`;
-                            
+                            await saveKit(updatedKit.id, { qrToken: qrToken, qrTokenGeneratedAt: (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) ? firebase.firestore.FieldValue.serverTimestamp() : new Date().toISOString() }, updatedKit.patientId, true);
+                            console.log('✅ Token QR guardado en BD:', qrToken);
                         } catch (error) {
-                            console.error('Error renderizando PDF:', error);
-                            throw new Error('Error al renderizar plantilla PDF: ' + error.message);
+                            console.warn('⚠️ No se pudo guardar token QR en BD:', error);
+                            // Continuar aunque falle el guardado
                         }
-                    } else if (template.format === 'word' && template.html) {
-                        const css = '@page { size: 210mm 71mm landscape; margin-left: 0.1cm; margin-right: 0.1cm; }' +
-                            'html, body { width: 210mm; height: 71mm; margin: 0; padding: 0; overflow: hidden; }' +
-                            '.ticket { width: 210mm; height: 71mm; position: relative; overflow: hidden; background: #fff; padding: 2mm; box-sizing: border-box; }' +
-                            '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; text-transform: uppercase; font-family: Arial, sans-serif; }';
-                        
-                        // Reemplazo simple de tokens {{TOKEN}} en el HTML de Word
-                        let hydrated = String(template.html || '').replace(/\{\{(\w+)\}\}/g, (m, key) => {
-                            if (key === 'QR_MAPS') return '<div id="qr-container" style="width:30mm;height:30mm;"></div>';
-                            const val = resolvedData[key];
-                            return val == null ? '' : String(val);
-                        });
-                        
-                        let qrScriptHtml = '';
-                        if (resolvedData.QR_MAPS) {
-                            const qrUrl = JSON.stringify(resolvedData.QR_MAPS);
-                            const qrScriptSrc = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>';
-                            const qrScriptCode = '<script>(function(){if(typeof QRCode !== "undefined"){var el=document.getElementById("qr-container");if(el){QRCode.toDataURL(' + qrUrl + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img=document.createElement("img");img.src=url;img.style.maxWidth="100%";img.style.height="auto";el.appendChild(img);}});}}})();<\/script>';
-                            qrScriptHtml = qrScriptSrc + qrScriptCode;
-                        }
-                        
-                        htmlDoc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Viñeta Ruta</title><style>' + css + '</style></head><body><div class="ticket">' + hydrated + '</div>' + qrScriptHtml + '</body></html>';
-                    } else {
-                        // Excel (formato por defecto)
-                        htmlDoc = renderRutaTemplateToHTML(template, resolvedData);
                     }
+                    
+                    // Resolver placeholders con datos actualizados (pasar users y contacts)
+                    const resolvedData = resolveRutaPlaceholders(updatedKit, patientData, users, contacts);
+                    
+                    // Obtener logos
+                    const logo1 = (typeof LOGO1_URL !== 'undefined' && LOGO1_URL) ? LOGO1_URL : 'https://raw.githubusercontent.com/jose50440/bita/6a46e7144ce075c219a382364b611fa576fc5e4b/img/logo1.png';
+                    const logo2 = (typeof LOGO2_URL !== 'undefined' && LOGO2_URL) ? LOGO2_URL : 'https://raw.githubusercontent.com/jose50440/bita/6a46e7144ce075c219a382364b611fa576fc5e4b/img/logo2.png';
+                    
+                    // Función helper para escapar HTML
+                    const _vEsc = (s) => { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); };
+                    
+                    // Construir HTML de la viñeta
+                    const hasGps = resolvedData.HAS_GPS === true;
+                    const fechaClass = 'ruta-fecha-value'; // Siempre mostrar QR, así que siempre usar clase con QR
+                    
+                    // Dirección y observaciones combinadas
+                    const direccionCompleta = resolvedData.DIRECCION_ENTREGA;
+                    const observaciones = resolvedData.OBSERVACIONES;
+                    const direccionYObs = [direccionCompleta, observaciones].filter(Boolean).join(' | ');
+                    
+                    // Generar QR ANTES de crear el HTML (siempre generar QR con token)
+                    // Estrategia rápida: intentar generar inmediatamente, si falla usar fallback en iframe
+                    let qrImageHtml = '';
+                    let qrGenerated = false;
+                    
+                    // Verificar si QRCode está disponible (ya está cargado en el head)
+                    const checkQRCode = () => {
+                        return typeof QRCode !== 'undefined' && typeof QRCode.toDataURL === 'function';
+                    };
+                    
+                    // Intentar generar QR inmediatamente si está disponible (máximo 1 segundo de espera)
+                    if (checkQRCode()) {
+                        try {
+                            const qrDataUrl = await new Promise((resolve, reject) => {
+                                const timeout = setTimeout(() => reject(new Error('Timeout')), 1000);
+                                try {
+                                    QRCode.toDataURL(qrUrl, { 
+                                        width: 250, 
+                                        margin: 2,
+                                        errorCorrectionLevel: 'H',
+                                        color: {
+                                            dark: '#000000',
+                                            light: '#FFFFFF'
+                                        }
+                                    }, (err, url) => {
+                                        clearTimeout(timeout);
+                                        if (err) {
+                                            reject(new Error('QRCode generation failed'));
+                                        } else if (!url) {
+                                            reject(new Error('QRCode generation returned empty result'));
+                                        } else {
+                                            resolve(url);
+                                        }
+                                    });
+                                } catch (err) {
+                                    clearTimeout(timeout);
+                                    reject(err);
+                                }
+                            });
+                            
+                            if (qrDataUrl) {
+                                qrImageHtml = `<div class="ruta-qr-container"><img src="${qrDataUrl}" alt="QR Code" style="max-width:100%;max-height:100%;object-fit:contain;display:block;"/></div>`;
+                                qrGenerated = true;
+                            }
+                        } catch (error) {
+                            // Silenciar error, usar fallback
+                        }
+                    }
+                    
+                    // Si no se generó, usar fallback en el iframe que SIEMPRE genera el QR
+                    // Asegurar que siempre haya un contenedor y script para generar el QR
+                    if (!qrGenerated) {
+                        const qrUrlEscaped = JSON.stringify(qrUrl);
+                        const qrScriptSrc = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>';
+                        // Fallback optimizado: genera el QR directamente en el iframe con múltiples intentos
+                        const qrScriptCode = '<script>(function(){var qrUrl=' + qrUrlEscaped + ';var attempts=0;var maxAttempts=60;function generateQR(){try{var qrContainer=document.querySelector(".ruta-qr-container");if(!qrContainer){if(attempts++<maxAttempts){setTimeout(generateQR,30);}return;}if(qrContainer.querySelector("img")){return;}if(typeof QRCode==="undefined"){if(attempts++<maxAttempts){setTimeout(generateQR,30);}return;}QRCode.toDataURL(qrUrl,{width:250,margin:2,errorCorrectionLevel:"H"},function(err,url){if(err){if(attempts++<maxAttempts){setTimeout(generateQR,50);}return;}if(url){var img=document.createElement("img");img.src=url;img.style.maxWidth="100%";img.style.height="auto";img.style.display="block";img.alt="QR Code";qrContainer.innerHTML="";qrContainer.appendChild(img);}});}catch(e){if(attempts++<maxAttempts){setTimeout(generateQR,50);}}}generateQR();setTimeout(generateQR,30);setTimeout(generateQR,60);setTimeout(generateQR,100);setTimeout(generateQR,150);setTimeout(generateQR,250);})();<\/script>';
+                        qrImageHtml = '<div class="ruta-qr-container"></div>' + qrScriptSrc + qrScriptCode;
+                    } else {
+                        // Asegurar que siempre haya un contenedor incluso si se generó
+                        if (!qrImageHtml.includes('ruta-qr-container')) {
+                            qrImageHtml = '<div class="ruta-qr-container">' + qrImageHtml.replace(/^<div[^>]*>|<\/div>$/g, '') + '</div>';
+                        }
+                    }
+                    
+                    const html = `
+<div class="ruta-sheet">
+    <div class="ruta-title">DEPARTAMENTO DE DISPENSASION A DOMICILIO</div>
+    <div class="ruta-content">
+        <div class="ruta-lado-a">
+            <div class="ruta-box ruta-name">${_vEsc(resolvedData.NOMBRE)}</div>
+            <div class="ruta-box ruta-dni">${_vEsc(resolvedData.DNI)}</div>
+            <div class="ruta-box ruta-field">
+                <div class="ruta-field-label">TELÉFONOS</div>
+                <div class="ruta-field-value">${_vEsc(resolvedData.TELEFONOS)}</div>
+            </div>
+            <div class="ruta-box ruta-meds">
+                <div class="ruta-field-label">MEDICAMENTOS</div>
+                <div class="ruta-meds-value">${_vEsc(resolvedData.MEDS_COUNT)}</div>
+            </div>
+            <div class="ruta-box ruta-field">
+                <div class="ruta-field-label">CONTACT CENTER</div>
+                <div class="ruta-field-value">${_vEsc(resolvedData.CONTACT_CENTER)}</div>
+            </div>
+            ${hasGps ? '<div class="ruta-box ruta-gps">TIENE GPS</div>' : ''}
+        </div>
+        <div class="ruta-lado-b">
+            <div class="ruta-b1">
+                <div class="ruta-box-address">
+                    <div class="ruta-address-content">
+                        <div class="ruta-address-text" id="ruta-address-text">${_vEsc(direccionYObs)}</div>
+                    </div>
+                    <div class="ruta-address-logos">
+                        <img src="${_vEsc(logo1)}" alt="Logo 1" class="ruta-logo-small" onerror="this.style.display='none'"/>
+                        <img src="${_vEsc(logo2)}" alt="Logo 2" class="ruta-logo-small" onerror="this.style.display='none'"/>
+                    </div>
+                </div>
+            </div>
+            <div class="ruta-b2">
+                <div class="ruta-fecha-box">
+                    <div class="${fechaClass}">${_vEsc(resolvedData.FECHA_ENTREGA)}</div>
+                </div>
+                ${qrImageHtml}
+            </div>
+        </div>
+    </div>
+</div>`;
+                    
+                    // Script para autoajustar fuente de dirección con márgenes y lógica inteligente (tamaño mínimo aumentado)
+                    let autoAdjustScript = '<script>(function(){function adjustFontSize(){var addressText=document.getElementById("ruta-address-text");if(!addressText)return;var addressContent=addressText.parentElement;var addressBox=addressContent.parentElement;if(!addressBox)return;var logosHeight=11;var marginTop=1.5;var marginBottom=1.5;var boxHeight=addressBox.offsetHeight;var availableHeight=boxHeight-logosHeight-marginTop-marginBottom;if(availableHeight<=0)return;addressText.style.fontSize="1mm";addressText.style.lineHeight="1.35";addressText.style.overflow="hidden";addressText.style.paddingTop=marginTop+"mm";addressText.style.paddingBottom=marginBottom+"mm";var textLength=addressText.textContent.length;var minFontSize=1.5;var maxFontSize=textLength<50?4.5:textLength<100?3.5:textLength<150?2.5:textLength<200?2.0:1.5;var fontSize=minFontSize;var bestFit=minFontSize;var precision=0.05;for(var testSize=minFontSize;testSize<=maxFontSize;testSize+=precision){addressText.style.fontSize=testSize+"mm";var textHeight=addressText.scrollHeight;if(textHeight<=availableHeight){bestFit=testSize;}else{break;}}addressText.style.fontSize=bestFit+"mm";}setTimeout(adjustFontSize,50);setTimeout(adjustFontSize,150);setTimeout(adjustFontSize,300);})();<\/script>';
+                    
+                    const htmlDoc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Viñeta Ruta</title><style>' + _vCSSRuta() + '</style></head><body>' + html + autoAdjustScript + '</body></html>';
                     
                     // Imprimir usando iframe oculto (evita bloqueos de popups)
                     const iframe = document.createElement('iframe');
@@ -10281,11 +10798,11 @@ qrScriptHtml +
                     
                     // Esperar a que cargue y luego imprimir
                     iframe.onload = function() {
-                        setTimeout(doPrint, 300);
+                        setTimeout(doPrint, 500);
                     };
                     
                     // Fallback si onload no se dispara (después de más tiempo)
-                    setTimeout(doPrint, 800);
+                    setTimeout(doPrint, 1000);
                     
                 } catch (error) {
                     console.error('Error imprimiendo viñeta RUTA:', error);
@@ -10337,23 +10854,116 @@ qrScriptHtml +
             const _vCSSVertical = () => `@page{size:71mm 210mm;margin:0;}*{margin:0;padding:0;box-sizing:border-box;} html,body{width:71mm;height:210mm;font-family:'Segoe UI',Arial;text-transform:uppercase;} .sheet{width:71mm;height:210mm;padding:0.8mm;} .header{display:flex;flex-direction:column;align-items:center;margin-bottom:0.8mm;padding-bottom:0.4mm;border-bottom:0.4mm solid #1a1a1a;} .header-title{font-size:2.2mm;font-weight:700;text-align:center;} .banner{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:1.2mm 0;text-align:center;font-weight:700;font-size:4.5mm;margin:0.8mm 0;border-radius:1mm;} .section{border:0.6mm solid #2c3e50;border-radius:1.5mm;padding:1.2mm;margin:0.4mm 0;} .section-title{font-size:2.4mm;font-weight:700;margin-bottom:0.6mm;} .field-row{display:flex;flex-direction:column;gap:0.3mm;margin:0.4mm 0;} .field-label{font-size:2mm;font-weight:600;} .field-value{font-size:2.6mm;} .field-value-large{font-size:3.8mm;font-weight:700;} .field-value-extra-large{font-size:5mm;font-weight:800;} .refrigerado-box{border:0.6mm dashed #16a085;border-radius:1.5mm;padding:0.8mm 1.5mm;margin-top:0.6mm;font-size:2.4mm;background:#ecf8f6;} .footer{margin-top:auto;padding-top:0.6mm;font-size:1.5mm;text-align:center;} @media print{body*{visibility:hidden;} .sheet,.sheet *{visibility:visible;} .sheet{position:absolute;left:0;top:0;}}`;
             const _vCSSRefri = () => `@page{size:71mm 180mm;margin:0;}*{margin:0;padding:0;} html,body{width:71mm;height:180mm;font-family:Arial;text-transform:uppercase;} .sheet{width:71mm;height:180mm;padding:1mm;} .header{text-align:center;border-bottom:0.5mm solid #1a1a1a;padding:0.6mm;} .header-title{font-size:2.5mm;font-weight:900;} .banner{background:#000;color:#fff;text-align:center;font-weight:900;font-size:5.5mm;padding:1.5mm 0;margin:1mm 0;} .info-box{border:0.8mm solid #000;border-radius:2.5mm;padding:1.5mm;margin:0.6mm 0;} .info-box-title{font-size:2.2mm;font-weight:900;} .info-box-content{font-size:5.5mm;font-weight:900;} .cantidad-box{border:1.5mm solid #000;border-radius:3.5mm;display:flex;align-items:center;justify-content:center;font-size:16mm;font-weight:900;} .footer{font-size:2mm;text-align:center;} @media print{body*{visibility:hidden;} .sheet,.sheet *{visibility:visible;} .sheet{position:absolute;left:0;top:0;}}`;
 
+            const _vCSSVentanilla = () => `@page{size:71mm 165mm;margin:10mm 0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:71mm;min-height:145mm;height:145mm;margin:0;padding:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.sheet{width:71mm;min-height:145mm;height:145mm;padding:0.8mm 0.9mm;overflow:hidden;background:#fff;position:relative;display:flex;flex-direction:column;gap:1.1mm;}.v-logos-row{display:flex;align-items:center;justify-content:space-between;padding:0.8mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fff;}.v-logo{width:32mm;height:15mm;object-fit:contain;flex-shrink:0;}.v-title-full{font-size:2.9mm;font-weight:800;text-align:center;color:#000;line-height:1.25;letter-spacing:0.06mm;padding:0.9mm 0.8mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#f9f9f9;}.v-box{border:0.4mm solid #000;border-radius:2.5mm;padding:0.7mm 0.9mm;margin:0;}.v-name-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;word-wrap:break-word;text-align:center;background:#fafafa;}.v-dni-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.06mm;word-wrap:break-word;text-align:center;background:#fafafa;display:flex;flex-direction:column;gap:0.3mm;}.v-dni-box .v-dni-head{display:flex;align-items:center;justify-content:center;gap:0.5mm;}.v-dni-box .v-dni-label{font-size:2mm;font-weight:800;}.v-fecha-box,.v-cc-box{display:flex;flex-direction:column;gap:0.25mm;}.v-fecha-box,.v-cc-box{align-items:center;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{justify-content:center;}.v-fecha-box .v-box-label,.v-cc-box .v-box-label{font-size:1.8mm;font-weight:800;color:#000;}.v-fecha-box .v-box-value{font-size:4.2mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-cc-box .v-box-value{font-size:3mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{display:flex;align-items:center;gap:0.5mm;}.v-meds{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.3mm;}.v-meds .v-meds-label{font-size:2.2mm;font-weight:800;color:#000;text-align:center;}.v-meds .v-meds-value{font-size:6.5mm;font-weight:900;color:#000;text-align:center;letter-spacing:0.1mm;}.v-refri{display:flex;align-items:center;justify-content:center;gap:0.7mm;padding:0.6mm 0.8mm;border:0.4mm solid #000;border-radius:2.5mm;margin:0;background:#fff3cd;font-size:2.8mm;font-weight:900;}.v-refri-icon{width:4mm;height:4mm;flex-shrink:0;stroke-width:1.75;color:#000;}.v-ventanilla{border:1.2mm solid #000;padding:2mm 1.4mm;text-align:center;font-size:7.5mm;font-weight:900;color:#000;margin:0;letter-spacing:0.2mm;background:linear-gradient(to bottom,#f5f5f5 0%,#e8e8e8 100%);display:flex;align-items:center;justify-content:center;gap:1.2mm;border-radius:2.5mm;flex-shrink:0;}.v-ventanilla.has-obs{padding:1.4mm 1.2mm;font-size:6mm;margin:0;}.v-ventanilla .v-icon{width:6mm;height:6mm;margin:0;}.v-ventanilla.has-obs .v-icon{width:5mm;height:5mm;}.v-obs{font-size:1.8mm;font-weight:700;color:#000;line-height:1.3;word-wrap:break-word;padding:0.7mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fafafa;text-align:center;}.v-footer{margin-top:auto;padding:1mm 1mm;font-size:2.8mm;text-align:center;color:#000;font-weight:700;border:0.4mm solid #000;border-radius:2.5mm;letter-spacing:0.05mm;line-height:1.35;}.v-icon{width:3.5mm;height:3.5mm;flex-shrink:0;stroke-width:1.75;color:#000;}@media print{body*{visibility:hidden;}.sheet,.sheet *{visibility:visible;}.sheet{position:absolute;left:0;top:0;}}`;
+
+            const _vCSSRuta = () => `@page{size:210mm 71mm landscape;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:210mm;height:71mm;margin:0;padding:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:hidden;}.ruta-sheet{width:210mm;height:71mm;padding:10mm;position:relative;display:flex;flex-direction:column;gap:2mm;background:#fff;}.ruta-title{font-size:3.2mm;font-weight:900;text-align:center;color:#000;letter-spacing:0.15mm;padding:1.5mm 0;border-bottom:0.5mm solid #000;margin-bottom:2mm;}.ruta-content{display:flex;gap:3mm;flex:1;min-height:0;}.ruta-lado-a{width:50%;display:flex;flex-direction:column;gap:1.5mm;padding-right:1.5mm;border-right:0.3mm dashed #ccc;}.ruta-lado-b{width:50%;display:flex;flex-direction:column;gap:1.5mm;min-height:0;}.ruta-b1{height:75%;display:flex;flex-direction:column;gap:1mm;min-height:0;}.ruta-b2{height:25%;display:flex;flex-direction:row;gap:1.5mm;align-items:center;justify-content:center;min-height:0;}.ruta-box{border:0.3mm solid #000;border-radius:2mm;padding:1mm 1.2mm;background:#fafafa;}.ruta-box-address{border:0.6mm solid #000;border-radius:2.5mm;padding:1.2mm;background:#fff;position:relative;min-height:0;flex:1;display:flex;flex-direction:column;height:100%;}.ruta-name{font-size:5.5mm;font-weight:900;color:#000;line-height:1.2;letter-spacing:0.1mm;text-align:center;word-wrap:break-word;}.ruta-dni{font-size:5.5mm;font-weight:900;color:#000;line-height:1.2;letter-spacing:0.08mm;text-align:center;word-wrap:break-word;}.ruta-field{font-size:2mm;font-weight:700;color:#000;line-height:1.3;word-wrap:break-word;}.ruta-field-label{font-size:1.6mm;font-weight:800;color:#666;margin-bottom:0.3mm;}.ruta-field-value{font-size:2.2mm;font-weight:700;color:#000;}.ruta-meds{text-align:center;}.ruta-meds-value{font-size:4.5mm;font-weight:900;color:#000;letter-spacing:0.2mm;}.ruta-gps{font-size:2.5mm;font-weight:900;color:#16a085;text-align:center;padding:0.8mm;background:#e8f8f5;border-radius:1.5mm;}.ruta-address-content{font-weight:700;color:#000;line-height:1.35;word-wrap:break-word;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-start;min-height:0;}.ruta-address-text{flex:1;min-height:0;overflow:hidden;display:flex;align-items:flex-start;justify-content:flex-start;box-sizing:border-box;}.ruta-address-separator{margin:0.5mm 0;font-weight:900;color:#333;}.ruta-address-logos{display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto;padding-top:1.5mm;flex-shrink:0;height:10mm;}.ruta-logo-small{width:18mm;height:9mm;object-fit:contain;opacity:0.85;flex-shrink:0;}.ruta-fecha-box{text-align:center;flex:1;display:flex;align-items:center;justify-content:center;}.ruta-fecha-value{font-size:5mm;font-weight:900;color:#000;letter-spacing:0.1mm;line-height:1.2;}.ruta-fecha-value.no-qr{font-size:6.5mm;}.ruta-qr-container{width:20mm;height:20mm;display:flex;align-items:center;justify-content:center;border:0.3mm solid #000;border-radius:2mm;background:#fff;padding:0.8mm;flex-shrink:0;}.ruta-qr-container img{max-width:100%;max-height:100%;object-fit:contain;}@media print{body*{visibility:hidden;}.ruta-sheet,.ruta-sheet *{visibility:visible;}.ruta-sheet{position:absolute;left:0;top:0;}}`;
+
+            const sep = ' ----- ';
+            const _vFormatCC = (agenteName, userList, contactList) => {
+                const name = (agenteName || '').trim();
+                if (!name) return '—';
+                const ulist = userList || [];
+                const u = ulist.find(x => { const n = (x.nombre || x.username || x.name || '').trim().toLowerCase(); return n && n === name.toLowerCase(); });
+                if (u) {
+                    const tel = (u.telefono || u.phone || u.movil || u.tel || '').toString().trim();
+                    return tel ? (u.nombre || u.username || u.name || name) + sep + tel : (u.nombre || u.username || u.name || name);
+                }
+                const clist = contactList || [];
+                const c = clist.find(x => (x.name || '').trim().toLowerCase() === name.toLowerCase());
+                if (c && (c.phone || '').toString().trim()) return (c.name || name) + sep + (c.phone || '').toString().trim();
+                return name;
+            };
+            const _vNormalizeCC = (raw) => {
+                if (!raw || !String(raw).trim()) return '';
+                const s = String(raw).trim();
+                if (s.includes(' --- ')) { const p = s.split(' --- '); return (p[0]||'').trim() + sep + (p[1]||'').trim(); }
+                if (s.includes(sep)) return s;
+                if (s.includes('---')) { const p = s.split('---'); return (p[0]||'').trim() + sep + (p[1]||'').trim(); }
+                return '';
+            };
+            const _vFetchAgentFromFirebase = async (agenteName) => {
+                const name = (agenteName || '').trim();
+                if (!name || !firebaseInitialized || !db) return null;
+                try {
+                    const byNombre = await db.collection('prod_users').where('nombre', '==', name).limit(1).get();
+                    if (!byNombre.empty) {
+                        const d = byNombre.docs[0].data();
+                        const tel = (d.telefono || d.phone || d.movil || d.tel || '').toString().trim();
+                        const displayName = (d.nombre || d.username || d.name || name).trim();
+                        return tel ? displayName + sep + tel : displayName;
+                    }
+                    const byUsername = await db.collection('prod_users').where('username', '==', name).limit(1).get();
+                    if (!byUsername.empty) {
+                        const d = byUsername.docs[0].data();
+                        const tel = (d.telefono || d.phone || d.movil || d.tel || '').toString().trim();
+                        const displayName = (d.nombre || d.username || d.name || name).trim();
+                        return tel ? displayName + sep + tel : displayName;
+                    }
+                    const nameLower = name.toLowerCase();
+                    const all = await db.collection('prod_users').get();
+                    for (const doc of all.docs) {
+                        const d = doc.data();
+                        const n = (d.nombre || d.username || d.name || '').trim().toLowerCase();
+                        if (n && n === nameLower) {
+                            const tel = (d.telefono || d.phone || d.movil || d.tel || '').toString().trim();
+                            const displayName = (d.nombre || d.username || d.name || name).trim();
+                            return tel ? displayName + sep + tel : displayName;
+                        }
+                    }
+                } catch (e) { console.warn('_vFetchAgentFromFirebase:', e); }
+                return null;
+            };
+
             const printVentanillaVignette = async (kit, patient) => {
-                let uk = kit, up = patient || {};
-                if (kit?.id && firebaseInitialized && db) { try { const d = await db.collection('prod_kits').doc(kit.id).get(); if (d.exists) uk = { id: d.id, ...d.data() }; } catch(e) {} }
-                if (uk?.patientId && firebaseInitialized && db) { try { const d = await db.collection('prod_patients').doc(uk.patientId).get(); if (d.exists) up = { id: d.id, ...d.data() }; } catch(e) {} }
-                const dn = (uk?.nombre || up?.nombre || '').toUpperCase(), di = (uk?.dni || up?.dni || '').toUpperCase(), fe = uk?.fechaArmado || '';
-                const op = (currentUserForBlocks?.name || currentUserForBlocks?.nombre || currentUserForBlocks?.email || '').toUpperCase();
-                const tc = (up?.telefono || '').toUpperCase(), tf = (up?.telefonoFamiliar || '').toUpperCase();
-                let mc = '0'; if (uk?.triggerMeds) mc = String(uk.triggerMeds); else if (Array.isArray(uk?.medicamentos)) mc = String(uk.medicamentos.length);
-                const cc = (uk?.contactCenter || '').toUpperCase(), ob = (uk?.observations || uk?.observacionesEntrega || '').toUpperCase();
-                const rf = !!(uk?.isRefrigerated), cr = rf ? (uk?.cantRefriGlobal || 1) : 0;
-                const tr = new Date().toLocaleString('es-ES',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).toUpperCase();
-                const telR = tf ? `<div class="field-row"><div class="field-label">TEL. REF:</div><div class="field-value">${_vEsc(tf)}</div></div>` : '';
-                const ccH = cc ? `<div class="field-row"><div class="field-label">CONTACT CENTER:</div><div class="field-value">${_vEsc(cc)}</div></div>` : '';
-                const obH = ob ? `<div class="section"><div class="section-title">OBSERVACIONES</div><div class="field-value">${_vEsc(ob)}</div></div>` : '';
-                const rfH = rf ? `<div class="refrigerado-box"><strong>❄ REFRIGERADO</strong> - CANT: ${_vEsc(cr)}</div>` : '';
-                const html = '<div class="sheet"><div class="header"><div class="header-title">DISPENSACIÓN A DOMICILIO</div></div><div class="banner">ENTREGA VENTANILLA</div><div class="section"><div class="section-title">DERECHOHABIENTE</div><div class="field-row"><div class="field-label">NOMBRE</div><div class="field-value-extra-large">'+_vEsc(dn)+'</div></div><div class="field-row"><div class="field-label">DNI</div><div class="field-value-large">'+_vEsc(di)+'</div></div><div class="field-row"><div class="field-label">FECHA</div><div class="field-value">'+_vEsc(fe)+'</div></div></div><div class="section"><div class="section-title">CONTACTO</div><div class="field-row"><div class="field-label">TELÉFONO</div><div class="field-value-large">'+_vEsc(tc||'—')+'</div></div>'+telR+ccH+obH+rfH+'</div><div class="footer">OP: '+_vEsc(op)+' | '+_vEsc(tr)+'</div></div>';
-                _vPw(html, _vCSSVertical(), 'Viñeta Ventanilla');
+                try {
+                    let uk = kit || {}, up = patient || {};
+                    if (kit?.id && firebaseInitialized && db) { try { const d = await db.collection('prod_kits').doc(kit.id).get(); if (d.exists) uk = { id: d.id, ...d.data() }; } catch(e) {} }
+                    if (uk?.patientId && firebaseInitialized && db) { try { const d = await db.collection('prod_patients').doc(uk.patientId).get(); if (d.exists) up = { id: d.id, ...d.data() }; } catch(e) {} }
+                    const nombre = (uk?.nombre || up?.nombre || '').toUpperCase();
+                    const dni = (uk?.dni || up?.dni || '').toUpperCase();
+                    const fe = uk?.fechaArmado || '';
+                    const ccRaw = (uk?.contactCenter || up?.contactCenter || '').toString().trim();
+                    const ccNormalized = _vNormalizeCC(ccRaw);
+                    const agenteName = (up?.agenteContactCenter || uk?.agenteContactCenter || (ccRaw && !ccRaw.includes(' --- ') && !ccRaw.includes(' ----- ') ? ccRaw : '')).toString().trim();
+                    let contactCenterDisplay = ccNormalized;
+                    if (!contactCenterDisplay && agenteName) {
+                        const fromFirebase = await _vFetchAgentFromFirebase(agenteName);
+                        contactCenterDisplay = fromFirebase || _vFormatCC(agenteName, users, contacts);
+                    } else if (!contactCenterDisplay) {
+                        contactCenterDisplay = _vFormatCC(agenteName, users, contacts);
+                    }
+                    if (!contactCenterDisplay || contactCenterDisplay === '—') contactCenterDisplay = agenteName || '—';
+                    const observaciones = (uk?.observations || uk?.observacionesEntrega || '').trim().toUpperCase();
+                    const usuarioOperaciones = (uk?.usuarioOperaciones || currentUserForBlocks?.name || currentUserForBlocks?.nombre || currentUserForBlocks?.email || 'OPERADOR').toUpperCase();
+                    const medicamentos = uk?.medicamentos || [];
+                    const totalMeds = medicamentos.length;
+                    const dispensadosMeds = medicamentos.filter(m => m.dispensar !== false).length;
+                    const cantidadMeds = totalMeds > 0 ? `${dispensadosMeds}/${totalMeds}` : '0/0';
+                    const isRefrigerado = uk?.isRefrigerated || false;
+                    const cantRefri = uk?.cantRefriGlobal || (isRefrigerado ? 1 : 0);
+                    const logo1 = (typeof LOGO1_URL !== 'undefined' && LOGO1_URL) ? LOGO1_URL : 'https://raw.githubusercontent.com/jose50440/bita/6a46e7144ce075c219a382364b611fa576fc5e4b/img/logo1.png';
+                    const logo2 = (typeof LOGO2_URL !== 'undefined' && LOGO2_URL) ? LOGO2_URL : 'https://raw.githubusercontent.com/jose50440/bita/6a46e7144ce075c219a382364b611fa576fc5e4b/img/logo2.png';
+                    const obsHtml = observaciones ? '<div class="v-obs">' + _vEsc(observaciones) + '</div>' : '';
+                    const hasObs = !!observaciones;
+                    const iconId = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>';
+                    const iconCalendar = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>';
+                    const iconPhone = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+                    const iconWindow = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>';
+                    const iconMeds = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>';
+                    const iconRefri = '<svg class="v-refri-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+                    const ventanillaClass = hasObs ? 'v-ventanilla has-obs' : 'v-ventanilla';
+                    const nameHtml = '<div class="v-box v-name-box">'+_vEsc(nombre)+'</div>';
+                    const dniHtml = '<div class="v-box v-dni-box"><div class="v-dni-head">'+iconId+'<span class="v-dni-label">DNI / AFILIACIÓN</span></div><div>'+_vEsc(dni)+'</div></div>';
+                    const fechaHtml = '<div class="v-box v-fecha-box"><div class="v-box-head">'+iconCalendar+'<span class="v-box-label">FECHA DE ENTREGA</span></div><div class="v-box-value">'+_vEsc(fe)+'</div></div>';
+                    const ccHtml = '<div class="v-box v-cc-box"><div class="v-box-head">'+iconPhone+'<span class="v-box-label">CONTACT CENTER</span></div><div class="v-box-value">'+_vEsc(contactCenterDisplay)+'</div></div>';
+                    const medsBoxHtml = '<div class="v-box v-meds"><div class="v-meds-label">MEDICAMENTOS</div><div class="v-meds-value">'+_vEsc(cantidadMeds)+'</div></div>';
+                    const refriBoxHtml = cantRefri > 0 ? '<div class="v-refri">'+iconRefri+'<span>REFRIGERADO: '+_vEsc(String(cantRefri))+'</span></div>' : '';
+                    const html = '<div class="sheet"><div class="v-logos-row"><img src="'+_vEsc(logo1)+'" alt="Logo 1" class="v-logo" onerror="this.style.display=\'none\'"/><img src="'+_vEsc(logo2)+'" alt="Logo 2" class="v-logo" onerror="this.style.display=\'none\'"/></div><div class="v-title-full">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>'+nameHtml+dniHtml+fechaHtml+ccHtml+medsBoxHtml+refriBoxHtml+'<div class="'+ventanillaClass+'">'+iconWindow+' VENTANILLA</div>'+obsHtml+'<div class="v-footer">OPERADOR DE EMPAQUE: '+_vEsc(usuarioOperaciones)+'</div></div>';
+                    _vPw(html, _vCSSVentanilla(), 'Viñeta Ventanilla');
+                } catch (e) {
+                    console.error('Error viñeta Ventanilla:', e);
+                    throw e;
+                }
             };
 
             const printRefrigeradoVignette = async (kit, patient) => {
@@ -11010,6 +11620,21 @@ Responde en formato JSON con esta estructura:
                 }
             };
 
+            const refetchKits = async () => {
+                try {
+                    if (!firebaseInitialized || !db) return;
+                    cacheManager.clearCache(cacheManager.KITS_CACHE_KEY);
+                    const querySnapshot = await db.collection('prod_kits').get();
+                    const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+                        .sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0));
+                    cacheManager.saveKits(data);
+                    setKits(data);
+                    console.log('🔥 Kits refetch desde Firebase');
+                } catch (error) {
+                    console.error('Error refetch kits:', error);
+                }
+            };
+
             const loadPatients = async () => {
                 try {
                     if (!firebaseInitialized || !db) return;
@@ -11213,6 +11838,7 @@ Responde en formato JSON con esta estructura:
                     if(isUpdate) {
                         await db.collection('prod_kits').doc(id).update(data);
                         console.log("✅ Kit actualizado: ", id);
+                        try { await refetchKits(); } catch (e) { console.warn('Refetch kits post-update:', e); }
                     } else {
                         const result = await db.collection('prod_kits').add({
                             ...data, 
@@ -11401,6 +12027,7 @@ Responde en formato JSON con esta estructura:
                 const canViewPacientes = !onlyDespacho && (
                     ['admin', 'superadmin', 'digitador'].includes(sys) || hasRevAsignacion
                 );
+                const showBitacoraTrabajo = dep === 'contact center' && roles.includes('agente contact center');
                 return {
                     showCalendario,
                     showDespacho,
@@ -11410,9 +12037,10 @@ Responde en formato JSON con esta estructura:
                     canViewReports: sys === 'admin' || sys === 'superadmin' || sys === 'supervisor',
                     canViewConfig: sys === 'admin' || sys === 'superadmin',
                     canViewPacientes,
+                    showBitacoraTrabajo,
                 };
             }, [currentUserData, role]);
-            const { showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, canViewReports, canViewConfig, canViewPacientes } = permissions;
+            const { showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo } = permissions;
             const currentUserForBlocks = { name: userName, role: role, ...(currentUserData || {}) };
             useEffect(() => {
                 if (view === 'reports' && !canViewReports) {
@@ -11442,7 +12070,10 @@ Responde en formato JSON con esta estructura:
                 if (view === 'pacientes' && !canViewPacientes) {
                     setView(onlyDespacho ? 'despacho' : 'dashboard');
                 }
-            }, [view, role, showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, canViewReports, canViewConfig, canViewPacientes]);
+                if (view === 'bitacora' && !showBitacoraTrabajo) {
+                    setView('dashboard');
+                }
+            }, [view, role, showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo]);
 
             // Mostrar pantalla de conexión si Firebase no está listo
             if (!isFirebaseReady && firebaseConnectionStatus !== 'connected') {
@@ -11495,6 +12126,7 @@ Responde en formato JSON con esta estructura:
                                 {showDespacho && <NavItem id="despacho" label="Lista de espera" icon={Icons.Box} />}
                                 {showOperaciones && <NavItem id="operaciones" label="Operaciones" icon={Icons.Box} />}
                                 {showCalidad && <NavItem id="calidad" label="Calidad" icon={Icons.Box} />}
+                                {showBitacoraTrabajo && <NavItem id="bitacora" label="Bitácora de trabajo" icon={Icons.Activity} />}
                                 {canViewPacientes && <NavItem id="pacientes" label="Pacientes" icon={Icons.Users} />}
                                 {canViewConfig && <NavItem id="config" label="Configuración" icon={Icons.Settings} />}
                                 {canViewConfig && <NavItem id="users" label="Usuarios" icon={Icons.UserCog} />}
@@ -11560,6 +12192,7 @@ Responde en formato JSON con esta estructura:
                             {showDespacho && <NavItem id="despacho" label="Lista de espera" icon={Icons.Box} />}
                             {showOperaciones && <NavItem id="operaciones" label="Operaciones" icon={Icons.Box} />}
                             {showCalidad && <NavItem id="calidad" label="Calidad" icon={Icons.Box} />}
+                            {showBitacoraTrabajo && <NavItem id="bitacora" label="Bitácora de trabajo" icon={Icons.Activity} />}
                             {canViewPacientes && <NavItem id="pacientes" label="Pacientes" icon={Icons.Users} />}
                             {canViewConfig && <NavItem id="config" label="Configuración" icon={Icons.Settings} />}
                             {canViewConfig && <NavItem id="users" label="Usuarios" icon={Icons.UserCog} />}
@@ -11607,14 +12240,15 @@ Responde en formato JSON con esta estructura:
                         <div className="mobile-content-area flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} patients={patients} users={users} permissions={permissions} />}
                             {view === 'reports' && canViewReports && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} currentUser={currentUserForBlocks} users={users} />}
-                            {view === 'calendario' && showCalendario && <CalendarioBlock kits={kits} patients={patients} setView={setView} currentUser={currentUserForBlocks} users={users} role={role} onSaveKit={saveKit} />}
+                            {view === 'calendario' && showCalendario && <CalendarioBlock kits={kits} patients={patients} setView={setView} currentUser={currentUserForBlocks} users={users} role={role} onSaveKit={saveKit} permissions={permissions} />}
                             {view === 'despacho' && showDespacho && <DespachoListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} />}
                             {view === 'operaciones' && showOperaciones && <OperacionesListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} />}
-                            {view === 'calidad' && showCalidad && <CalidadListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} />}
+                            {view === 'calidad' && showCalidad && <CalidadListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserForBlocks} users={users} />}
+                            {view === 'bitacora' && showBitacoraTrabajo && <BitacoraTrabajoBlock kits={kits} patients={patients} currentUser={currentUserForBlocks} />}
                             {view === 'pacientes' && canViewPacientes && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={currentUserForBlocks} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} users={users} />}
                             {view === 'config' && canViewConfig && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} rutaTemplateCurrent={rutaTemplateCurrent} importRutaTemplateFromExcel={importRutaTemplateFromExcel} importRutaTemplateFromWord={importRutaTemplateFromWord} importRutaTemplateFromPDF={importRutaTemplateFromPDF} saveRutaTemplate={saveRutaTemplate} loadRutaTemplateCurrent={loadRutaTemplateCurrent} />}
                             {view === 'users' && canViewConfig && <UserManagementBlock users={users} onAddUser={addUser} onUpdateUser={updateUser} onDeleteUser={deleteUser} />}
-                            {((view === 'reports' && !canViewReports) || (view === 'calendario' && !showCalendario) || (view === 'despacho' && !showDespacho) || (view === 'operaciones' && !showOperaciones) || (view === 'calidad' && !showCalidad) || (view === 'pacientes' && !canViewPacientes) || ((view === 'config' || view === 'users') && !canViewConfig)) && (
+                            {((view === 'reports' && !canViewReports) || (view === 'calendario' && !showCalendario) || (view === 'despacho' && !showDespacho) || (view === 'operaciones' && !showOperaciones) || (view === 'calidad' && !showCalidad) || (view === 'bitacora' && !showBitacoraTrabajo) || (view === 'pacientes' && !canViewPacientes) || ((view === 'config' || view === 'users') && !canViewConfig)) && (
                                 <div className="flex flex-col items-center justify-center min-h-[40vh] text-slate-500">
                                     <p className="font-bold mb-2">Sin acceso a esta sección. Redirigiendo…</p>
                                     <button onClick={() => setView(onlyDespacho ? 'despacho' : showOperaciones ? 'operaciones' : showCalidad ? 'calidad' : 'dashboard')} className="px-4 py-2 rounded-xl bg-turquoise-600 text-white font-bold text-sm hover:bg-turquoise-700">Ir al inicio</button>
