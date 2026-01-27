@@ -10372,13 +10372,21 @@ html +
                 return String(kitData?.direccionEntrega || '').trim();
             };
             
-            const resolveRutaPlaceholders = (kitData, patientData, users = [], contacts = []) => {
+            const resolveRutaPlaceholders = async (kitData, patientData, users = [], contacts = []) => {
                 const gpsEnabled = getGpsEnabled(kitData);
                 const gpsCoords = getGpsCoords(kitData);
                 const direccionEntrega = resolveDeliveryAddressRuta(kitData);
                 const telPersonal = String(patientData?.telefono || '').trim();
                 const telFamiliar = String(patientData?.telefonoFamiliar || '').trim();
-                const telefonosText = [telPersonal, telFamiliar].filter(Boolean).join(' / ');
+                const phoneHighlight = String(kitData?.phoneHighlight || '').trim().toLowerCase();
+                let telPersonalDisplay = telPersonal;
+                let telFamiliarDisplay = telFamiliar;
+                if (phoneHighlight === 'personal' && telPersonal) {
+                    telPersonalDisplay = '---> ' + telPersonal;
+                } else if (phoneHighlight === 'familiar' && telFamiliar) {
+                    telFamiliarDisplay = telFamiliar + ' <---';
+                }
+                const telefonosText = [telPersonalDisplay, telFamiliarDisplay].filter(Boolean).join(' / ');
                 
                 const renderBox = (text) => {
                     const safe = String(text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -10387,63 +10395,29 @@ html +
                 const TEL_PERSONAL_BOX = kitData.phoneHighlight === 'personal' ? renderBox(telPersonal) : (telPersonal || '');
                 const TEL_FAMILIAR_BOX = kitData.phoneHighlight === 'familiar' ? renderBox(telFamiliar) : (telFamiliar || '');
                 
-                // Obtener contact center con teléfono (similar a ventanilla)
+                // Obtener contact center con teléfono (EXACTAMENTE igual que ventanilla)
                 const sep = ' ----- ';
-                let contactCenterDisplay = '';
                 const ccRaw = (kitData.contactCenter || patientData?.contactCenter || '').toString().trim();
+                const ccNormalized = _vNormalizeCC(ccRaw);
                 const agenteName = (patientData?.agenteContactCenter || kitData?.agenteContactCenter || (ccRaw && !ccRaw.includes(' --- ') && !ccRaw.includes(' ----- ') ? ccRaw : '')).toString().trim();
-                
-                if (ccRaw) {
-                    if (ccRaw.includes(' --- ')) {
-                        const parts = ccRaw.split(' --- ');
-                        contactCenterDisplay = (parts[0] || '').trim() + sep + (parts[1] || '').trim();
-                    } else if (ccRaw.includes(sep)) {
-                        contactCenterDisplay = ccRaw;
-                    } else if (ccRaw.includes('---')) {
-                        const parts = ccRaw.split('---');
-                        contactCenterDisplay = (parts[0] || '').trim() + sep + (parts[1] || '').trim();
-                    } else {
-                        // Buscar en users o contacts
-                        const ulist = users || [];
-                        const u = ulist.find(x => { 
-                            const n = (x.nombre || x.username || x.name || '').trim().toLowerCase(); 
-                            return n && n === ccRaw.toLowerCase(); 
-                        });
-                        if (u) {
-                            const tel = (u.telefono || u.phone || u.movil || u.tel || '').toString().trim();
-                            contactCenterDisplay = tel ? (u.nombre || u.username || u.name || ccRaw) + sep + tel : (u.nombre || u.username || u.name || ccRaw);
-                        } else {
-                            const clist = contacts || [];
-                            const c = clist.find(x => (x.name || '').trim().toLowerCase() === ccRaw.toLowerCase());
-                            if (c && (c.phone || '').toString().trim()) {
-                                contactCenterDisplay = (c.name || ccRaw) + sep + (c.phone || '').toString().trim();
-                            } else {
-                                contactCenterDisplay = ccRaw;
-                            }
-                        }
-                    }
-                } else if (agenteName) {
-                    const ulist = users || [];
-                    const u = ulist.find(x => { 
-                        const n = (x.nombre || x.username || x.name || '').trim().toLowerCase(); 
-                        return n && n === agenteName.toLowerCase(); 
-                    });
-                    if (u) {
-                        const tel = (u.telefono || u.phone || u.movil || u.tel || '').toString().trim();
-                        contactCenterDisplay = tel ? (u.nombre || u.username || u.name || agenteName) + sep + tel : (u.nombre || u.username || u.name || agenteName);
-                    } else {
-                        const clist = contacts || [];
-                        const c = clist.find(x => (x.name || '').trim().toLowerCase() === agenteName.toLowerCase());
-                        if (c && (c.phone || '').toString().trim()) {
-                            contactCenterDisplay = (c.name || agenteName) + sep + (c.phone || '').toString().trim();
-                        } else {
-                            contactCenterDisplay = agenteName;
-                        }
-                    }
+                let contactCenterDisplay = ccNormalized;
+                if (!contactCenterDisplay && agenteName) {
+                    const fromFirebase = await _vFetchAgentFromFirebase(agenteName);
+                    contactCenterDisplay = fromFirebase || _vFormatCC(agenteName, users, contacts);
+                } else if (!contactCenterDisplay) {
+                    contactCenterDisplay = _vFormatCC(agenteName, users, contacts);
                 }
+                if (!contactCenterDisplay || contactCenterDisplay === '—') contactCenterDisplay = agenteName || '—';
                 
-                if (!contactCenterDisplay || contactCenterDisplay === '—') {
-                    contactCenterDisplay = agenteName || '—';
+                // Asegurar que siempre tenga el formato "NOMBRE ----- TELEFONO"
+                if (contactCenterDisplay && !contactCenterDisplay.includes(sep)) {
+                    // Si no tiene el separador, buscar el teléfono usando _vFormatCC
+                    const formatted = _vFormatCC(contactCenterDisplay, users, contacts);
+                    if (formatted && formatted.includes(sep)) {
+                        contactCenterDisplay = formatted;
+                    } else {
+                        contactCenterDisplay = contactCenterDisplay + sep;
+                    }
                 }
                 
                 let fechaEntrega = '';
@@ -10636,7 +10610,7 @@ qrScriptHtml +
                     }
                     
                     // Resolver placeholders con datos actualizados (pasar users y contacts)
-                    const resolvedData = resolveRutaPlaceholders(updatedKit, patientData, users, contacts);
+                    const resolvedData = await resolveRutaPlaceholders(updatedKit, patientData, users, contacts);
                     
                     // Obtener logos
                     const logo1 = (typeof LOGO1_URL !== 'undefined' && LOGO1_URL) ? LOGO1_URL : 'https://raw.githubusercontent.com/jose50440/bita/6a46e7144ce075c219a382364b611fa576fc5e4b/img/logo1.png';
@@ -10737,7 +10711,6 @@ qrScriptHtml +
                 <div class="ruta-field-label">CONTACT CENTER</div>
                 <div class="ruta-field-value">${_vEsc(resolvedData.CONTACT_CENTER)}</div>
             </div>
-            ${hasGps ? '<div class="ruta-box ruta-gps">TIENE GPS</div>' : ''}
         </div>
         <div class="ruta-lado-b">
             <div class="ruta-b1">
@@ -10761,8 +10734,8 @@ qrScriptHtml +
     </div>
 </div>`;
                     
-                    // Script para autoajustar fuente de dirección con márgenes y lógica inteligente (tamaño mínimo aumentado)
-                    let autoAdjustScript = '<script>(function(){function adjustFontSize(){var addressText=document.getElementById("ruta-address-text");if(!addressText)return;var addressContent=addressText.parentElement;var addressBox=addressContent.parentElement;if(!addressBox)return;var logosHeight=11;var marginTop=1.5;var marginBottom=1.5;var boxHeight=addressBox.offsetHeight;var availableHeight=boxHeight-logosHeight-marginTop-marginBottom;if(availableHeight<=0)return;addressText.style.fontSize="1mm";addressText.style.lineHeight="1.35";addressText.style.overflow="hidden";addressText.style.paddingTop=marginTop+"mm";addressText.style.paddingBottom=marginBottom+"mm";var textLength=addressText.textContent.length;var minFontSize=1.5;var maxFontSize=textLength<50?4.5:textLength<100?3.5:textLength<150?2.5:textLength<200?2.0:1.5;var fontSize=minFontSize;var bestFit=minFontSize;var precision=0.05;for(var testSize=minFontSize;testSize<=maxFontSize;testSize+=precision){addressText.style.fontSize=testSize+"mm";var textHeight=addressText.scrollHeight;if(textHeight<=availableHeight){bestFit=testSize;}else{break;}}addressText.style.fontSize=bestFit+"mm";}setTimeout(adjustFontSize,50);setTimeout(adjustFontSize,150);setTimeout(adjustFontSize,300);})();<\/script>';
+                    // Script para autoajustar fuente de dirección centrada con lógica inteligente (poco texto = grande, mucho texto = pequeño)
+                    let autoAdjustScript = '<script>(function(){function adjustFontSize(){var addressText=document.getElementById("ruta-address-text");if(!addressText)return;var addressContent=addressText.parentElement;var addressBox=addressContent.parentElement;if(!addressBox)return;var logosHeight=9;var marginTop=1;var marginBottom=1;var boxHeight=addressBox.offsetHeight;var availableHeight=boxHeight-logosHeight-marginTop-marginBottom;if(availableHeight<=0)return;addressText.style.textAlign="center";addressText.style.fontFamily="Arial Black, Arial, sans-serif";addressText.style.fontWeight="900";addressText.style.fontSize="1mm";addressText.style.lineHeight="1.4";addressText.style.overflow="hidden";addressText.style.paddingTop=marginTop+"mm";addressText.style.paddingBottom=marginBottom+"mm";var textLength=addressText.textContent.trim().length;var minFontSize=3;var maxFontSize=textLength<30?8:textLength<60?7:textLength<100?6:textLength<150?5:textLength<200?4.5:3.5;var fontSize=minFontSize;var bestFit=minFontSize;var precision=0.1;for(var testSize=minFontSize;testSize<=maxFontSize;testSize+=precision){addressText.style.fontSize=testSize+"mm";var textHeight=addressText.scrollHeight;if(textHeight<=availableHeight){bestFit=testSize;}else{break;}}addressText.style.fontSize=bestFit+"mm";}setTimeout(adjustFontSize,50);setTimeout(adjustFontSize,150);setTimeout(adjustFontSize,300);})();<\/script>';
                     
                     const htmlDoc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Viñeta Ruta</title><style>' + _vCSSRuta() + '</style></head><body>' + html + autoAdjustScript + '</body></html>';
                     
@@ -10856,7 +10829,7 @@ qrScriptHtml +
 
             const _vCSSVentanilla = () => `@page{size:71mm 165mm;margin:10mm 0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:71mm;min-height:145mm;height:145mm;margin:0;padding:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.sheet{width:71mm;min-height:145mm;height:145mm;padding:0.8mm 0.9mm;overflow:hidden;background:#fff;position:relative;display:flex;flex-direction:column;gap:1.1mm;}.v-logos-row{display:flex;align-items:center;justify-content:space-between;padding:0.8mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fff;}.v-logo{width:32mm;height:15mm;object-fit:contain;flex-shrink:0;}.v-title-full{font-size:2.9mm;font-weight:800;text-align:center;color:#000;line-height:1.25;letter-spacing:0.06mm;padding:0.9mm 0.8mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#f9f9f9;}.v-box{border:0.4mm solid #000;border-radius:2.5mm;padding:0.7mm 0.9mm;margin:0;}.v-name-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;word-wrap:break-word;text-align:center;background:#fafafa;}.v-dni-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.06mm;word-wrap:break-word;text-align:center;background:#fafafa;display:flex;flex-direction:column;gap:0.3mm;}.v-dni-box .v-dni-head{display:flex;align-items:center;justify-content:center;gap:0.5mm;}.v-dni-box .v-dni-label{font-size:2mm;font-weight:800;}.v-fecha-box,.v-cc-box{display:flex;flex-direction:column;gap:0.25mm;}.v-fecha-box,.v-cc-box{align-items:center;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{justify-content:center;}.v-fecha-box .v-box-label,.v-cc-box .v-box-label{font-size:1.8mm;font-weight:800;color:#000;}.v-fecha-box .v-box-value{font-size:4.2mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-cc-box .v-box-value{font-size:3mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{display:flex;align-items:center;gap:0.5mm;}.v-meds{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.3mm;}.v-meds .v-meds-label{font-size:2.2mm;font-weight:800;color:#000;text-align:center;}.v-meds .v-meds-value{font-size:6.5mm;font-weight:900;color:#000;text-align:center;letter-spacing:0.1mm;}.v-refri{display:flex;align-items:center;justify-content:center;gap:0.7mm;padding:0.6mm 0.8mm;border:0.4mm solid #000;border-radius:2.5mm;margin:0;background:#fff3cd;font-size:2.8mm;font-weight:900;}.v-refri-icon{width:4mm;height:4mm;flex-shrink:0;stroke-width:1.75;color:#000;}.v-ventanilla{border:1.2mm solid #000;padding:2mm 1.4mm;text-align:center;font-size:7.5mm;font-weight:900;color:#000;margin:0;letter-spacing:0.2mm;background:linear-gradient(to bottom,#f5f5f5 0%,#e8e8e8 100%);display:flex;align-items:center;justify-content:center;gap:1.2mm;border-radius:2.5mm;flex-shrink:0;}.v-ventanilla.has-obs{padding:1.4mm 1.2mm;font-size:6mm;margin:0;}.v-ventanilla .v-icon{width:6mm;height:6mm;margin:0;}.v-ventanilla.has-obs .v-icon{width:5mm;height:5mm;}.v-obs{font-size:1.8mm;font-weight:700;color:#000;line-height:1.3;word-wrap:break-word;padding:0.7mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fafafa;text-align:center;}.v-footer{margin-top:auto;padding:1mm 1mm;font-size:2.8mm;text-align:center;color:#000;font-weight:700;border:0.4mm solid #000;border-radius:2.5mm;letter-spacing:0.05mm;line-height:1.35;}.v-icon{width:3.5mm;height:3.5mm;flex-shrink:0;stroke-width:1.75;color:#000;}@media print{body*{visibility:hidden;}.sheet,.sheet *{visibility:visible;}.sheet{position:absolute;left:0;top:0;}}`;
 
-            const _vCSSRuta = () => `@page{size:210mm 71mm landscape;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:210mm;height:71mm;margin:0;padding:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:hidden;}.ruta-sheet{width:210mm;height:71mm;padding:10mm;position:relative;display:flex;flex-direction:column;gap:2mm;background:#fff;}.ruta-title{font-size:3.2mm;font-weight:900;text-align:center;color:#000;letter-spacing:0.15mm;padding:1.5mm 0;border-bottom:0.5mm solid #000;margin-bottom:2mm;}.ruta-content{display:flex;gap:3mm;flex:1;min-height:0;}.ruta-lado-a{width:50%;display:flex;flex-direction:column;gap:1.5mm;padding-right:1.5mm;border-right:0.3mm dashed #ccc;}.ruta-lado-b{width:50%;display:flex;flex-direction:column;gap:1.5mm;min-height:0;}.ruta-b1{height:75%;display:flex;flex-direction:column;gap:1mm;min-height:0;}.ruta-b2{height:25%;display:flex;flex-direction:row;gap:1.5mm;align-items:center;justify-content:center;min-height:0;}.ruta-box{border:0.3mm solid #000;border-radius:2mm;padding:1mm 1.2mm;background:#fafafa;}.ruta-box-address{border:0.6mm solid #000;border-radius:2.5mm;padding:1.2mm;background:#fff;position:relative;min-height:0;flex:1;display:flex;flex-direction:column;height:100%;}.ruta-name{font-size:5.5mm;font-weight:900;color:#000;line-height:1.2;letter-spacing:0.1mm;text-align:center;word-wrap:break-word;}.ruta-dni{font-size:5.5mm;font-weight:900;color:#000;line-height:1.2;letter-spacing:0.08mm;text-align:center;word-wrap:break-word;}.ruta-field{font-size:2mm;font-weight:700;color:#000;line-height:1.3;word-wrap:break-word;}.ruta-field-label{font-size:1.6mm;font-weight:800;color:#666;margin-bottom:0.3mm;}.ruta-field-value{font-size:2.2mm;font-weight:700;color:#000;}.ruta-meds{text-align:center;}.ruta-meds-value{font-size:4.5mm;font-weight:900;color:#000;letter-spacing:0.2mm;}.ruta-gps{font-size:2.5mm;font-weight:900;color:#16a085;text-align:center;padding:0.8mm;background:#e8f8f5;border-radius:1.5mm;}.ruta-address-content{font-weight:700;color:#000;line-height:1.35;word-wrap:break-word;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-start;min-height:0;}.ruta-address-text{flex:1;min-height:0;overflow:hidden;display:flex;align-items:flex-start;justify-content:flex-start;box-sizing:border-box;}.ruta-address-separator{margin:0.5mm 0;font-weight:900;color:#333;}.ruta-address-logos{display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto;padding-top:1.5mm;flex-shrink:0;height:10mm;}.ruta-logo-small{width:18mm;height:9mm;object-fit:contain;opacity:0.85;flex-shrink:0;}.ruta-fecha-box{text-align:center;flex:1;display:flex;align-items:center;justify-content:center;}.ruta-fecha-value{font-size:5mm;font-weight:900;color:#000;letter-spacing:0.1mm;line-height:1.2;}.ruta-fecha-value.no-qr{font-size:6.5mm;}.ruta-qr-container{width:20mm;height:20mm;display:flex;align-items:center;justify-content:center;border:0.3mm solid #000;border-radius:2mm;background:#fff;padding:0.8mm;flex-shrink:0;}.ruta-qr-container img{max-width:100%;max-height:100%;object-fit:contain;}@media print{body*{visibility:hidden;}.ruta-sheet,.ruta-sheet *{visibility:visible;}.ruta-sheet{position:absolute;left:0;top:0;}}`;
+            const _vCSSRuta = () => `@page{size:210mm 71mm landscape;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:210mm;height:71mm;margin:0;padding:0;font-family:'Arial Black','Arial',Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:hidden;}.ruta-sheet{width:210mm;height:71mm;padding:3mm;position:relative;display:flex;flex-direction:column;gap:1.5mm;background:#fff;}.ruta-title{font-size:2.8mm;font-weight:900;text-align:center;color:#000;letter-spacing:0.15mm;padding:1.2mm 0;border-bottom:0.5mm solid #000;margin-bottom:1.5mm;font-family:'Arial Black','Arial',sans-serif;}.ruta-content{display:flex;gap:2.5mm;flex:1;min-height:0;}.ruta-lado-a{width:50%;display:flex;flex-direction:column;gap:1.2mm;padding-right:1.2mm;border-right:0.3mm dashed #ccc;}.ruta-lado-b{width:50%;display:flex;flex-direction:column;gap:1.2mm;min-height:0;}.ruta-b1{height:75%;display:flex;flex-direction:column;gap:0.8mm;min-height:0;}.ruta-b2{height:25%;display:flex;flex-direction:row;gap:1.2mm;align-items:center;justify-content:center;min-height:0;}.ruta-box{border:0.4mm solid #000;border-radius:1.5mm;padding:1.2mm 1.5mm;background:#fafafa;font-family:'Arial Black','Arial',sans-serif;}.ruta-box-address{border:0.6mm solid #000;border-radius:2mm;padding:1.5mm;background:#fff;position:relative;min-height:0;flex:1;display:flex;flex-direction:column;height:100%;}.ruta-name{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.1mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;}.ruta-dni{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;}.ruta-field{font-size:3.2mm;font-weight:900;color:#000;line-height:1.25;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;text-align:center;}.ruta-field-label{font-size:2.6mm;font-weight:900;color:#333;margin-bottom:0.4mm;font-family:'Arial Black','Arial',sans-serif;text-align:center;}.ruta-field-value{font-size:3.5mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;text-align:center;}.ruta-meds{text-align:center;}.ruta-meds-value{font-size:5mm;font-weight:900;color:#000;letter-spacing:0.2mm;font-family:'Arial Black','Arial',sans-serif;}.ruta-address-content{font-weight:900;color:#000;line-height:1.4;word-wrap:break-word;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;min-height:0;text-align:center;}.ruta-address-text{flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;box-sizing:border-box;text-align:center;font-family:'Arial Black','Arial',sans-serif;}.ruta-address-separator{margin:0.5mm 0;font-weight:900;color:#333;}.ruta-address-logos{display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto;padding-top:1.2mm;flex-shrink:0;height:9mm;}.ruta-logo-small{width:16mm;height:8mm;object-fit:contain;opacity:0.85;flex-shrink:0;}.ruta-fecha-box{text-align:center;flex:1;display:flex;align-items:center;justify-content:center;}.ruta-fecha-value{font-size:6.5mm;font-weight:900;color:#000;letter-spacing:0.1mm;line-height:1.2;font-family:'Arial Black','Arial',sans-serif;}.ruta-fecha-value.no-qr{font-size:8mm;}.ruta-qr-container{width:18mm;height:18mm;display:flex;align-items:center;justify-content:center;border:0.4mm solid #000;border-radius:1.5mm;background:#fff;padding:0.6mm;flex-shrink:0;}.ruta-qr-container img{max-width:100%;max-height:100%;object-fit:contain;}@media print{body*{visibility:hidden;}.ruta-sheet,.ruta-sheet *{visibility:visible;}.ruta-sheet{position:absolute;left:0;top:0;}}`;
 
             const sep = ' ----- ';
             const _vFormatCC = (agenteName, userList, contactList) => {
