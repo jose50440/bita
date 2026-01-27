@@ -22,8 +22,729 @@
     <!-- SheetJS (Para Excel) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     
-    <!-- QRCode.js para generar códigos QR -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <!-- QRCode.js LOCAL (offline) - Implementación standalone sin CDN -->
+    <script>
+    /**
+     * Módulo QR Local - Generación offline de códigos QR
+     * Reemplaza la dependencia de CDN con implementación local
+     */
+    (function() {
+        'use strict';
+        
+        // Implementación ligera de QR Code usando qrcode-generator
+        // Basado en qrcode-generator (https://github.com/kazuhikoarase/qrcode-generator)
+        // Versión minificada y adaptada para funcionar offline
+        
+        // Tabla de generación de polinomios para corrección de errores
+        const QR_MATH = {
+            glog: function(n) {
+                if (n < 1) throw new Error("glog(" + n + ")");
+                return QR_MATH.LOG_TABLE[n];
+            },
+            gexp: function(n) {
+                while (n < 0) n += 255;
+                while (n >= 256) n -= 255;
+                return QR_MATH.EXP_TABLE[n];
+            },
+            EXP_TABLE: new Array(256),
+            LOG_TABLE: new Array(256)
+        };
+        
+        for (let i = 0; i < 8; i++) QR_MATH.EXP_TABLE[i] = 1 << i;
+        for (let i = 8; i < 256; i++) QR_MATH.EXP_TABLE[i] = QR_MATH.EXP_TABLE[i - 4] ^ QR_MATH.EXP_TABLE[i - 5] ^ QR_MATH.EXP_TABLE[i - 6] ^ QR_MATH.EXP_TABLE[i - 8];
+        for (let i = 0; i < 255; i++) QR_MATH.LOG_TABLE[QR_MATH.EXP_TABLE[i]] = i;
+        
+        const QR_UTIL = {
+            getBCHDigit: function(data) {
+                let digit = 0;
+                while (data !== 0) { digit++; data >>>= 1; }
+                return digit;
+            },
+            getBCHTypeInfo: function(data) {
+                let d = data << 10;
+                while (QR_UTIL.getBCHDigit(d) - QR_UTIL.getBCHDigit(0x537) >= 0) {
+                    d ^= (0x537 << (QR_UTIL.getBCHDigit(d) - QR_UTIL.getBCHDigit(0x537)));
+                }
+                return ((data << 10) | d) ^ 0x5412;
+            },
+            getBCHTypeNumber: function(data) {
+                let d = data << 12;
+                while (QR_UTIL.getBCHDigit(d) - QR_UTIL.getBCHDigit(0x1f25) >= 0) {
+                    d ^= (0x1f25 << (QR_UTIL.getBCHDigit(d) - QR_UTIL.getBCHDigit(0x1f25)));
+                }
+                return (data << 12) | d;
+            },
+            getPatternPosition: function(typeNumber) {
+                return QR_UTIL.PATTERN_POSITION_TABLE[typeNumber - 1];
+            },
+            getMask: function(maskPattern, i, j) {
+                switch (maskPattern) {
+                    case 0: return (i + j) % 2 === 0;
+                    case 1: return i % 2 === 0;
+                    case 2: return j % 3 === 0;
+                    case 3: return (i + j) % 3 === 0;
+                    case 4: return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 === 0;
+                    case 5: return (i * j) % 2 + (i * j) % 3 === 0;
+                    case 6: return ((i * j) % 2 + (i * j) % 3) % 2 === 0;
+                    case 7: return ((i * j) % 3 + (i + j) % 2) % 2 === 0;
+                    default: throw new Error("bad maskPattern:" + maskPattern);
+                }
+            },
+            getErrorCorrectPolynomial: function(errorCorrectLength) {
+                let a = new QR_POLYNOMIAL([1], 0);
+                for (let i = 0; i < errorCorrectLength; i++) {
+                    a = a.multiply(new QR_POLYNOMIAL([1, QR_MATH.gexp(i)], 0));
+                }
+                return a;
+            },
+            getLengthInBits: function(mode, type) {
+                if (1 <= type && type < 10) {
+                    switch (mode) {
+                        case 4: return 8;
+                        case 8: return 16;
+                        default: return 10;
+                    }
+                } else if (type < 27) {
+                    switch (mode) {
+                        case 4: return 16;
+                        case 8: return 16;
+                        default: return 12;
+                    }
+                } else if (type < 41) {
+                    switch (mode) {
+                        case 4: return 16;
+                        case 8: return 16;
+                        default: return 14;
+                    }
+                } else {
+                    throw new Error("type:" + type);
+                }
+            },
+            getLostPoint: function(qrCode) {
+                const moduleCount = qrCode.getModuleCount();
+                let lostPoint = 0;
+                for (let row = 0; row < moduleCount; row++) {
+                    for (let col = 0; col < moduleCount; col++) {
+                        let sameCount = 0;
+                        const dark = qrCode.isDark(row, col);
+                        for (let r = -1; r <= 1; r++) {
+                            if (row + r < 0 || moduleCount <= row + r) continue;
+                            for (let c = -1; c <= 1; c++) {
+                                if (col + c < 0 || moduleCount <= col + c) continue;
+                                if (r === 0 && c === 0) continue;
+                                if (dark === qrCode.isDark(row + r, col + c)) sameCount++;
+                            }
+                        }
+                        if (sameCount > 5) lostPoint += (3 + sameCount - 5);
+                    }
+                }
+                for (let row = 0; row < moduleCount - 1; row++) {
+                    for (let col = 0; col < moduleCount - 1; col++) {
+                        let count = 0;
+                        if (qrCode.isDark(row, col)) count++;
+                        if (qrCode.isDark(row + 1, col)) count++;
+                        if (qrCode.isDark(row, col + 1)) count++;
+                        if (qrCode.isDark(row + 1, col + 1)) count++;
+                        if (count === 0 || count === 4) lostPoint += 3;
+                    }
+                }
+                for (let row = 0; row < moduleCount; row++) {
+                    for (let col = 0; col < moduleCount - 6; col++) {
+                        if (qrCode.isDark(row, col) && !qrCode.isDark(row, col + 1) && qrCode.isDark(row, col + 2) && qrCode.isDark(row, col + 3) && qrCode.isDark(row, col + 4) && !qrCode.isDark(row, col + 5) && qrCode.isDark(row, col + 6)) {
+                            lostPoint += 40;
+                        }
+                    }
+                }
+                for (let col = 0; col < moduleCount; col++) {
+                    for (let row = 0; row < moduleCount - 6; row++) {
+                        if (qrCode.isDark(row, col) && !qrCode.isDark(row + 1, col) && qrCode.isDark(row + 2, col) && qrCode.isDark(row + 3, col) && qrCode.isDark(row + 4, col) && !qrCode.isDark(row + 5, col) && qrCode.isDark(row + 6, col)) {
+                            lostPoint += 40;
+                        }
+                    }
+                }
+                let darkCount = 0;
+                for (let col = 0; col < moduleCount; col++) {
+                    for (let row = 0; row < moduleCount; row++) {
+                        if (qrCode.isDark(row, col)) darkCount++;
+                    }
+                }
+                const ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+                lostPoint += ratio * 10;
+                return lostPoint;
+            },
+            PATTERN_POSITION_TABLE: [
+                [],
+                [6, 18],
+                [6, 22],
+                [6, 26],
+                [6, 30],
+                [6, 34],
+                [6, 22, 38],
+                [6, 24, 42],
+                [6, 26, 46],
+                [6, 28, 50],
+                [6, 30, 54],
+                [6, 32, 58],
+                [6, 34, 62],
+                [6, 26, 46, 66],
+                [6, 26, 48, 70],
+                [6, 26, 50, 74],
+                [6, 30, 54, 78],
+                [6, 30, 56, 82],
+                [6, 30, 58, 86],
+                [6, 34, 62, 90],
+                [6, 28, 50, 72, 94],
+                [6, 26, 50, 74, 98],
+                [6, 30, 54, 78, 102],
+                [6, 28, 54, 80, 106],
+                [6, 32, 58, 84, 110],
+                [6, 30, 58, 86, 114],
+                [6, 34, 62, 90, 118],
+                [6, 26, 50, 74, 98, 122],
+                [6, 30, 54, 78, 102, 126],
+                [6, 26, 52, 78, 104, 130],
+                [6, 30, 56, 82, 108, 134],
+                [6, 34, 60, 86, 112, 138],
+                [6, 30, 58, 86, 114, 142],
+                [6, 34, 62, 90, 118, 146],
+                [6, 30, 54, 78, 102, 126, 150],
+                [6, 24, 50, 76, 102, 128, 154],
+                [6, 28, 54, 80, 106, 132, 158],
+                [6, 32, 58, 84, 110, 136, 162],
+                [6, 26, 54, 82, 110, 138, 166],
+                [6, 30, 58, 86, 114, 142, 170]
+            ],
+            G15: (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0),
+            G18: (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0),
+            G15_MASK: (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1)
+        };
+        
+        function QR_POLYNOMIAL(num, shift) {
+            if (num.length === undefined) throw new Error(num.length + "/" + shift);
+            let offset = 0;
+            while (offset < num.length && num[offset] === 0) offset++;
+            this.num = new Array(num.length - offset + shift);
+            for (let i = 0; i < num.length - offset; i++) this.num[i] = num[i + offset];
+        }
+        
+        QR_POLYNOMIAL.prototype = {
+            get: function(index) { return this.num[index]; },
+            getLength: function() { return this.num.length; },
+            multiply: function(e) {
+                const num = new Array(this.getLength() + e.getLength() - 1);
+                for (let i = 0; i < this.getLength(); i++) {
+                    for (let j = 0; j < e.getLength(); j++) {
+                        num[i + j] ^= QR_MATH.gexp(QR_MATH.glog(this.get(i)) + QR_MATH.glog(e.get(j)));
+                    }
+                }
+                return new QR_POLYNOMIAL(num, 0);
+            },
+            mod: function(e) {
+                if (this.getLength() - e.getLength() < 0) return this;
+                const ratio = QR_MATH.glog(this.get(0)) - QR_MATH.glog(e.get(0));
+                const num = new Array(this.getLength());
+                for (let i = 0; i < this.getLength(); i++) num[i] = this.num[i];
+                for (let i = 0; i < e.getLength(); i++) num[i] ^= QR_MATH.gexp(QR_MATH.glog(e.get(i)) + ratio);
+                return (new QR_POLYNOMIAL(num, 0)).mod(e);
+            }
+        };
+        
+        function QR_RS_BLOCK(totalCount, dataCount) {
+            this.totalCount = totalCount;
+            this.dataCount = dataCount;
+        }
+        
+        const QR_RS_BLOCK_TABLE = [
+            [1, 26, 19], [1, 26, 16], [1, 26, 13], [1, 26, 9], [1, 44, 34], [1, 44, 28], [1, 44, 22], [1, 44, 16],
+            [1, 70, 55], [1, 70, 44], [2, 35, 17], [2, 35, 13], [1, 100, 80], [2, 50, 32], [2, 50, 24], [4, 25, 9],
+            [1, 134, 108], [2, 67, 43], [2, 33, 15, 2, 34, 16], [2, 33, 11, 2, 34, 12], [2, 86, 68], [4, 43, 27],
+            [4, 43, 19], [4, 43, 15], [2, 98, 78], [4, 49, 31], [2, 32, 14, 4, 33, 15], [4, 39, 13, 1, 40, 14],
+            [2, 121, 97], [2, 60, 38, 2, 61, 39], [4, 40, 18, 2, 41, 19], [4, 40, 14, 2, 41, 15], [2, 146, 116],
+            [3, 58, 36, 2, 59, 37], [4, 36, 16, 4, 37, 17], [4, 36, 12, 4, 37, 13], [2, 86, 68, 2, 87, 69],
+            [4, 69, 43, 1, 70, 44], [6, 43, 19, 2, 44, 20], [6, 43, 15, 2, 44, 16], [4, 101, 81], [1, 80, 50, 4, 81, 51],
+            [4, 50, 22, 4, 51, 23], [3, 36, 12, 8, 37, 13], [2, 116, 92, 2, 117, 93], [6, 58, 36, 2, 59, 37],
+            [4, 46, 20, 6, 47, 21], [7, 42, 14, 4, 43, 15], [4, 133, 107], [8, 59, 37, 1, 60, 38],
+            [8, 44, 20, 4, 45, 21], [12, 33, 11, 4, 34, 12], [3, 145, 115, 1, 146, 116], [4, 64, 40, 5, 65, 41],
+            [11, 36, 16, 5, 37, 17], [11, 36, 12, 5, 37, 13], [5, 109, 87, 1, 110, 88], [5, 65, 41, 5, 66, 42],
+            [5, 54, 24, 7, 55, 25], [11, 36, 12], [5, 122, 98, 1, 123, 99], [7, 73, 45, 3, 74, 46],
+            [15, 43, 19, 2, 44, 20], [3, 45, 15, 13, 46, 16], [1, 135, 107, 5, 136, 108], [10, 74, 46, 1, 75, 47],
+            [1, 50, 22, 15, 51, 23], [2, 42, 14, 17, 43, 15], [5, 150, 120, 1, 151, 121], [9, 69, 43, 4, 70, 44],
+            [17, 50, 22, 1, 51, 23], [2, 42, 14, 19, 43, 15], [3, 141, 113, 4, 142, 114], [3, 70, 44, 11, 71, 45],
+            [17, 47, 21, 4, 48, 22], [9, 39, 13, 16, 40, 14], [3, 135, 107, 5, 136, 108], [3, 67, 41, 13, 68, 42],
+            [15, 54, 24, 5, 55, 25], [15, 43, 15, 10, 44, 16], [4, 144, 116, 4, 145, 117], [17, 68, 42],
+            [17, 50, 22, 6, 51, 23], [19, 46, 16, 6, 47, 17], [2, 139, 111, 7, 140, 112], [17, 74, 46],
+            [7, 54, 24, 16, 55, 25], [34, 37, 13], [4, 151, 121, 5, 152, 122], [4, 75, 47, 14, 76, 48],
+            [11, 54, 24, 14, 55, 25], [16, 45, 15, 14, 46, 16], [6, 147, 117, 4, 148, 118], [6, 73, 45, 14, 74, 46],
+            [11, 54, 24, 16, 55, 25], [30, 46, 16, 2, 47, 17], [8, 132, 106, 4, 133, 107], [8, 75, 47, 13, 76, 48],
+            [7, 54, 24, 22, 55, 25], [22, 45, 15, 13, 46, 16], [10, 142, 114, 2, 143, 115], [19, 74, 46, 4, 75, 47],
+            [28, 50, 22, 6, 51, 23], [33, 46, 16, 4, 47, 17], [8, 152, 122, 4, 153, 123], [22, 73, 45, 3, 74, 46],
+            [8, 53, 23, 26, 54, 24], [12, 45, 15, 28, 46, 16], [3, 147, 117, 10, 148, 118], [3, 73, 45, 23, 74, 46],
+            [4, 53, 23, 31, 54, 24], [11, 45, 15, 31, 46, 16], [7, 146, 116, 7, 147, 117], [21, 73, 45, 7, 74, 46],
+            [1, 53, 23, 37, 54, 24], [19, 45, 15, 26, 46, 16], [5, 145, 115, 10, 146, 116], [19, 75, 47, 10, 76, 48],
+            [15, 54, 24, 25, 55, 25], [23, 45, 15, 25, 46, 16], [13, 145, 115, 3, 146, 116], [2, 74, 46, 29, 75, 47],
+            [42, 54, 24, 1, 55, 25], [23, 45, 15, 28, 46, 16], [17, 145, 115, 10, 146, 116], [10, 74, 46, 23, 75, 47],
+            [10, 54, 24, 35, 55, 25], [19, 45, 15, 35, 46, 16], [17, 145, 115, 19, 146, 116], [14, 74, 46, 21, 75, 47],
+            [29, 54, 24, 19, 55, 25], [11, 45, 15, 46, 46, 16], [13, 145, 115, 2, 146, 116], [14, 74, 46, 23, 75, 47],
+            [44, 54, 24, 7, 55, 25], [59, 46, 16, 1, 47, 17], [21, 145, 115, 19, 146, 116], [12, 151, 121, 26, 152, 122],
+            [39, 54, 24, 14, 55, 25], [22, 45, 15, 41, 46, 16], [6, 145, 115, 34, 146, 116], [6, 151, 121, 34, 152, 122],
+            [46, 54, 24, 10, 55, 25], [2, 45, 15, 64, 46, 16], [29, 145, 115, 14, 146, 116], [17, 152, 122, 4, 153, 123],
+            [49, 54, 24, 10, 55, 25], [24, 45, 15, 46, 46, 16], [13, 145, 115, 32, 146, 116], [4, 152, 122, 18, 153, 123],
+            [48, 54, 24, 14, 55, 25], [42, 45, 15, 32, 46, 16], [40, 145, 115, 7, 146, 116], [20, 147, 117, 4, 148, 118],
+            [43, 54, 24, 22, 55, 25], [10, 45, 15, 67, 46, 16], [18, 151, 121, 19, 152, 122], [19, 148, 118, 6, 149, 119],
+            [34, 50, 22, 34, 51, 23], [20, 45, 15, 61, 46, 16], [20, 151, 121, 15, 152, 122], [15, 148, 118, 11, 149, 119]
+        ];
+        
+        function QRCode(typeNumber, errorCorrectLevel) {
+            this.typeNumber = typeNumber;
+            this.errorCorrectLevel = errorCorrectLevel;
+            this.modules = null;
+            this.moduleCount = 0;
+            this.dataCache = null;
+            this.dataList = new Array();
+        }
+        
+        QRCode.prototype = {
+            addData: function(data) {
+                const newData = new QR_8BIT_BYTE(data);
+                this.dataList.push(newData);
+                this.dataCache = null;
+            },
+            isDark: function(row, col) {
+                if (row < 0 || this.moduleCount <= row || col < 0 || this.moduleCount <= col) {
+                    throw new Error(row + "," + col);
+                }
+                return this.modules[row][col];
+            },
+            getModuleCount: function() {
+                return this.moduleCount;
+            },
+            make: function() {
+                this.makeImpl(false, this.getBestMaskPattern());
+            },
+            makeImpl: function(test, maskPattern) {
+                this.moduleCount = this.typeNumber * 4 + 17;
+                this.modules = new Array(this.moduleCount);
+                for (let row = 0; row < this.moduleCount; row++) {
+                    this.modules[row] = new Array(this.moduleCount);
+                    for (let col = 0; col < this.moduleCount; col++) {
+                        this.modules[row][col] = null;
+                    }
+                }
+                this.setupPositionProbePattern(0, 0);
+                this.setupPositionProbePattern(this.moduleCount - 7, 0);
+                this.setupPositionProbePattern(0, this.moduleCount - 7);
+                this.setupPositionAdjustPattern();
+                this.setupTimingPattern();
+                this.setupTypeInfo(test, maskPattern);
+                if (this.typeNumber >= 7) {
+                    this.setupTypeNumber(test);
+                }
+                if (this.dataCache === null) {
+                    this.dataCache = QRCode.createData(this.typeNumber, this.errorCorrectLevel, this.dataList);
+                }
+                this.mapData(this.dataCache, maskPattern);
+            },
+            setupPositionProbePattern: function(row, col) {
+                for (let r = -1; r <= 7; r++) {
+                    if (row + r <= -1 || this.moduleCount <= row + r) continue;
+                    for (let c = -1; c <= 7; c++) {
+                        if (col + c <= -1 || this.moduleCount <= col + c) continue;
+                        if ((0 <= r && r <= 6 && (c === 0 || c === 6)) || (0 <= c && c <= 6 && (r === 0 || r === 6)) || (2 <= r && r <= 4 && 2 <= c && c <= 4)) {
+                            this.modules[row + r][col + c] = true;
+                        } else {
+                            this.modules[row + r][col + c] = false;
+                        }
+                    }
+                }
+            },
+            getBestMaskPattern: function() {
+                let minLostPoint = 0;
+                let pattern = 0;
+                for (let i = 0; i < 8; i++) {
+                    this.makeImpl(true, i);
+                    const lostPoint = QR_UTIL.getLostPoint(this);
+                    if (i === 0 || minLostPoint > lostPoint) {
+                        minLostPoint = lostPoint;
+                        pattern = i;
+                    }
+                }
+                return pattern;
+            },
+            createMovieClip: function(target_mc, instance_name, depth) {
+                const qr_mc = target_mc.createEmptyMovieClip(instance_name, depth);
+                const cs = 1;
+                this.make();
+                for (let row = 0; row < this.modules.length; row++) {
+                    const y = row * cs;
+                    for (let col = 0; col < this.modules[row].length; col++) {
+                        const x = col * cs;
+                        const dark = this.modules[row][col];
+                        if (dark) {
+                            qr_mc.beginFill(0, 100);
+                            qr_mc.moveTo(x, y);
+                            qr_mc.lineTo(x + cs, y);
+                            qr_mc.lineTo(x + cs, y + cs);
+                            qr_mc.lineTo(x, y + cs);
+                            qr_mc.endFill();
+                        }
+                    }
+                }
+                return qr_mc;
+            },
+            setupTimingPattern: function() {
+                for (let r = 8; r < this.moduleCount - 8; r++) {
+                    if (this.modules[r][6] !== null) continue;
+                    this.modules[r][6] = (r % 2 === 0);
+                }
+                for (let c = 8; c < this.moduleCount - 8; c++) {
+                    if (this.modules[6][c] !== null) continue;
+                    this.modules[6][c] = (c % 2 === 0);
+                }
+            },
+            setupPositionAdjustPattern: function() {
+                const pos = QR_UTIL.getPatternPosition(this.typeNumber);
+                for (let i = 0; i < pos.length; i++) {
+                    for (let j = 0; j < pos.length; j++) {
+                        const row = pos[i];
+                        const col = pos[j];
+                        if (this.modules[row][col] !== null) continue;
+                        for (let r = -2; r <= 2; r++) {
+                            for (let c = -2; c <= 2; c++) {
+                                if (r === -2 || r === 2 || c === -2 || c === 2 || (r === 0 && c === 0)) {
+                                    this.modules[row + r][col + c] = true;
+                                } else {
+                                    this.modules[row + r][col + c] = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            setupTypeNumber: function(test) {
+                const bits = QR_UTIL.getBCHTypeNumber(this.typeNumber);
+                for (let i = 0; i < 18; i++) {
+                    const mod = (!test && ((bits >> i) & 1) === 1);
+                    this.modules[Math.floor(i / 3)][i % 3 + this.moduleCount - 8 - 3] = mod;
+                }
+                for (let i = 0; i < 18; i++) {
+                    const mod = (!test && ((bits >> i) & 1) === 1);
+                    this.modules[i % 3 + this.moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+                }
+            },
+            setupTypeInfo: function(test, maskPattern) {
+                const data = (this.errorCorrectLevel << 3) | maskPattern;
+                const bits = QR_UTIL.getBCHTypeInfo(data);
+                for (let i = 0; i < 15; i++) {
+                    const mod = (!test && ((bits >> i) & 1) === 1);
+                    if (i < 6) {
+                        this.modules[i][8] = mod;
+                    } else if (i < 8) {
+                        this.modules[i + 1][8] = mod;
+                    } else {
+                        this.modules[this.moduleCount - 15 + i][8] = mod;
+                    }
+                }
+                for (let i = 0; i < 15; i++) {
+                    const mod = (!test && ((bits >> i) & 1) === 1);
+                    if (i < 8) {
+                        this.modules[8][this.moduleCount - i - 1] = mod;
+                    } else if (i < 9) {
+                        this.modules[8][15 - i - 1 + 1] = mod;
+                    } else {
+                        this.modules[8][15 - i - 1] = mod;
+                    }
+                }
+                this.modules[this.moduleCount - 8][8] = (!test);
+            },
+            mapData: function(data, maskPattern) {
+                let inc = -1;
+                let row = this.moduleCount - 1;
+                let bitIndex = 7;
+                let byteIndex = 0;
+                for (let col = this.moduleCount - 1; col > 0; col -= 2) {
+                    if (col === 6) col--;
+                    while (true) {
+                        for (let c = 0; c < 2; c++) {
+                            if (this.modules[row][col - c] === null) {
+                                let dark = false;
+                                if (byteIndex < data.length) {
+                                    dark = (((data[byteIndex] >>> bitIndex) & 1) === 1);
+                                }
+                                const mask = QR_UTIL.getMask(maskPattern, row, col - c);
+                                if (mask) {
+                                    dark = !dark;
+                                }
+                                this.modules[row][col - c] = dark;
+                                bitIndex--;
+                                if (bitIndex === -1) {
+                                    byteIndex++;
+                                    bitIndex = 7;
+                                }
+                            }
+                        }
+                        row += inc;
+                        if (row < 0 || this.moduleCount <= row) {
+                            row -= inc;
+                            inc = -inc;
+                            break;
+                        }
+                    }
+                }
+            }
+        };
+        
+        QRCode.PAD0 = 0xEC;
+        QRCode.PAD1 = 0x11;
+        
+        QRCode.createData = function(typeNumber, errorCorrectLevel, dataList) {
+            const rsBlocks = QRCode.getRSBlocks(typeNumber, errorCorrectLevel);
+            const buffer = new QR_BIT_BUFFER();
+            for (let i = 0; i < dataList.length; i++) {
+                const data = dataList[i];
+                buffer.put(data.mode, 4);
+                buffer.put(data.getLength(), QR_UTIL.getLengthInBits(data.mode, typeNumber));
+                data.write(buffer);
+            }
+            let totalDataCount = 0;
+            for (let i = 0; i < rsBlocks.length; i++) {
+                totalDataCount += rsBlocks[i].dataCount;
+            }
+            if (buffer.getLengthInBits() > totalDataCount * 8) {
+                throw new Error("code length overflow. (" + buffer.getLengthInBits() + ">" + totalDataCount * 8 + ")");
+            }
+            if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+                buffer.put(0, 4);
+            }
+            while (buffer.getLengthInBits() % 8 !== 0) {
+                buffer.putBit(false);
+            }
+            while (true) {
+                if (buffer.getLengthInBits() >= totalDataCount * 8) {
+                    break;
+                }
+                buffer.put(QRCode.PAD0, 8);
+                if (buffer.getLengthInBits() >= totalDataCount * 8) {
+                    break;
+                }
+                buffer.put(QRCode.PAD1, 8);
+            }
+            return QRCode.createBytes(buffer, rsBlocks);
+        };
+        
+        QRCode.getRSBlocks = function(typeNumber, errorCorrectLevel) {
+            const rsBlock = QR_RS_BLOCK_TABLE[(typeNumber - 1) * 4 + errorCorrectLevel];
+            if (rsBlock === undefined) {
+                throw new Error("bad rs block @ typeNumber:" + typeNumber + "/errorCorrectLevel:" + errorCorrectLevel);
+            }
+            const length = rsBlock.length / 3;
+            const list = new Array();
+            for (let i = 0; i < length; i++) {
+                const count = rsBlock[i * 3 + 0];
+                const totalCount = rsBlock[i * 3 + 1];
+                const dataCount = rsBlock[i * 3 + 2];
+                for (let j = 0; j < count; j++) {
+                    list.push(new QR_RS_BLOCK(totalCount, dataCount));
+                }
+            }
+            return list;
+        };
+        
+        QRCode.createBytes = function(buffer, rsBlocks) {
+            let offset = 0;
+            let maxDcCount = 0;
+            let maxEcCount = 0;
+            const dcdata = new Array(rsBlocks.length);
+            const ecdata = new Array(rsBlocks.length);
+            for (let r = 0; r < rsBlocks.length; r++) {
+                const dcCount = rsBlocks[r].dataCount;
+                const ecCount = rsBlocks[r].totalCount - dcCount;
+                maxDcCount = Math.max(maxDcCount, dcCount);
+                maxEcCount = Math.max(maxEcCount, ecCount);
+                dcdata[r] = new Array(dcCount);
+                for (let i = 0; i < dcdata[r].length; i++) {
+                    dcdata[r][i] = 0xff & buffer.buffer[i + offset];
+                }
+                offset += dcCount;
+                const rsPoly = QR_UTIL.getErrorCorrectPolynomial(ecCount);
+                const rawPoly = new QR_POLYNOMIAL(dcdata[r], rsPoly.getLength() - 1);
+                const modPoly = rawPoly.mod(rsPoly);
+                ecdata[r] = new Array(rsPoly.getLength() - 1);
+                for (let i = 0; i < ecdata[r].length; i++) {
+                    const modIndex = i + modPoly.getLength() - ecdata[r].length;
+                    ecdata[r][i] = (modIndex >= 0) ? modPoly.get(modIndex) : 0;
+                }
+            }
+            let totalCodeCount = 0;
+            for (let i = 0; i < rsBlocks.length; i++) {
+                totalCodeCount += rsBlocks[i].totalCount;
+            }
+            const data = new Array(totalCodeCount);
+            let index = 0;
+            for (let i = 0; i < maxDcCount; i++) {
+                for (let r = 0; r < rsBlocks.length; r++) {
+                    if (i < dcdata[r].length) {
+                        data[index++] = dcdata[r][i];
+                    }
+                }
+            }
+            for (let i = 0; i < maxEcCount; i++) {
+                for (let r = 0; r < rsBlocks.length; r++) {
+                    if (i < ecdata[r].length) {
+                        data[index++] = ecdata[r][i];
+                    }
+                }
+            }
+            return data;
+        };
+        
+        function QR_8BIT_BYTE(data) {
+            this.mode = 4;
+            this.data = data;
+        }
+        
+        QR_8BIT_BYTE.prototype = {
+            getLength: function(buffer) {
+                return this.data.length;
+            },
+            write: function(buffer) {
+                for (let i = 0; i < this.data.length; i++) {
+                    buffer.put(this.data.charCodeAt(i), 8);
+                }
+            }
+        };
+        
+        function QR_BIT_BUFFER() {
+            this.buffer = new Array();
+            this.length = 0;
+        }
+        
+        QR_BIT_BUFFER.prototype = {
+            get: function(index) {
+                const bufIndex = Math.floor(index / 8);
+                return ((this.buffer[bufIndex] >>> (7 - index % 8)) & 1) === 1;
+            },
+            put: function(num, length) {
+                for (let i = 0; i < length; i++) {
+                    this.putBit(((num >>> (length - i - 1)) & 1) === 1);
+                }
+            },
+            getLengthInBits: function() {
+                return this.length;
+            },
+            putBit: function(bit) {
+                const bufIndex = Math.floor(this.length / 8);
+                if (this.buffer.length <= bufIndex) {
+                    this.buffer.push(0);
+                }
+                if (bit) {
+                    this.buffer[bufIndex] |= (0x80 >>> (this.length % 8));
+                }
+                this.length++;
+            }
+        };
+        
+        // API compatible con qrcode.js (npm)
+        // Wrapper para mantener compatibilidad con QRCode.toDataURL
+        if (typeof window !== 'undefined') {
+            window.QRCode = window.QRCode || {};
+            
+            // Función principal para generar QR como DataURL
+            window.QRCode.toDataURL = function(text, opts, cb) {
+                if (typeof opts === 'function') {
+                    cb = opts;
+                    opts = {};
+                }
+                opts = opts || {};
+                
+                try {
+                    const typeNumber = opts.typeNumber || 0;
+                    const errorCorrectLevel = opts.errorCorrectLevel || 'M';
+                    const width = opts.width || 250;
+                    const margin = opts.margin || 2;
+                    const colorDark = opts.color?.dark || '#000000';
+                    const colorLight = opts.color?.light || '#FFFFFF';
+                    
+                    // Mapear nivel de corrección de errores
+                    let errorLevel = 1; // M por defecto
+                    if (errorCorrectLevel === 'L') errorLevel = 0;
+                    else if (errorCorrectLevel === 'M') errorLevel = 1;
+                    else if (errorCorrectLevel === 'Q') errorLevel = 2;
+                    else if (errorCorrectLevel === 'H') errorLevel = 3;
+                    
+                    // Calcular tipo de QR automáticamente si no se especifica
+                    let qrType = typeNumber;
+                    if (qrType === 0) {
+                        // Calcular tipo mínimo necesario
+                        const dataLength = text.length;
+                        for (let t = 1; t <= 40; t++) {
+                            const rsBlocks = QRCode.getRSBlocks(t, errorLevel);
+                            let totalDataCount = 0;
+                            for (let i = 0; i < rsBlocks.length; i++) {
+                                totalDataCount += rsBlocks[i].dataCount;
+                            }
+                            if (dataLength <= totalDataCount - 3) {
+                                qrType = t;
+                                break;
+                            }
+                        }
+                        if (qrType === 0) qrType = 10; // Fallback
+                    }
+                    
+                    // Crear QR code
+                    const qr = new QRCode(qrType, errorLevel);
+                    qr.addData(text);
+                    qr.make();
+                    
+                    // Crear canvas
+                    const canvas = document.createElement('canvas');
+                    const moduleCount = qr.getModuleCount();
+                    const cellSize = Math.floor((width - margin * 2) / moduleCount);
+                    const qrSize = cellSize * moduleCount + margin * 2;
+                    canvas.width = qrSize;
+                    canvas.height = qrSize;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Fondo
+                    ctx.fillStyle = colorLight;
+                    ctx.fillRect(0, 0, qrSize, qrSize);
+                    
+                    // Dibujar módulos
+                    ctx.fillStyle = colorDark;
+                    const offset = margin;
+                    for (let row = 0; row < moduleCount; row++) {
+                        for (let col = 0; col < moduleCount; col++) {
+                            if (qr.isDark(row, col)) {
+                                ctx.fillRect(
+                                    offset + col * cellSize,
+                                    offset + row * cellSize,
+                                    cellSize,
+                                    cellSize
+                                );
+                            }
+                        }
+                    }
+                    
+                    // Convertir a DataURL
+                    const dataUrl = canvas.toDataURL('image/png');
+                    
+                    if (cb) {
+                        cb(null, dataUrl);
+                    } else {
+                        return dataUrl;
+                    }
+                } catch (error) {
+                    if (cb) {
+                        cb(error, null);
+                    } else {
+                        throw error;
+                    }
+                }
+            };
+            
+            console.log('✅ QRCode library local cargada correctamente (offline)');
+        }
+    })();
+    </script>
     
     <!-- Mammoth.js (Para importar plantillas desde Word .docx) -->
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.11.0/mammoth.browser.min.js"></script>
@@ -7012,6 +7733,235 @@ html +
                 @media print { body * { visibility: hidden; } .sheet, .sheet * { visibility: visible; } .sheet { position: absolute; left: 0; top: 0; } }
             `;
 
+            // ============================================
+            // MÓDULO QR LOCAL - GENERACIÓN OFFLINE
+            // ============================================
+            /**
+             * Utilidades para generar QR único ligado a gpsValue
+             * Formato payload: IHSS|KIT=<kitId>|GPS=<gpsValue>|DNI=<dni>|TS=<timestamp>|SIG=<hash>
+             */
+            window.QRUtils = (function() {
+                'use strict';
+                
+                /**
+                 * Genera hash SHA-256 de un string
+                 * @param {string} str - String a hashear
+                 * @returns {Promise<string>} Hash hexadecimal
+                 */
+                async function sha256(str) {
+                    if (!str) return '';
+                    try {
+                        const encoder = new TextEncoder();
+                        const data = encoder.encode(str);
+                        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                        const hashArray = Array.from(new Uint8Array(hashBuffer));
+                        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                    } catch (error) {
+                        console.error('[QR] Error generando SHA-256:', error);
+                        // Fallback simple si crypto.subtle no está disponible
+                        let hash = 0;
+                        for (let i = 0; i < str.length; i++) {
+                            const char = str.charCodeAt(i);
+                            hash = ((hash << 5) - hash) + char;
+                            hash = hash & hash;
+                        }
+                        return Math.abs(hash).toString(16).padStart(64, '0');
+                    }
+                }
+                
+                /**
+                 * Construye el payload único del QR
+                 * @param {Object} params - Parámetros del kit
+                 * @param {string} params.kitId - ID del kit
+                 * @param {string} params.gpsValue - Valor GPS del kit (puede estar vacío)
+                 * @param {string} params.dni - DNI del paciente
+                 * @param {number} [params.timestamp] - Timestamp opcional (se genera si no se proporciona)
+                 * @returns {Promise<string>} Payload formateado
+                 */
+                async function buildQrPayload({ kitId, gpsValue, dni, timestamp }) {
+                    // Validar y normalizar valores
+                    const kit = String(kitId || '').trim() || 'UNKNOWN';
+                    const gps = String(gpsValue || '').trim() || 'EMPTY';
+                    const dniStr = String(dni || '').trim() || 'UNKNOWN';
+                    const ts = timestamp || Date.now();
+                    
+                    // Construir string base para hash
+                    const baseString = `${kit}|${gps}|${dniStr}|${ts}`;
+                    
+                    // Generar hash SHA-256
+                    const sig = await sha256(baseString);
+                    
+                    // Construir payload final
+                    const payload = `IHSS|KIT=${kit}|GPS=${gps}|DNI=${dniStr}|TS=${ts}|SIG=${sig}`;
+                    
+                    console.log('[QR] Payload generado:', payload.substring(0, 100) + '...');
+                    return payload;
+                }
+                
+                /**
+                 * Genera DataURL del QR code
+                 * @param {string} payload - Payload a codificar en el QR
+                 * @param {Object} [options] - Opciones de generación
+                 * @param {number} [options.size=250] - Tamaño del QR en píxeles
+                 * @param {number} [options.margin=2] - Margen del QR
+                 * @returns {Promise<string>} DataURL del QR (PNG)
+                 */
+                async function generateQrDataUrl(payload, options = {}) {
+                    if (!payload) {
+                        throw new Error('[QR] Payload vacío');
+                    }
+                    
+                    const size = options.size || 250;
+                    const margin = options.margin || 2;
+                    const errorCorrectionLevel = options.errorCorrectionLevel || 'H';
+                    const colorDark = options.color?.dark || '#000000';
+                    const colorLight = options.color?.light || '#FFFFFF';
+                    
+                    return new Promise((resolve, reject) => {
+                        try {
+                            // Verificar que QRCode esté disponible
+                            if (typeof QRCode === 'undefined' || typeof QRCode.toDataURL !== 'function') {
+                                throw new Error('[QR] QRCode library no está disponible');
+                            }
+                            
+                            QRCode.toDataURL(payload, {
+                                width: size,
+                                margin: margin,
+                                errorCorrectionLevel: errorCorrectionLevel,
+                                color: {
+                                    dark: colorDark,
+                                    light: colorLight
+                                }
+                            }, (err, url) => {
+                                if (err) {
+                                    console.error('[QR] Error generando QR:', err);
+                                    reject(err);
+                                } else if (!url || url.length === 0) {
+                                    reject(new Error('[QR] QR generado vacío'));
+                                } else {
+                                    console.log('[QR] QR generado exitosamente');
+                                    resolve(url);
+                                }
+                            });
+                        } catch (error) {
+                            console.error('[QR] Excepción generando QR:', error);
+                            reject(error);
+                        }
+                    });
+                }
+                
+                /**
+                 * Renderiza el QR en el contenedor B2
+                 * @param {HTMLElement} targetEl - Elemento contenedor donde insertar el QR
+                 * @param {string} dataUrl - DataURL del QR generado
+                 * @param {Object} [options] - Opciones de renderizado
+                 */
+                async function renderQrToB2(targetEl, dataUrl, options = {}) {
+                    if (!targetEl) {
+                        console.error('[QR] Contenedor B2 no encontrado');
+                        return false;
+                    }
+                    
+                    try {
+                        // Limpiar contenido anterior
+                        targetEl.innerHTML = '';
+                        
+                        // Crear imagen del QR
+                        const img = document.createElement('img');
+                        img.src = dataUrl;
+                        img.alt = 'QR Code';
+                        img.style.maxWidth = '100%';
+                        img.style.maxHeight = '100%';
+                        img.style.width = 'auto';
+                        img.style.height = 'auto';
+                        img.style.display = 'block';
+                        img.style.objectFit = 'contain';
+                        
+                        // Insertar en el contenedor
+                        targetEl.appendChild(img);
+                        
+                        console.log('[QR] QR renderizado exitosamente en B2');
+                        return true;
+                    } catch (error) {
+                        console.error('[QR] Error renderizando QR:', error);
+                        // Insertar mensaje de error sin romper la impresión
+                        targetEl.innerHTML = '<div style="font-size:2mm;color:#999;text-align:center;padding:2mm;">QR NO DISPONIBLE</div>';
+                        return false;
+                    }
+                }
+                
+                // API pública
+                return {
+                    sha256,
+                    buildQrPayload,
+                    generateQrDataUrl,
+                    renderQrToB2
+                };
+            })();
+            
+            // Verificar que QRUtils se cargó correctamente
+            if (window.QRUtils && typeof window.QRUtils.buildQrPayload === 'function') {
+                console.log('[QR] ✅ Módulo QRUtils cargado correctamente (offline)');
+            } else {
+                console.error('[QR] ❌ Error: QRUtils no se pudo cargar o está incompleto');
+                console.error('[QR] window.QRUtils:', window.QRUtils);
+            }
+            
+            // Función de prueba para desarrollo
+            window.testQrB2 = async function() {
+                try {
+                    console.log('[QR TEST] Iniciando prueba...');
+                    
+                    // Buscar contenedor B2
+                    const b2Element = document.querySelector('.ruta-b2 .ruta-qr-container') || 
+                                     document.querySelector('.ruta-b2');
+                    
+                    if (!b2Element) {
+                        console.error('[QR TEST] Contenedor B2 no encontrado');
+                        return;
+                    }
+                    
+                    console.log('[QR TEST] Contenedor B2 encontrado:', b2Element);
+                    
+                    // Verificar que QRUtils esté disponible
+                    const QRUtils = window.QRUtils;
+                    if (!QRUtils) {
+                        console.error('[QR TEST] QRUtils no está disponible');
+                        return;
+                    }
+                    
+                    // Generar payload de prueba
+                    const payload = await QRUtils.buildQrPayload({
+                        kitId: 'TEST-KIT-123',
+                        gpsValue: '14.0583,-87.2164',
+                        dni: '0801199012345',
+                        timestamp: Date.now()
+                    });
+                    
+                    console.log('[QR TEST] Payload:', payload);
+                    
+                    // Generar QR
+                    const dataUrl = await QRUtils.generateQrDataUrl(payload, {
+                        size: 250,
+                        margin: 2,
+                        errorCorrectionLevel: 'H'
+                    });
+                    
+                    console.log('[QR TEST] QR generado:', dataUrl.substring(0, 50) + '...');
+                    
+                    // Renderizar
+                    const success = await QRUtils.renderQrToB2(b2Element, dataUrl);
+                    
+                    if (success) {
+                        console.log('[QR TEST] ✅ OK en B2');
+                    } else {
+                        console.error('[QR TEST] ❌ Error renderizando');
+                    }
+                } catch (error) {
+                    console.error('[QR TEST] Error:', error);
+                }
+            };
+
             // Función para generar QR Code de geolocalización
             const generateGeoQR = async (gpsValue) => {
                 if (!gpsValue || !String(gpsValue).trim()) {
@@ -10519,12 +11469,15 @@ html +
                 let qrContainerHtml = '';
                 let qrScriptHtml = '';
                 if (resolvedData.QR_MAPS && qrElement) {
+                    // NOTA: Esta función se usa para plantillas antiguas
+                    // Para la viñeta ruta principal, usar printRutaVignette que ya usa QRUtils
+                    // Aquí generamos el QR directamente sin CDN usando QRCode local
                     const qrStyle = 'left: ' + qrElement.xMm + 'mm; top: ' + qrElement.yMm + 'mm; width: ' + qrElement.wMm + 'mm; height: ' + qrElement.hMm + 'mm; text-align: center; padding: 1mm;';
                     qrContainerHtml = '<div class="cell" id="qr-container" style="' + qrStyle + '"></div>';
                     const qrUrl = JSON.stringify(resolvedData.QR_MAPS);
-                    const qrScriptSrc = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>';
-                    const qrScriptCode = '<script>(function(){if(typeof QRCode !== "undefined"){var qrContainer = document.getElementById("qr-container");if(qrContainer){QRCode.toDataURL(' + qrUrl + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img = document.createElement("img");img.src = url;img.style.maxWidth = "100%";img.style.height = "auto";qrContainer.appendChild(img);}});}}})();<\/script>';
-                    qrScriptHtml = qrScriptSrc + qrScriptCode;
+                    // Usar QRCode local (ya cargado, sin CDN)
+                    const qrScriptCode = '<script>(function(){try{if(typeof QRCode !== "undefined" && typeof QRCode.toDataURL === "function"){var qrContainer = document.getElementById("qr-container");if(qrContainer){QRCode.toDataURL(' + qrUrl + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img = document.createElement("img");img.src = url;img.style.maxWidth = "100%";img.style.height = "auto";qrContainer.appendChild(img);}else{console.error("Error generando QR:", err);}});}}else{console.error("QRCode no disponible");}}catch(e){console.error("Error en script QR:", e);}})();<\/script>';
+                    qrScriptHtml = qrScriptCode;
                 }
                 const printHtml = '<!DOCTYPE html>' +
 '<html>' +
@@ -10584,33 +11537,38 @@ qrScriptHtml +
                     
                     const patientData = updatedPatient;
                     
-                    // Generar token único para el QR
-                    const generateUniqueToken = () => {
-                        // Usar crypto.randomUUID si está disponible, sino generar token único
-                        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-                            return crypto.randomUUID();
-                        }
-                        // Fallback: generar token único usando timestamp + random
-                        return 't_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                    };
+                    // Resolver placeholders con datos actualizados (pasar users y contacts)
+                    const resolvedData = await resolveRutaPlaceholders(updatedKit, patientData, users, contacts);
                     
-                    const qrToken = generateUniqueToken();
-                    const baseUrl = window.location.origin || window.location.protocol + '//' + window.location.host;
-                    const qrUrl = baseUrl + '/q.html?t=' + encodeURIComponent(qrToken);
-                    
-                    // Guardar token en la base de datos
-                    if (updatedKit && updatedKit.id && firebaseInitialized && db && saveKit) {
-                        try {
-                            await saveKit(updatedKit.id, { qrToken: qrToken, qrTokenGeneratedAt: (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) ? firebase.firestore.FieldValue.serverTimestamp() : new Date().toISOString() }, updatedKit.patientId, true);
-                            console.log('✅ Token QR guardado en BD:', qrToken);
-                        } catch (error) {
-                            console.warn('⚠️ No se pudo guardar token QR en BD:', error);
-                            // Continuar aunque falle el guardado
+                    // Generar URL del QR con coordenadas GPS
+                    let qrUrl = '';
+                    if (updatedKit && updatedKit.gpsValue && String(updatedKit.gpsValue).trim() !== '') {
+                        const gps = String(updatedKit.gpsValue).trim();
+                        // Validar que tenga coma (formato lat,lon)
+                        if (gps.includes(',')) {
+                            const [lat, lon] = gps.split(',').map(s => s.trim());
+                            if (lat && lon && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lon))) {
+                                // Usar URL de Google Maps (más compatible con todos los dispositivos)
+                                // Formato: https://www.google.com/maps?q=lat,lon
+                                qrUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+                                console.log('✅ QR generado con coordenadas GPS:', lat, lon);
+                            }
                         }
                     }
                     
-                    // Resolver placeholders con datos actualizados (pasar users y contacts)
-                    const resolvedData = await resolveRutaPlaceholders(updatedKit, patientData, users, contacts);
+                    // Si no hay GPS, usar URL de Google Maps con dirección como fallback
+                    if (!qrUrl && resolvedData.DIRECCION_ENTREGA) {
+                        const direccion = encodeURIComponent(resolvedData.DIRECCION_ENTREGA);
+                        qrUrl = `https://www.google.com/maps/search/?api=1&query=${direccion}`;
+                        console.log('✅ QR generado con dirección como fallback');
+                    }
+                    
+                    // Si aún no hay URL, mostrar advertencia pero generar QR vacío
+                    if (!qrUrl) {
+                        console.warn('⚠️ No hay coordenadas GPS ni dirección para generar QR');
+                        // No generar QR si no hay datos
+                        qrUrl = null;
+                    }
                     
                     // Obtener logos
                     const logo1 = (typeof LOGO1_URL !== 'undefined' && LOGO1_URL) ? LOGO1_URL : 'https://raw.githubusercontent.com/jose50440/bita/6a46e7144ce075c219a382364b611fa576fc5e4b/img/logo1.png';
@@ -10628,68 +11586,55 @@ qrScriptHtml +
                     const observaciones = resolvedData.OBSERVACIONES;
                     const direccionYObs = [direccionCompleta, observaciones].filter(Boolean).join(' | ');
                     
-                    // Generar QR ANTES de crear el HTML (siempre generar QR con token)
-                    // Estrategia rápida: intentar generar inmediatamente, si falla usar fallback en iframe
+                    // Generar QR usando módulo local (OFFLINE)
+                    // Payload único: IHSS|KIT=<kitId>|GPS=<gpsValue>|DNI=<dni>|TS=<timestamp>|SIG=<hash>
                     let qrImageHtml = '';
-                    let qrGenerated = false;
                     
-                    // Verificar si QRCode está disponible (ya está cargado en el head)
-                    const checkQRCode = () => {
-                        return typeof QRCode !== 'undefined' && typeof QRCode.toDataURL === 'function';
-                    };
-                    
-                    // Intentar generar QR inmediatamente si está disponible (máximo 1 segundo de espera)
-                    if (checkQRCode()) {
-                        try {
-                            const qrDataUrl = await new Promise((resolve, reject) => {
-                                const timeout = setTimeout(() => reject(new Error('Timeout')), 1000);
-                                try {
-                                    QRCode.toDataURL(qrUrl, { 
-                                        width: 250, 
-                                        margin: 2,
-                                        errorCorrectionLevel: 'H',
-                                        color: {
-                                            dark: '#000000',
-                                            light: '#FFFFFF'
-                                        }
-                                    }, (err, url) => {
-                                        clearTimeout(timeout);
-                                        if (err) {
-                                            reject(new Error('QRCode generation failed'));
-                                        } else if (!url) {
-                                            reject(new Error('QRCode generation returned empty result'));
-                                        } else {
-                                            resolve(url);
-                                        }
-                                    });
-                                } catch (err) {
-                                    clearTimeout(timeout);
-                                    reject(err);
-                                }
-                            });
-                            
-                            if (qrDataUrl) {
-                                qrImageHtml = `<div class="ruta-qr-container"><img src="${qrDataUrl}" alt="QR Code" style="max-width:100%;max-height:100%;object-fit:contain;display:block;"/></div>`;
-                                qrGenerated = true;
+                    try {
+                        // Verificar que QRUtils esté disponible
+                        if (!window.QRUtils || typeof window.QRUtils.buildQrPayload !== 'function') {
+                            throw new Error('QRUtils no está disponible. El módulo QR no se cargó correctamente. window.QRUtils: ' + (window.QRUtils ? 'existe pero incompleto' : 'no existe'));
+                        }
+                        const QRUtils = window.QRUtils;
+                        
+                        // Obtener datos para el payload
+                        const kitId = updatedKit?.id || updatedKit?.kitId || 'UNKNOWN';
+                        const gpsValue = updatedKit?.gpsValue || '';
+                        const dni = patientData?.dni || updatedKit?.dni || resolvedData.DNI || 'UNKNOWN';
+                        
+                        console.log('[QR] Generando QR para kit:', kitId, 'GPS:', gpsValue || 'EMPTY');
+                        
+                        // Construir payload único
+                        const payload = await QRUtils.buildQrPayload({
+                            kitId: kitId,
+                            gpsValue: gpsValue,
+                            dni: dni,
+                            timestamp: Date.now()
+                        });
+                        
+                        // Generar QR como DataURL (offline, sin CDN)
+                        const qrDataUrl = await QRUtils.generateQrDataUrl(payload, {
+                            size: 250,
+                            margin: 2,
+                            errorCorrectionLevel: 'H',
+                            color: {
+                                dark: '#000000',
+                                light: '#FFFFFF'
                             }
-                        } catch (error) {
-                            // Silenciar error, usar fallback
+                        });
+                        
+                        if (qrDataUrl && qrDataUrl.length > 0) {
+                            // Insertar directamente la imagen del QR en el HTML
+                            // El contenedor .ruta-qr-container está dentro de .ruta-b2
+                            qrImageHtml = `<div class="ruta-qr-container" style="width:18mm;height:18mm;display:flex;align-items:center;justify-content:center;border:0.4mm solid #000;border-radius:1.5mm;background:#fff;padding:0.6mm;flex-shrink:0;min-width:18mm;min-height:18mm;"><img src="${qrDataUrl}" alt="QR Code" style="max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain;" /></div>`;
+                            console.log('[QR] ✅ QR generado exitosamente (offline)');
+                        } else {
+                            throw new Error('QR data URL vacío o inválido');
                         }
-                    }
-                    
-                    // Si no se generó, usar fallback en el iframe que SIEMPRE genera el QR
-                    // Asegurar que siempre haya un contenedor y script para generar el QR
-                    if (!qrGenerated) {
-                        const qrUrlEscaped = JSON.stringify(qrUrl);
-                        const qrScriptSrc = '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>';
-                        // Fallback optimizado: genera el QR directamente en el iframe con múltiples intentos
-                        const qrScriptCode = '<script>(function(){var qrUrl=' + qrUrlEscaped + ';var attempts=0;var maxAttempts=60;function generateQR(){try{var qrContainer=document.querySelector(".ruta-qr-container");if(!qrContainer){if(attempts++<maxAttempts){setTimeout(generateQR,30);}return;}if(qrContainer.querySelector("img")){return;}if(typeof QRCode==="undefined"){if(attempts++<maxAttempts){setTimeout(generateQR,30);}return;}QRCode.toDataURL(qrUrl,{width:250,margin:2,errorCorrectionLevel:"H"},function(err,url){if(err){if(attempts++<maxAttempts){setTimeout(generateQR,50);}return;}if(url){var img=document.createElement("img");img.src=url;img.style.maxWidth="100%";img.style.height="auto";img.style.display="block";img.alt="QR Code";qrContainer.innerHTML="";qrContainer.appendChild(img);}});}catch(e){if(attempts++<maxAttempts){setTimeout(generateQR,50);}}}generateQR();setTimeout(generateQR,30);setTimeout(generateQR,60);setTimeout(generateQR,100);setTimeout(generateQR,150);setTimeout(generateQR,250);})();<\/script>';
-                        qrImageHtml = '<div class="ruta-qr-container"></div>' + qrScriptSrc + qrScriptCode;
-                    } else {
-                        // Asegurar que siempre haya un contenedor incluso si se generó
-                        if (!qrImageHtml.includes('ruta-qr-container')) {
-                            qrImageHtml = '<div class="ruta-qr-container">' + qrImageHtml.replace(/^<div[^>]*>|<\/div>$/g, '') + '</div>';
-                        }
+                    } catch (error) {
+                        console.error('[QR] ⚠️ Error generando QR:', error);
+                        // Mostrar mensaje sin romper la impresión
+                        qrImageHtml = '<div class="ruta-qr-container" style="width:18mm;height:18mm;display:flex;align-items:center;justify-content:center;font-size:2mm;color:#999;text-align:center;padding:2mm;border:0.4mm solid #ccc;flex-shrink:0;">QR NO DISPONIBLE</div>';
                     }
                     
                     const html = `
@@ -10769,13 +11714,14 @@ qrScriptHtml +
                         }, 2000);
                     };
                     
-                    // Esperar a que cargue y luego imprimir
+                    // Esperar a que cargue y luego imprimir (el QR ya está generado, solo esperar carga del iframe)
                     iframe.onload = function() {
-                        setTimeout(doPrint, 500);
+                        // El QR ya está en el HTML, solo esperar un momento para que el iframe se renderice
+                        setTimeout(doPrint, 300);
                     };
                     
-                    // Fallback si onload no se dispara (después de más tiempo)
-                    setTimeout(doPrint, 1000);
+                    // Fallback si onload no se dispara
+                    setTimeout(doPrint, 800);
                     
                 } catch (error) {
                     console.error('Error imprimiendo viñeta RUTA:', error);
