@@ -7740,172 +7740,275 @@ html +
              * Utilidades para generar QR único ligado a gpsValue
              * Formato payload: IHSS|KIT=<kitId>|GPS=<gpsValue>|DNI=<dni>|TS=<timestamp>|SIG=<hash>
              */
-            window.QRUtils = (function() {
+            // Definir QRUtils de forma más directa y robusta
+            (function() {
                 'use strict';
                 
-                /**
-                 * Genera hash SHA-256 de un string
-                 * @param {string} str - String a hashear
-                 * @returns {Promise<string>} Hash hexadecimal
-                 */
-                async function sha256(str) {
-                    if (!str) return '';
-                    try {
-                        const encoder = new TextEncoder();
-                        const data = encoder.encode(str);
-                        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                        const hashArray = Array.from(new Uint8Array(hashBuffer));
-                        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                    } catch (error) {
-                        console.error('[QR] Error generando SHA-256:', error);
-                        // Fallback simple si crypto.subtle no está disponible
-                        let hash = 0;
-                        for (let i = 0; i < str.length; i++) {
-                            const char = str.charCodeAt(i);
-                            hash = ((hash << 5) - hash) + char;
-                            hash = hash & hash;
-                        }
-                        return Math.abs(hash).toString(16).padStart(64, '0');
-                    }
-                }
-                
-                /**
-                 * Construye el payload único del QR
-                 * @param {Object} params - Parámetros del kit
-                 * @param {string} params.kitId - ID del kit
-                 * @param {string} params.gpsValue - Valor GPS del kit (puede estar vacío)
-                 * @param {string} params.dni - DNI del paciente
-                 * @param {number} [params.timestamp] - Timestamp opcional (se genera si no se proporciona)
-                 * @returns {Promise<string>} Payload formateado
-                 */
-                async function buildQrPayload({ kitId, gpsValue, dni, timestamp }) {
-                    // Validar y normalizar valores
-                    const kit = String(kitId || '').trim() || 'UNKNOWN';
-                    const gps = String(gpsValue || '').trim() || 'EMPTY';
-                    const dniStr = String(dni || '').trim() || 'UNKNOWN';
-                    const ts = timestamp || Date.now();
+                try {
+                    console.log('[QR] Iniciando carga del módulo QRUtils...');
                     
-                    // Construir string base para hash
-                    const baseString = `${kit}|${gps}|${dniStr}|${ts}`;
-                    
-                    // Generar hash SHA-256
-                    const sig = await sha256(baseString);
-                    
-                    // Construir payload final
-                    const payload = `IHSS|KIT=${kit}|GPS=${gps}|DNI=${dniStr}|TS=${ts}|SIG=${sig}`;
-                    
-                    console.log('[QR] Payload generado:', payload.substring(0, 100) + '...');
-                    return payload;
-                }
-                
-                /**
-                 * Genera DataURL del QR code
-                 * @param {string} payload - Payload a codificar en el QR
-                 * @param {Object} [options] - Opciones de generación
-                 * @param {number} [options.size=250] - Tamaño del QR en píxeles
-                 * @param {number} [options.margin=2] - Margen del QR
-                 * @returns {Promise<string>} DataURL del QR (PNG)
-                 */
-                async function generateQrDataUrl(payload, options = {}) {
-                    if (!payload) {
-                        throw new Error('[QR] Payload vacío');
-                    }
-                    
-                    const size = options.size || 250;
-                    const margin = options.margin || 2;
-                    const errorCorrectionLevel = options.errorCorrectionLevel || 'H';
-                    const colorDark = options.color?.dark || '#000000';
-                    const colorLight = options.color?.light || '#FFFFFF';
-                    
-                    return new Promise((resolve, reject) => {
-                        try {
-                            // Verificar que QRCode esté disponible
-                            if (typeof QRCode === 'undefined' || typeof QRCode.toDataURL !== 'function') {
-                                throw new Error('[QR] QRCode library no está disponible');
-                            }
-                            
-                            QRCode.toDataURL(payload, {
-                                width: size,
-                                margin: margin,
-                                errorCorrectionLevel: errorCorrectionLevel,
-                                color: {
-                                    dark: colorDark,
-                                    light: colorLight
-                                }
-                            }, (err, url) => {
-                                if (err) {
-                                    console.error('[QR] Error generando QR:', err);
-                                    reject(err);
-                                } else if (!url || url.length === 0) {
-                                    reject(new Error('[QR] QR generado vacío'));
-                                } else {
-                                    console.log('[QR] QR generado exitosamente');
-                                    resolve(url);
+                    // Definir el módulo
+                    const QRUtilsModule = (function() {
+                        'use strict';
+                        
+                        /**
+                         * Genera hash SHA-256 de un string
+                         * @param {string} str - String a hashear
+                         * @returns {Promise<string>} Hash hexadecimal
+                         */
+                        function sha256(str) {
+                            if (!str) return Promise.resolve('');
+                            return new Promise(function(resolve, reject) {
+                                try {
+                                    if (typeof crypto !== 'undefined' && crypto.subtle && crypto.subtle.digest) {
+                                        const encoder = new TextEncoder();
+                                        const data = encoder.encode(str);
+                                        crypto.subtle.digest('SHA-256', data).then(function(hashBuffer) {
+                                            const hashArray = Array.from(new Uint8Array(hashBuffer));
+                                            const hash = hashArray.map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+                                            resolve(hash);
+                                        }).catch(function(error) {
+                                            console.error('[QR] Error generando SHA-256:', error);
+                                            // Fallback simple si crypto.subtle falla
+                                            let hash = 0;
+                                            for (let i = 0; i < str.length; i++) {
+                                                const char = str.charCodeAt(i);
+                                                hash = ((hash << 5) - hash) + char;
+                                                hash = hash & hash;
+                                            }
+                                            resolve(Math.abs(hash).toString(16).padStart(64, '0'));
+                                        });
+                                    } else {
+                                        // Fallback simple si crypto.subtle no está disponible
+                                        let hash = 0;
+                                        for (let i = 0; i < str.length; i++) {
+                                            const char = str.charCodeAt(i);
+                                            hash = ((hash << 5) - hash) + char;
+                                            hash = hash & hash;
+                                        }
+                                        resolve(Math.abs(hash).toString(16).padStart(64, '0'));
+                                    }
+                                } catch (error) {
+                                    console.error('[QR] Error generando SHA-256:', error);
+                                    // Fallback simple
+                                    let hash = 0;
+                                    for (let i = 0; i < str.length; i++) {
+                                        const char = str.charCodeAt(i);
+                                        hash = ((hash << 5) - hash) + char;
+                                        hash = hash & hash;
+                                    }
+                                    resolve(Math.abs(hash).toString(16).padStart(64, '0'));
                                 }
                             });
-                        } catch (error) {
-                            console.error('[QR] Excepción generando QR:', error);
-                            reject(error);
                         }
-                    });
-                }
-                
-                /**
-                 * Renderiza el QR en el contenedor B2
-                 * @param {HTMLElement} targetEl - Elemento contenedor donde insertar el QR
-                 * @param {string} dataUrl - DataURL del QR generado
-                 * @param {Object} [options] - Opciones de renderizado
-                 */
-                async function renderQrToB2(targetEl, dataUrl, options = {}) {
-                    if (!targetEl) {
-                        console.error('[QR] Contenedor B2 no encontrado');
-                        return false;
-                    }
+                        
+                        /**
+                         * Construye el payload único del QR
+                         * @param {Object} params - Parámetros del kit
+                         * @param {string} params.kitId - ID del kit
+                         * @param {string} params.gpsValue - Valor GPS del kit (puede estar vacío)
+                         * @param {string} params.dni - DNI del paciente
+                         * @param {number} [params.timestamp] - Timestamp opcional (se genera si no se proporciona)
+                         * @returns {Promise<string>} Payload formateado
+                         */
+                        function buildQrPayload(params) {
+                            return new Promise(function(resolve, reject) {
+                                try {
+                                    var kitId = params.kitId;
+                                    var gpsValue = params.gpsValue;
+                                    var dni = params.dni;
+                                    var timestamp = params.timestamp;
+                                    
+                                    // Validar y normalizar valores
+                                    var kit = String(kitId || '').trim() || 'UNKNOWN';
+                                    var gps = String(gpsValue || '').trim() || 'EMPTY';
+                                    var dniStr = String(dni || '').trim() || 'UNKNOWN';
+                                    var ts = timestamp || Date.now();
+                                    
+                                    // Construir string base para hash
+                                    var baseString = kit + '|' + gps + '|' + dniStr + '|' + ts;
+                                    
+                                    // Generar hash SHA-256
+                                    sha256(baseString).then(function(sig) {
+                                        // Construir payload final
+                                        var payload = 'IHSS|KIT=' + kit + '|GPS=' + gps + '|DNI=' + dniStr + '|TS=' + ts + '|SIG=' + sig;
+                                        
+                                        console.log('[QR] Payload generado:', payload.substring(0, 100) + '...');
+                                        resolve(payload);
+                                    }).catch(function(error) {
+                                        console.error('[QR] Error generando hash:', error);
+                                        // Generar payload sin hash si falla
+                                        var payload = 'IHSS|KIT=' + kit + '|GPS=' + gps + '|DNI=' + dniStr + '|TS=' + ts + '|SIG=ERROR';
+                                        resolve(payload);
+                                    });
+                                } catch (error) {
+                                    console.error('[QR] Error en buildQrPayload:', error);
+                                    reject(error);
+                                }
+                            });
+                        }
+                        
+                        /**
+                         * Genera DataURL del QR code
+                         * @param {string} payload - Payload a codificar en el QR
+                         * @param {Object} [options] - Opciones de generación
+                         * @param {number} [options.size=250] - Tamaño del QR en píxeles
+                         * @param {number} [options.margin=2] - Margen del QR
+                         * @returns {Promise<string>} DataURL del QR (PNG)
+                         */
+                        function generateQrDataUrl(payload, options) {
+                            return new Promise(function(resolve, reject) {
+                                try {
+                                    if (!payload) {
+                                        reject(new Error('[QR] Payload vacío'));
+                                        return;
+                                    }
+                                    
+                                    options = options || {};
+                                    var size = options.size || 250;
+                                    var margin = options.margin || 2;
+                                    var errorCorrectionLevel = options.errorCorrectionLevel || 'H';
+                                    var colorDark = (options.color && options.color.dark) ? options.color.dark : '#000000';
+                                    var colorLight = (options.color && options.color.light) ? options.color.light : '#FFFFFF';
+                                    
+                                    // Verificar que QRCode esté disponible
+                                    if (typeof QRCode === 'undefined' || typeof QRCode.toDataURL !== 'function') {
+                                        reject(new Error('[QR] QRCode library no está disponible'));
+                                        return;
+                                    }
+                                    
+                                    QRCode.toDataURL(payload, {
+                                        width: size,
+                                        margin: margin,
+                                        errorCorrectionLevel: errorCorrectionLevel,
+                                        color: {
+                                            dark: colorDark,
+                                            light: colorLight
+                                        }
+                                    }, function(err, url) {
+                                        if (err) {
+                                            console.error('[QR] Error generando QR:', err);
+                                            reject(err);
+                                        } else if (!url || url.length === 0) {
+                                            reject(new Error('[QR] QR generado vacío'));
+                                        } else {
+                                            console.log('[QR] QR generado exitosamente');
+                                            resolve(url);
+                                        }
+                                    });
+                                } catch (error) {
+                                    console.error('[QR] Excepción generando QR:', error);
+                                    reject(error);
+                                }
+                            });
+                        }
+                        
+                        /**
+                         * Renderiza el QR en el contenedor B2
+                         * @param {HTMLElement} targetEl - Elemento contenedor donde insertar el QR
+                         * @param {string} dataUrl - DataURL del QR generado
+                         * @param {Object} [options] - Opciones de renderizado
+                         */
+                        function renderQrToB2(targetEl, dataUrl, options) {
+                            return new Promise(function(resolve) {
+                                try {
+                                    if (!targetEl) {
+                                        console.error('[QR] Contenedor B2 no encontrado');
+                                        resolve(false);
+                                        return;
+                                    }
+                                    
+                                    // Limpiar contenido anterior
+                                    targetEl.innerHTML = '';
+                                    
+                                    // Crear imagen del QR
+                                    var img = document.createElement('img');
+                                    img.src = dataUrl;
+                                    img.alt = 'QR Code';
+                                    img.style.maxWidth = '100%';
+                                    img.style.maxHeight = '100%';
+                                    img.style.width = 'auto';
+                                    img.style.height = 'auto';
+                                    img.style.display = 'block';
+                                    img.style.objectFit = 'contain';
+                                    
+                                    // Insertar en el contenedor
+                                    targetEl.appendChild(img);
+                                    
+                                    console.log('[QR] QR renderizado exitosamente en B2');
+                                    resolve(true);
+                                } catch (error) {
+                                    console.error('[QR] Error renderizando QR:', error);
+                                    // Insertar mensaje de error sin romper la impresión
+                                    if (targetEl) {
+                                        targetEl.innerHTML = '<div style="font-size:2mm;color:#999;text-align:center;padding:2mm;">QR NO DISPONIBLE</div>';
+                                    }
+                                    resolve(false);
+                                }
+                            });
+                        }
+                        
+                        // API pública
+                        return {
+                            sha256,
+                            buildQrPayload,
+                            generateQrDataUrl,
+                            renderQrToB2
+                        };
+                    })();
                     
-                    try {
-                        // Limpiar contenido anterior
-                        targetEl.innerHTML = '';
+                    // Asignar a window de forma explícita
+                    if (typeof window !== 'undefined') {
+                        window.QRUtils = QRUtilsModule;
+                        console.log('[QR] ✅ Módulo QRUtils asignado a window.QRUtils');
                         
-                        // Crear imagen del QR
-                        const img = document.createElement('img');
-                        img.src = dataUrl;
-                        img.alt = 'QR Code';
-                        img.style.maxWidth = '100%';
-                        img.style.maxHeight = '100%';
-                        img.style.width = 'auto';
-                        img.style.height = 'auto';
-                        img.style.display = 'block';
-                        img.style.objectFit = 'contain';
-                        
-                        // Insertar en el contenedor
-                        targetEl.appendChild(img);
-                        
-                        console.log('[QR] QR renderizado exitosamente en B2');
-                        return true;
-                    } catch (error) {
-                        console.error('[QR] Error renderizando QR:', error);
-                        // Insertar mensaje de error sin romper la impresión
-                        targetEl.innerHTML = '<div style="font-size:2mm;color:#999;text-align:center;padding:2mm;">QR NO DISPONIBLE</div>';
-                        return false;
+                        // Verificar que se asignó correctamente
+                        if (!window.QRUtils) {
+                            console.error('[QR] ❌ ERROR: window.QRUtils es null/undefined después de asignación');
+                        } else if (typeof window.QRUtils.buildQrPayload !== 'function') {
+                            console.error('[QR] ❌ ERROR: window.QRUtils.buildQrPayload no es una función. Tipo:', typeof window.QRUtils.buildQrPayload);
+                        } else {
+                            console.log('[QR] ✅ Verificación exitosa - window.QRUtils tiene todas las funciones');
+                        }
+                    } else {
+                        console.error('[QR] ❌ ERROR: window no está disponible');
+                    }
+                } catch (error) {
+                    console.error('[QR] ❌ ERROR al definir QRUtils:', error);
+                    console.error('[QR] Stack:', error.stack);
+                    // Crear un objeto stub para evitar errores
+                    if (typeof window !== 'undefined') {
+                        window.QRUtils = {
+                            sha256: async () => '',
+                            buildQrPayload: async () => { throw new Error('QRUtils no disponible - error en carga'); },
+                            generateQrDataUrl: async () => { throw new Error('QRUtils no disponible - error en carga'); },
+                            renderQrToB2: async () => { return false; }
+                        };
+                        console.log('[QR] ⚠️ Objeto stub creado para QRUtils');
                     }
                 }
-                
-                // API pública
-                return {
-                    sha256,
-                    buildQrPayload,
-                    generateQrDataUrl,
-                    renderQrToB2
-                };
             })();
             
-            // Verificar que QRUtils se cargó correctamente
-            if (window.QRUtils && typeof window.QRUtils.buildQrPayload === 'function') {
-                console.log('[QR] ✅ Módulo QRUtils cargado correctamente (offline)');
+            // Log inmediato de verificación (síncrono)
+            console.log('[QR] Verificación inmediata - window existe:', typeof window !== 'undefined');
+            console.log('[QR] Verificación inmediata - window.QRUtils existe:', typeof window !== 'undefined' && !!window.QRUtils);
+            if (typeof window !== 'undefined' && window.QRUtils) {
+                console.log('[QR] Verificación inmediata - Métodos disponibles:', Object.keys(window.QRUtils));
+                console.log('[QR] Verificación inmediata - buildQrPayload es función:', typeof window.QRUtils.buildQrPayload === 'function');
             } else {
-                console.error('[QR] ❌ Error: QRUtils no se pudo cargar o está incompleto');
-                console.error('[QR] window.QRUtils:', window.QRUtils);
+                console.error('[QR] ⚠️ ADVERTENCIA: window.QRUtils NO está disponible después de la carga');
             }
+            
+            // Log final de verificación (con delay para asegurar que se ejecute después de todo)
+            setTimeout(() => {
+                console.log('[QR] Verificación final (100ms) - window.QRUtils existe:', typeof window !== 'undefined' && !!window.QRUtils);
+                console.log('[QR] Verificación final (100ms) - window.QRUtils.buildQrPayload existe:', typeof window !== 'undefined' && window.QRUtils && typeof window.QRUtils.buildQrPayload === 'function');
+                if (typeof window !== 'undefined' && window.QRUtils) {
+                    console.log('[QR] Verificación final (100ms) - Métodos disponibles:', Object.keys(window.QRUtils));
+                } else {
+                    console.error('[QR] ❌ CRÍTICO: window.QRUtils NO está disponible después de 100ms');
+                }
+            }, 100);
             
             // Función de prueba para desarrollo
             window.testQrB2 = async function() {
@@ -8651,7 +8754,7 @@ html +
                                                 <button type="button" onClick={()=>setKitData({...kitData, gpsStatus: 'TIENE GPS'})} className={`relative z-10 flex-1 px-4 py-2 text-sm font-bold rounded-full ${kitData.gpsStatus === 'TIENE GPS' ? 'text-green-700' : 'text-slate-500'}`}>Sí</button>
                                             </div>
                                             {kitData.gpsStatus === 'TIENE GPS' && (
-                                                <input type="text" className="w-full mt-2 p-2.5 border rounded-lg text-sm bg-green-50 border-green-200" value={kitData.gpsValue||''} onChange={e=>setKitData({...kitData, gpsValue: toUpper(e.target.value)})} placeholder="Coordenadas (lat,lng) o enlace..." />
+                                                <input type="text" className="w-full mt-2 p-2.5 border rounded-lg text-sm bg-green-50 border-green-200" value={kitData.gpsValue||''} onChange={e=>setKitData({...kitData, gpsValue: e.target.value})} placeholder="Coordenadas (lat,lng) o enlace..." />
                                             )}
                                         </div>
                                         </>
@@ -8921,7 +9024,7 @@ html +
                                                                 type="text"
                                                                 className="w-full p-2.5 border-2 border-green-300 rounded-lg text-sm bg-green-50 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-500 transition-all duration-200"
                                                                 value={kitData.gpsValue || ''}
-                                                                onChange={e => setKitData({...kitData, gpsValue: toUpper(e.target.value)})}
+                                                                onChange={e => setKitData({...kitData, gpsValue: e.target.value})}
                                                                 placeholder="Ingrese coordenadas (lat,lng) o enlace de GPS..."
                                                                 autoFocus
                                                             />
@@ -11540,35 +11643,10 @@ qrScriptHtml +
                     // Resolver placeholders con datos actualizados (pasar users y contacts)
                     const resolvedData = await resolveRutaPlaceholders(updatedKit, patientData, users, contacts);
                     
-                    // Generar URL del QR con coordenadas GPS
-                    let qrUrl = '';
-                    if (updatedKit && updatedKit.gpsValue && String(updatedKit.gpsValue).trim() !== '') {
-                        const gps = String(updatedKit.gpsValue).trim();
-                        // Validar que tenga coma (formato lat,lon)
-                        if (gps.includes(',')) {
-                            const [lat, lon] = gps.split(',').map(s => s.trim());
-                            if (lat && lon && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lon))) {
-                                // Usar URL de Google Maps (más compatible con todos los dispositivos)
-                                // Formato: https://www.google.com/maps?q=lat,lon
-                                qrUrl = `https://www.google.com/maps?q=${lat},${lon}`;
-                                console.log('✅ QR generado con coordenadas GPS:', lat, lon);
-                            }
-                        }
-                    }
-                    
-                    // Si no hay GPS, usar URL de Google Maps con dirección como fallback
-                    if (!qrUrl && resolvedData.DIRECCION_ENTREGA) {
-                        const direccion = encodeURIComponent(resolvedData.DIRECCION_ENTREGA);
-                        qrUrl = `https://www.google.com/maps/search/?api=1&query=${direccion}`;
-                        console.log('✅ QR generado con dirección como fallback');
-                    }
-                    
-                    // Si aún no hay URL, mostrar advertencia pero generar QR vacío
-                    if (!qrUrl) {
-                        console.warn('⚠️ No hay coordenadas GPS ni dirección para generar QR');
-                        // No generar QR si no hay datos
-                        qrUrl = null;
-                    }
+                    // Verificar si el GPS está activado (por el botón de Contact Center)
+                    // El QR solo se muestra si gpsStatus === 'TIENE GPS'
+                    const gpsStatus = updatedKit?.gpsStatus || '';
+                    const hasGpsActivated = gpsStatus === 'TIENE GPS' || resolvedData.HAS_GPS === true;
                     
                     // Obtener logos
                     const logo1 = (typeof LOGO1_URL !== 'undefined' && LOGO1_URL) ? LOGO1_URL : 'https://raw.githubusercontent.com/jose50440/bita/6a46e7144ce075c219a382364b611fa576fc5e4b/img/logo1.png';
@@ -11578,68 +11656,131 @@ qrScriptHtml +
                     const _vEsc = (s) => { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); };
                     
                     // Construir HTML de la viñeta
-                    const hasGps = resolvedData.HAS_GPS === true;
-                    const fechaClass = 'ruta-fecha-value'; // Siempre mostrar QR, así que siempre usar clase con QR
+                    // Si el GPS está activado, usar clase que deja espacio para QR
+                    // Si el GPS NO está activado, usar clase que ocupa todo el espacio
+                    const fechaClass = hasGpsActivated ? 'ruta-fecha-value' : 'ruta-fecha-value-full';
                     
                     // Dirección y observaciones combinadas
                     const direccionCompleta = resolvedData.DIRECCION_ENTREGA;
                     const observaciones = resolvedData.OBSERVACIONES;
                     const direccionYObs = [direccionCompleta, observaciones].filter(Boolean).join(' | ');
                     
-                    // Generar QR usando módulo local (OFFLINE)
+                    // Generar QR usando módulo local (OFFLINE) - SOLO si el GPS está activado
                     // Payload único: IHSS|KIT=<kitId>|GPS=<gpsValue>|DNI=<dni>|TS=<timestamp>|SIG=<hash>
                     let qrImageHtml = '';
                     
-                    try {
-                        // Verificar que QRUtils esté disponible
-                        if (!window.QRUtils || typeof window.QRUtils.buildQrPayload !== 'function') {
-                            throw new Error('QRUtils no está disponible. El módulo QR no se cargó correctamente. window.QRUtils: ' + (window.QRUtils ? 'existe pero incompleto' : 'no existe'));
-                        }
-                        const QRUtils = window.QRUtils;
-                        
-                        // Obtener datos para el payload
-                        const kitId = updatedKit?.id || updatedKit?.kitId || 'UNKNOWN';
-                        const gpsValue = updatedKit?.gpsValue || '';
-                        const dni = patientData?.dni || updatedKit?.dni || resolvedData.DNI || 'UNKNOWN';
-                        
-                        console.log('[QR] Generando QR para kit:', kitId, 'GPS:', gpsValue || 'EMPTY');
-                        
-                        // Construir payload único
-                        const payload = await QRUtils.buildQrPayload({
-                            kitId: kitId,
-                            gpsValue: gpsValue,
-                            dni: dni,
-                            timestamp: Date.now()
-                        });
-                        
-                        // Generar QR como DataURL (offline, sin CDN)
-                        const qrDataUrl = await QRUtils.generateQrDataUrl(payload, {
-                            size: 250,
-                            margin: 2,
-                            errorCorrectionLevel: 'H',
-                            color: {
-                                dark: '#000000',
-                                light: '#FFFFFF'
+                    // Solo generar QR si el GPS está activado por Contact Center
+                    if (hasGpsActivated) {
+                        try {
+                            // Obtener datos para el payload
+                            const kitId = updatedKit?.id || updatedKit?.kitId || 'UNKNOWN';
+                            const gpsValue = updatedKit?.gpsValue || '';
+                            const dni = patientData?.dni || updatedKit?.dni || resolvedData.DNI || 'UNKNOWN';
+                            
+                            console.log('[QR] Generando QR para kit:', kitId, 'GPS:', gpsValue || 'EMPTY');
+                            
+                            // Construir URL de Google Maps que abrirá la app de Maps del teléfono
+                            // El gpsValue puede ser:
+                            // 1. Coordenadas: "lat,lon" (ej: "14.0583,-87.2164")
+                            // 2. Link de Google Maps: "https://www.google.com/maps?q=..." o "https://maps.google.com/..."
+                            let mapsUrl = '';
+                            
+                            if (gpsValue && String(gpsValue).trim() !== '') {
+                                const gps = String(gpsValue).trim();
+                                
+                                // Verificar si ya es un link de Google Maps
+                                if (gps.startsWith('http://') || gps.startsWith('https://')) {
+                                    // Ya es un link, verificar que sea de Google Maps
+                                    if (gps.includes('google.com/maps') || gps.includes('maps.google.com') || gps.includes('goo.gl/maps') || gps.includes('maps.app.goo.gl')) {
+                                        mapsUrl = gps;
+                                        console.log('[QR] Link de Google Maps detectado y usado directamente:', mapsUrl);
+                                    } else {
+                                        // Es un link pero no de Google Maps, intentar convertir
+                                        console.warn('[QR] Link detectado pero no es de Google Maps, intentando usar como está:', gps);
+                                        mapsUrl = gps;
+                                    }
+                                } else if (gps.includes(',')) {
+                                    // Es coordenadas (formato lat,lon)
+                                    const [lat, lon] = gps.split(',').map(s => s.trim());
+                                    if (lat && lon && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lon))) {
+                                        // URL de Google Maps que abre directamente en la app del teléfono
+                                        // Formato: https://www.google.com/maps?q=lat,lon
+                                        mapsUrl = 'https://www.google.com/maps?q=' + lat + ',' + lon;
+                                        console.log('[QR] URL de Maps generada desde coordenadas:', mapsUrl);
+                                    } else {
+                                        throw new Error('Coordenadas GPS inválidas');
+                                    }
+                                } else {
+                                    // No es link ni coordenadas, usar como dirección
+                                    const direccion = encodeURIComponent(gps);
+                                    mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + direccion;
+                                    console.log('[QR] URL de Maps generada desde texto/dirección:', mapsUrl);
+                                }
+                            } else {
+                                // Si no hay GPS pero está activado, usar dirección como fallback
+                                if (resolvedData.DIRECCION_ENTREGA) {
+                                    const direccion = encodeURIComponent(resolvedData.DIRECCION_ENTREGA);
+                                    mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + direccion;
+                                    console.log('[QR] URL de Maps generada con dirección como fallback:', mapsUrl);
+                                } else {
+                                    throw new Error('No hay coordenadas GPS, link de Maps ni dirección disponible');
+                                }
                             }
-                        });
-                        
-                        if (qrDataUrl && qrDataUrl.length > 0) {
-                            // Insertar directamente la imagen del QR en el HTML
-                            // El contenedor .ruta-qr-container está dentro de .ruta-b2
-                            qrImageHtml = `<div class="ruta-qr-container" style="width:18mm;height:18mm;display:flex;align-items:center;justify-content:center;border:0.4mm solid #000;border-radius:1.5mm;background:#fff;padding:0.6mm;flex-shrink:0;min-width:18mm;min-height:18mm;"><img src="${qrDataUrl}" alt="QR Code" style="max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain;" /></div>`;
-                            console.log('[QR] ✅ QR generado exitosamente (offline)');
-                        } else {
-                            throw new Error('QR data URL vacío o inválido');
+                            
+                            // El payload del QR será la URL de Google Maps (ya sea link directo o generado)
+                            const payload = mapsUrl;
+                            
+                            console.log('[QR] Payload (URL Maps):', payload);
+                            
+                            // Generar QR usando API de QR Server con máxima nitidez para impresión térmica
+                            // URL: https://api.qrserver.com/v1/create-qr-code/
+                            // Parámetros: size=800x800 (alta resolución para nitidez 100%), data=payload, format=png, ecc=H (alta corrección), margin=2
+                            // Aumentamos el tamaño a 800x800 para máxima nitidez en impresión térmica
+                            const qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=800x800&data=' + encodeURIComponent(payload) + '&format=png&ecc=H&margin=2&color=000000&bgcolor=FFFFFF';
+                            
+                            // Obtener la imagen de la API y convertir a DataURL para impresión
+                            const response = await fetch(qrApiUrl);
+                            if (!response.ok) {
+                                throw new Error('Error al obtener QR de la API: ' + response.status);
+                            }
+                            
+                            const blob = await response.blob();
+                            
+                            // Convertir blob a DataURL para usar en impresión
+                            const qrDataUrl = await new Promise((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result);
+                                reader.onerror = reject;
+                                reader.readAsDataURL(blob);
+                            });
+                            
+                            if (qrDataUrl && qrDataUrl.length > 0) {
+                                // Crear HTML del QR con leyenda y flecha
+                                // El contenedor .ruta-qr-container está dentro de .ruta-b2
+                                // Solo el QR, la leyenda va en el HTML principal junto a la fecha
+                                qrImageHtml = `<div class="ruta-qr-container"><img src="${qrDataUrl}" alt="QR Code" /></div>`;
+                                console.log('[QR] ✅ QR generado exitosamente usando API QR Server (nitidez 100%)');
+                            } else {
+                                throw new Error('QR data URL vacío o inválido');
+                            }
+                        } catch (error) {
+                            console.error('[QR] ⚠️ Error generando QR:', error);
+                            // Si hay error, no mostrar QR (dejar espacio para fecha completa)
+                            qrImageHtml = '';
                         }
-                    } catch (error) {
-                        console.error('[QR] ⚠️ Error generando QR:', error);
-                        // Mostrar mensaje sin romper la impresión
-                        qrImageHtml = '<div class="ruta-qr-container" style="width:18mm;height:18mm;display:flex;align-items:center;justify-content:center;font-size:2mm;color:#999;text-align:center;padding:2mm;border:0.4mm solid #ccc;flex-shrink:0;">QR NO DISPONIBLE</div>';
+                    } else {
+                        // GPS no activado - no mostrar QR, la fecha ocupará todo el espacio
+                        console.log('[QR] GPS no activado - QR no se mostrará');
+                        qrImageHtml = '';
                     }
                     
                     const html = `
 <div class="ruta-sheet">
-    <div class="ruta-title">DEPARTAMENTO DE DISPENSASION A DOMICILIO</div>
+    <div class="ruta-header">
+        <img src="${_vEsc(logo1)}" alt="Logo 1" class="ruta-logo-header ruta-logo-left" onerror="this.style.display='none'"/>
+        <div class="ruta-title">DEPARTAMENTO DE DISPENSASION A DOMICILIO</div>
+        <img src="${_vEsc(logo2)}" alt="Logo 2" class="ruta-logo-header ruta-logo-right" onerror="this.style.display='none'"/>
+    </div>
     <div class="ruta-content">
         <div class="ruta-lado-a">
             <div class="ruta-box ruta-name">${_vEsc(resolvedData.NOMBRE)}</div>
@@ -11663,24 +11804,23 @@ qrScriptHtml +
                     <div class="ruta-address-content">
                         <div class="ruta-address-text" id="ruta-address-text">${_vEsc(direccionYObs)}</div>
                     </div>
-                    <div class="ruta-address-logos">
-                        <img src="${_vEsc(logo1)}" alt="Logo 1" class="ruta-logo-small" onerror="this.style.display='none'"/>
-                        <img src="${_vEsc(logo2)}" alt="Logo 2" class="ruta-logo-small" onerror="this.style.display='none'"/>
-                    </div>
                 </div>
             </div>
             <div class="ruta-b2">
-                <div class="ruta-fecha-box">
-                    <div class="${fechaClass}">${_vEsc(resolvedData.FECHA_ENTREGA)}</div>
+                <div class="ruta-b2-izquierda">
+                    <div class="ruta-fecha-box">
+                        <div class="${fechaClass}">${_vEsc(resolvedData.FECHA_ENTREGA)}</div>
+                    </div>
                 </div>
-                ${qrImageHtml}
+                ${hasGpsActivated ? qrImageHtml : ''}
             </div>
         </div>
     </div>
 </div>`;
                     
                     // Script para autoajustar fuente de dirección centrada con lógica inteligente (poco texto = grande, mucho texto = pequeño)
-                    let autoAdjustScript = '<script>(function(){function adjustFontSize(){var addressText=document.getElementById("ruta-address-text");if(!addressText)return;var addressContent=addressText.parentElement;var addressBox=addressContent.parentElement;if(!addressBox)return;var logosHeight=9;var marginTop=1;var marginBottom=1;var boxHeight=addressBox.offsetHeight;var availableHeight=boxHeight-logosHeight-marginTop-marginBottom;if(availableHeight<=0)return;addressText.style.textAlign="center";addressText.style.fontFamily="Arial Black, Arial, sans-serif";addressText.style.fontWeight="900";addressText.style.fontSize="1mm";addressText.style.lineHeight="1.4";addressText.style.overflow="hidden";addressText.style.paddingTop=marginTop+"mm";addressText.style.paddingBottom=marginBottom+"mm";var textLength=addressText.textContent.trim().length;var minFontSize=3;var maxFontSize=textLength<30?8:textLength<60?7:textLength<100?6:textLength<150?5:textLength<200?4.5:3.5;var fontSize=minFontSize;var bestFit=minFontSize;var precision=0.1;for(var testSize=minFontSize;testSize<=maxFontSize;testSize+=precision){addressText.style.fontSize=testSize+"mm";var textHeight=addressText.scrollHeight;if(textHeight<=availableHeight){bestFit=testSize;}else{break;}}addressText.style.fontSize=bestFit+"mm";}setTimeout(adjustFontSize,50);setTimeout(adjustFontSize,150);setTimeout(adjustFontSize,300);})();<\/script>';
+                    // Los logos ya no están en la dirección, así que usamos todo el espacio disponible
+                    let autoAdjustScript = '<script>(function(){function adjustFontSize(){var addressText=document.getElementById("ruta-address-text");if(!addressText)return;var addressContent=addressText.parentElement;var addressBox=addressContent.parentElement;if(!addressBox)return;var marginTop=1;var marginBottom=1;var boxHeight=addressBox.offsetHeight;var availableHeight=boxHeight-marginTop-marginBottom;if(availableHeight<=0)return;addressText.style.textAlign="center";addressText.style.fontFamily="Arial Black, Arial, sans-serif";addressText.style.fontWeight="900";addressText.style.fontSize="1mm";addressText.style.lineHeight="1.4";addressText.style.overflow="hidden";addressText.style.paddingTop=marginTop+"mm";addressText.style.paddingBottom=marginBottom+"mm";var textLength=addressText.textContent.trim().length;var minFontSize=3;var maxFontSize=textLength<30?8:textLength<60?7:textLength<100?6:textLength<150?5:textLength<200?4.5:3.5;var fontSize=minFontSize;var bestFit=minFontSize;var precision=0.1;for(var testSize=minFontSize;testSize<=maxFontSize;testSize+=precision){addressText.style.fontSize=testSize+"mm";var textHeight=addressText.scrollHeight;if(textHeight<=availableHeight){bestFit=testSize;}else{break;}}addressText.style.fontSize=bestFit+"mm";}setTimeout(adjustFontSize,50);setTimeout(adjustFontSize,150);setTimeout(adjustFontSize,300);})();<\/script>';
                     
                     const htmlDoc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Viñeta Ruta</title><style>' + _vCSSRuta() + '</style></head><body>' + html + autoAdjustScript + '</body></html>';
                     
@@ -11775,7 +11915,7 @@ qrScriptHtml +
 
             const _vCSSVentanilla = () => `@page{size:71mm 165mm;margin:10mm 0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:71mm;min-height:145mm;height:145mm;margin:0;padding:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.sheet{width:71mm;min-height:145mm;height:145mm;padding:0.8mm 0.9mm;overflow:hidden;background:#fff;position:relative;display:flex;flex-direction:column;gap:1.1mm;}.v-logos-row{display:flex;align-items:center;justify-content:space-between;padding:0.8mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fff;}.v-logo{width:32mm;height:15mm;object-fit:contain;flex-shrink:0;}.v-title-full{font-size:2.9mm;font-weight:800;text-align:center;color:#000;line-height:1.25;letter-spacing:0.06mm;padding:0.9mm 0.8mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#f9f9f9;}.v-box{border:0.4mm solid #000;border-radius:2.5mm;padding:0.7mm 0.9mm;margin:0;}.v-name-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;word-wrap:break-word;text-align:center;background:#fafafa;}.v-dni-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.06mm;word-wrap:break-word;text-align:center;background:#fafafa;display:flex;flex-direction:column;gap:0.3mm;}.v-dni-box .v-dni-head{display:flex;align-items:center;justify-content:center;gap:0.5mm;}.v-dni-box .v-dni-label{font-size:2mm;font-weight:800;}.v-fecha-box,.v-cc-box{display:flex;flex-direction:column;gap:0.25mm;}.v-fecha-box,.v-cc-box{align-items:center;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{justify-content:center;}.v-fecha-box .v-box-label,.v-cc-box .v-box-label{font-size:1.8mm;font-weight:800;color:#000;}.v-fecha-box .v-box-value{font-size:4.2mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-cc-box .v-box-value{font-size:3mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{display:flex;align-items:center;gap:0.5mm;}.v-meds{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.3mm;}.v-meds .v-meds-label{font-size:2.2mm;font-weight:800;color:#000;text-align:center;}.v-meds .v-meds-value{font-size:6.5mm;font-weight:900;color:#000;text-align:center;letter-spacing:0.1mm;}.v-refri{display:flex;align-items:center;justify-content:center;gap:0.7mm;padding:0.6mm 0.8mm;border:0.4mm solid #000;border-radius:2.5mm;margin:0;background:#fff3cd;font-size:2.8mm;font-weight:900;}.v-refri-icon{width:4mm;height:4mm;flex-shrink:0;stroke-width:1.75;color:#000;}.v-ventanilla{border:1.2mm solid #000;padding:2mm 1.4mm;text-align:center;font-size:7.5mm;font-weight:900;color:#000;margin:0;letter-spacing:0.2mm;background:linear-gradient(to bottom,#f5f5f5 0%,#e8e8e8 100%);display:flex;align-items:center;justify-content:center;gap:1.2mm;border-radius:2.5mm;flex-shrink:0;}.v-ventanilla.has-obs{padding:1.4mm 1.2mm;font-size:6mm;margin:0;}.v-ventanilla .v-icon{width:6mm;height:6mm;margin:0;}.v-ventanilla.has-obs .v-icon{width:5mm;height:5mm;}.v-obs{font-size:1.8mm;font-weight:700;color:#000;line-height:1.3;word-wrap:break-word;padding:0.7mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fafafa;text-align:center;}.v-footer{margin-top:auto;padding:1mm 1mm;font-size:2.8mm;text-align:center;color:#000;font-weight:700;border:0.4mm solid #000;border-radius:2.5mm;letter-spacing:0.05mm;line-height:1.35;}.v-icon{width:3.5mm;height:3.5mm;flex-shrink:0;stroke-width:1.75;color:#000;}@media print{body*{visibility:hidden;}.sheet,.sheet *{visibility:visible;}.sheet{position:absolute;left:0;top:0;}}`;
 
-            const _vCSSRuta = () => `@page{size:210mm 71mm landscape;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:210mm;height:71mm;margin:0;padding:0;font-family:'Arial Black','Arial',Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:hidden;}.ruta-sheet{width:210mm;height:71mm;padding:3mm;position:relative;display:flex;flex-direction:column;gap:1.5mm;background:#fff;}.ruta-title{font-size:2.8mm;font-weight:900;text-align:center;color:#000;letter-spacing:0.15mm;padding:1.2mm 0;border-bottom:0.5mm solid #000;margin-bottom:1.5mm;font-family:'Arial Black','Arial',sans-serif;}.ruta-content{display:flex;gap:2.5mm;flex:1;min-height:0;}.ruta-lado-a{width:50%;display:flex;flex-direction:column;gap:1.2mm;padding-right:1.2mm;border-right:0.3mm dashed #ccc;}.ruta-lado-b{width:50%;display:flex;flex-direction:column;gap:1.2mm;min-height:0;}.ruta-b1{height:75%;display:flex;flex-direction:column;gap:0.8mm;min-height:0;}.ruta-b2{height:25%;display:flex;flex-direction:row;gap:1.2mm;align-items:center;justify-content:center;min-height:0;}.ruta-box{border:0.4mm solid #000;border-radius:1.5mm;padding:1.2mm 1.5mm;background:#fafafa;font-family:'Arial Black','Arial',sans-serif;}.ruta-box-address{border:0.6mm solid #000;border-radius:2mm;padding:1.5mm;background:#fff;position:relative;min-height:0;flex:1;display:flex;flex-direction:column;height:100%;}.ruta-name{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.1mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;}.ruta-dni{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;}.ruta-field{font-size:3.2mm;font-weight:900;color:#000;line-height:1.25;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;text-align:center;}.ruta-field-label{font-size:2.6mm;font-weight:900;color:#333;margin-bottom:0.4mm;font-family:'Arial Black','Arial',sans-serif;text-align:center;}.ruta-field-value{font-size:3.5mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;text-align:center;}.ruta-meds{text-align:center;}.ruta-meds-value{font-size:5mm;font-weight:900;color:#000;letter-spacing:0.2mm;font-family:'Arial Black','Arial',sans-serif;}.ruta-address-content{font-weight:900;color:#000;line-height:1.4;word-wrap:break-word;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;min-height:0;text-align:center;}.ruta-address-text{flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;box-sizing:border-box;text-align:center;font-family:'Arial Black','Arial',sans-serif;}.ruta-address-separator{margin:0.5mm 0;font-weight:900;color:#333;}.ruta-address-logos{display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto;padding-top:1.2mm;flex-shrink:0;height:9mm;}.ruta-logo-small{width:16mm;height:8mm;object-fit:contain;opacity:0.85;flex-shrink:0;}.ruta-fecha-box{text-align:center;flex:1;display:flex;align-items:center;justify-content:center;}.ruta-fecha-value{font-size:6.5mm;font-weight:900;color:#000;letter-spacing:0.1mm;line-height:1.2;font-family:'Arial Black','Arial',sans-serif;}.ruta-fecha-value.no-qr{font-size:8mm;}.ruta-qr-container{width:18mm;height:18mm;display:flex;align-items:center;justify-content:center;border:0.4mm solid #000;border-radius:1.5mm;background:#fff;padding:0.6mm;flex-shrink:0;}.ruta-qr-container img{max-width:100%;max-height:100%;object-fit:contain;}@media print{body*{visibility:hidden;}.ruta-sheet,.ruta-sheet *{visibility:visible;}.ruta-sheet{position:absolute;left:0;top:0;}}`;
+            const _vCSSRuta = () => `@page{size:210mm 71mm landscape;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:210mm;height:71mm;margin:0;padding:0;font-family:'Arial Black','Arial',Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:hidden;}.ruta-sheet{width:210mm;height:71mm;padding:3mm;position:relative;display:flex;flex-direction:column;gap:1.5mm;background:#fff;}.ruta-header{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:1.5mm;padding:0.8mm 0;border-bottom:0.5mm solid #000;margin-bottom:1.5mm;flex-shrink:0;width:100%;}.ruta-title{font-size:2.8mm;font-weight:900;text-align:center;color:#000;letter-spacing:0.15mm;flex:1;font-family:'Arial Black','Arial',sans-serif;min-width:0;}.ruta-logo-header{object-fit:contain;flex-shrink:0;image-rendering:crisp-edges;image-rendering:-webkit-optimize-contrast;image-rendering:pixelated;filter:contrast(1.1) brightness(0.98);-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-logo-left{width:20mm;height:10mm;max-width:20mm;max-height:10mm;}.ruta-logo-right{width:20mm;height:10mm;max-width:20mm;max-height:10mm;}.ruta-content{display:flex;gap:2.5mm;flex:1;min-height:0;}.ruta-lado-a{width:50%;display:flex;flex-direction:column;gap:1.2mm;padding-right:1.2mm;border-right:0.3mm dashed #ccc;}.ruta-lado-b{width:50%;display:flex;flex-direction:column;gap:1.2mm;min-height:0;position:relative;}.ruta-b1{height:75%;display:flex;flex-direction:column;gap:0.8mm;min-height:0;}.ruta-b2{height:25%;display:flex;flex-direction:row;gap:1.2mm;align-items:center;justify-content:center;min-height:0;padding:0.3mm 0;position:relative;}.ruta-b2-izquierda{display:flex;flex-direction:column;gap:0.5mm;flex:1;min-width:0;}.ruta-box{border:0.4mm solid #000;border-radius:1.5mm;padding:1.2mm 1.5mm;background:#fafafa;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-box-address{border:0.6mm solid #000;border-radius:2mm;padding:1.5mm;background:#fff;position:relative;min-height:0;flex:1;display:flex;flex-direction:column;height:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-name{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.1mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-dni{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field{font-size:3.2mm;font-weight:900;color:#000;line-height:1.25;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field-label{font-size:2.6mm;font-weight:900;color:#333;margin-bottom:0.4mm;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field-value{font-size:3.5mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-meds{text-align:center;}.ruta-meds-value{font-size:5mm;font-weight:900;color:#000;letter-spacing:0.2mm;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-content{font-weight:900;color:#000;line-height:1.4;word-wrap:break-word;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;min-height:0;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-text{flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;box-sizing:border-box;text-align:center;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-separator{margin:0.5mm 0;font-weight:900;color:#333;}.ruta-fecha-box{text-align:center;flex-shrink:0;display:flex;align-items:center;justify-content:center;width:100%;padding:0.5mm 0;}.ruta-fecha-value{font-size:8.5mm;font-weight:900;color:#000;letter-spacing:0.15mm;line-height:1.15;font-family:'Arial Black','Arial',sans-serif;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-fecha-value.no-qr{font-size:9mm;}.ruta-fecha-value-full{font-size:9mm;font-weight:900;color:#000;letter-spacing:0.15mm;line-height:1.15;font-family:'Arial Black','Arial',sans-serif;width:100%;text-align:center;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-leyenda{display:flex;align-items:center;justify-content:flex-start;gap:1mm;flex-wrap:wrap;width:100%;flex-shrink:0;padding-top:0.3mm;max-width:100%;box-sizing:border-box;}.ruta-qr-texto{font-size:2.8mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;flex-shrink:0;letter-spacing:0.05mm;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-instruction{font-size:2.4mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;flex-shrink:1;min-width:0;letter-spacing:0.03mm;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-flecha{font-size:4mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;flex-shrink:0;margin-left:0.5mm;line-height:1;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-container{width:22mm;height:22mm;display:flex;align-items:center;justify-content:center;border:0.4mm solid #000;border-radius:1.5mm;background:#fff;padding:0.5mm;flex-shrink:0;min-width:22mm;min-height:22mm;position:absolute;top:-8mm;right:0;z-index:10;box-shadow:0 0 0.3mm rgba(0,0,0,0.1);-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-container img{max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain;image-rendering:crisp-edges;image-rendering:-webkit-optimize-contrast;image-rendering:pixelated;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@media print{body*{visibility:hidden;}.ruta-sheet,.ruta-sheet *{visibility:visible;}.ruta-sheet{position:absolute;left:0;top:0;}}`;
 
             const sep = ' ----- ';
             const _vFormatCC = (agenteName, userList, contactList) => {
