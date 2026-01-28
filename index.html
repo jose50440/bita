@@ -11495,13 +11495,24 @@ html +
                 // Observaciones de entrega
                 const observacionesEntrega = (kitData.observacionesEntrega || kitData.observations || kitData.obsRuta || '').trim().toUpperCase();
                 
-                // Construir QR_MAPS usando kit.gpsValue directamente
+                // Construir QR_MAPS usando kit.gpsValue directamente (formato corto para QR simple)
                 let qrMapsUrl = '';
                 if (kitData.gpsValue && String(kitData.gpsValue).trim() !== '') {
                     const gps = String(kitData.gpsValue).trim();
-                    // Validar que tenga coma
+                    // Validar que tenga coma y extraer solo coordenadas para QR más simple
                     if (gps.includes(',')) {
-                        qrMapsUrl = 'https://www.google.com/maps?q=' + gps + '&kitId=' + (kitData.id || '') + '&dni=' + (patientData?.dni || kitData.dni || '');
+                        // Si es un link, extraer coordenadas; si son coordenadas directas, usarlas tal cual
+                        if (gps.startsWith('http://') || gps.startsWith('https://')) {
+                            const coordMatch = gps.match(/(?:q=|@|,)(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+                            if (coordMatch && coordMatch[1] && coordMatch[2]) {
+                                qrMapsUrl = coordMatch[1] + ',' + coordMatch[2];
+                            } else {
+                                qrMapsUrl = gps; // Si no se pueden extraer, usar link completo
+                            }
+                        } else {
+                            // Ya son coordenadas directas, usar tal cual (formato más corto)
+                            qrMapsUrl = gps;
+                        }
                     }
                 }
                 
@@ -11679,11 +11690,11 @@ qrScriptHtml +
                             
                             console.log('[QR] Generando QR para kit:', kitId, 'GPS:', gpsValue || 'EMPTY');
                             
-                            // Construir URL de Google Maps que abrirá la app de Maps del teléfono
+                            // Construir URL completa de Google Maps que abrirá la app de Maps del teléfono
                             // El gpsValue puede ser:
                             // 1. Coordenadas: "lat,lon" (ej: "14.0583,-87.2164")
                             // 2. Link de Google Maps: "https://www.google.com/maps?q=..." o "https://maps.google.com/..."
-                            let mapsUrl = '';
+                            let mapsUrlFull = '';
                             
                             if (gpsValue && String(gpsValue).trim() !== '') {
                                 const gps = String(gpsValue).trim();
@@ -11692,66 +11703,214 @@ qrScriptHtml +
                                 if (gps.startsWith('http://') || gps.startsWith('https://')) {
                                     // Ya es un link, verificar que sea de Google Maps
                                     if (gps.includes('google.com/maps') || gps.includes('maps.google.com') || gps.includes('goo.gl/maps') || gps.includes('maps.app.goo.gl')) {
-                                        mapsUrl = gps;
-                                        console.log('[QR] Link de Google Maps detectado y usado directamente:', mapsUrl);
+                                        mapsUrlFull = gps;
+                                        console.log('[QR] Link de Google Maps detectado:', mapsUrlFull);
                                     } else {
-                                        // Es un link pero no de Google Maps, intentar convertir
-                                        console.warn('[QR] Link detectado pero no es de Google Maps, intentando usar como está:', gps);
-                                        mapsUrl = gps;
+                                        // Es un link pero no de Google Maps, usar como está
+                                        mapsUrlFull = gps;
+                                        console.log('[QR] Link no-Maps usado:', mapsUrlFull);
                                     }
                                 } else if (gps.includes(',')) {
-                                    // Es coordenadas (formato lat,lon)
+                                    // Es coordenadas (formato lat,lon) - construir URL de Google Maps
                                     const [lat, lon] = gps.split(',').map(s => s.trim());
                                     if (lat && lon && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lon))) {
-                                        // URL de Google Maps que abre directamente en la app del teléfono
-                                        // Formato: https://www.google.com/maps?q=lat,lon
-                                        mapsUrl = 'https://www.google.com/maps?q=' + lat + ',' + lon;
-                                        console.log('[QR] URL de Maps generada desde coordenadas:', mapsUrl);
+                                        // Construir URL completa de Google Maps que abre en la app del teléfono
+                                        mapsUrlFull = 'https://www.google.com/maps?q=' + lat + ',' + lon;
+                                        console.log('[QR] URL de Maps generada desde coordenadas:', mapsUrlFull);
                                     } else {
                                         throw new Error('Coordenadas GPS inválidas');
                                     }
                                 } else {
                                     // No es link ni coordenadas, usar como dirección
                                     const direccion = encodeURIComponent(gps);
-                                    mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + direccion;
-                                    console.log('[QR] URL de Maps generada desde texto/dirección:', mapsUrl);
+                                    mapsUrlFull = 'https://www.google.com/maps/search/?api=1&query=' + direccion;
+                                    console.log('[QR] URL de Maps generada desde texto/dirección:', mapsUrlFull);
                                 }
                             } else {
                                 // Si no hay GPS pero está activado, usar dirección como fallback
                                 if (resolvedData.DIRECCION_ENTREGA) {
                                     const direccion = encodeURIComponent(resolvedData.DIRECCION_ENTREGA);
-                                    mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + direccion;
-                                    console.log('[QR] URL de Maps generada con dirección como fallback:', mapsUrl);
+                                    mapsUrlFull = 'https://www.google.com/maps/search/?api=1&query=' + direccion;
+                                    console.log('[QR] URL de Maps generada con dirección como fallback:', mapsUrlFull);
                                 } else {
                                     throw new Error('No hay coordenadas GPS, link de Maps ni dirección disponible');
                                 }
                             }
                             
-                            // El payload del QR será la URL de Google Maps (ya sea link directo o generado)
-                            const payload = mapsUrl;
-                            
-                            console.log('[QR] Payload (URL Maps):', payload);
-                            
-                            // Generar QR usando API de QR Server con máxima nitidez para impresión térmica
-                            // URL: https://api.qrserver.com/v1/create-qr-code/
-                            // Parámetros: size=800x800 (alta resolución para nitidez 100%), data=payload, format=png, ecc=H (alta corrección), margin=2
-                            // Aumentamos el tamaño a 800x800 para máxima nitidez en impresión térmica
-                            const qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=800x800&data=' + encodeURIComponent(payload) + '&format=png&ecc=H&margin=2&color=000000&bgcolor=FFFFFF';
-                            
-                            // Obtener la imagen de la API y convertir a DataURL para impresión
-                            const response = await fetch(qrApiUrl);
-                            if (!response.ok) {
-                                throw new Error('Error al obtener QR de la API: ' + response.status);
+                            // Acortar URL usando spoo.me para QR más simple (menos saturado)
+                            let shortUrl = mapsUrlFull;
+                            try {
+                                // Acortar URL con spoo.me API v1 - endpoint correcto: /shorten
+                                const shortenResponse = await fetch('https://spoo.me/api/v1/shorten', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        long_url: mapsUrlFull  // Campo correcto según documentación
+                                    })
+                                });
+                                
+                                if (shortenResponse.ok) {
+                                    const shortenData = await shortenResponse.json();
+                                    console.log('[QR] Respuesta completa del acortador:', shortenData);
+                                    
+                                    // El campo correcto según la documentación es 'short_url'
+                                    if (shortenData.short_url) {
+                                        shortUrl = shortenData.short_url;
+                                        console.log('[QR] ✅ URL acortada exitosamente:', shortUrl);
+                                    } else {
+                                        console.warn('[QR] ⚠️ Respuesta sin campo short_url:', JSON.stringify(shortenData));
+                                        // Intentar otros campos posibles
+                                        if (shortenData.url) {
+                                            shortUrl = shortenData.url;
+                                            console.log('[QR] ✅ URL acortada (campo url):', shortUrl);
+                                        } else {
+                                            console.warn('[QR] ⚠️ No se encontró URL acortada en la respuesta');
+                                        }
+                                    }
+                                } else {
+                                    const errorText = await shortenResponse.text();
+                                    console.warn('[QR] ⚠️ Error HTTP al acortar URL:', shortenResponse.status, errorText);
+                                    
+                                    // Si es error 401/403, puede requerir autenticación, pero continuamos sin acortar
+                                    if (shortenResponse.status === 401 || shortenResponse.status === 403) {
+                                        console.warn('[QR] ⚠️ Autenticación requerida, usando URL original');
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('[QR] ❌ Error al acortar URL con spoo.me:', error);
+                                console.error('[QR] Detalles del error:', error.message);
                             }
                             
-                            const blob = await response.blob();
+                            // Si después de todo no se acortó, usar URL original
+                            if (shortUrl === mapsUrlFull) {
+                                console.log('[QR] Usando URL original (no se pudo acortar):', shortUrl);
+                            } else {
+                                console.log('[QR] ✅ URL final para QR (acortada):', shortUrl);
+                            }
                             
-                            // Convertir blob a DataURL para usar en impresión
+                            console.log('[QR] Payload final para QR:', shortUrl);
+                            
+                            // Generar QR usando QRCode.js local con logo en el centro
+                            // URL del logo del proyecto
+                            const logoUrl = 'https://i.pinimg.com/736x/b4/5a/93/b45a931f326800d4877d34bbe4800b86.jpg';
+                            
+                            // Esperar a que QRCode esté disponible
+                            const waitForQRCode = () => {
+                                return new Promise((resolve, reject) => {
+                                    if (typeof QRCode !== 'undefined' && typeof QRCode.toDataURL === 'function') {
+                                        resolve(QRCode);
+                                        return;
+                                    }
+                                    let attempts = 0;
+                                    const maxAttempts = 100;
+                                    const checkQRCode = () => {
+                                        attempts++;
+                                        const qrCodeLib = typeof QRCode !== 'undefined' ? QRCode : (typeof window !== 'undefined' && window.QRCode ? window.QRCode : null);
+                                        if (qrCodeLib && typeof qrCodeLib.toDataURL === 'function') {
+                                            resolve(qrCodeLib);
+                                        } else if (attempts >= maxAttempts) {
+                                            reject(new Error('QRCode library no se cargó'));
+                                        } else {
+                                            setTimeout(checkQRCode, 50);
+                                        }
+                                    };
+                                    checkQRCode();
+                                });
+                            };
+                            
+                            const QRCodeLib = await waitForQRCode();
+                            
+                            // Generar QR optimizado para impresión: más grande, menos complejo, logo pequeño
                             const qrDataUrl = await new Promise((resolve, reject) => {
-                                const reader = new FileReader();
-                                reader.onloadend = () => resolve(reader.result);
-                                reader.onerror = reject;
-                                reader.readAsDataURL(blob);
+                                // Generar QR con nivel de corrección MEDIO (M) para reducir complejidad
+                                // Mayor tamaño para mejor calidad de impresión
+                                QRCodeLib.toDataURL(shortUrl, {
+                                    width: 400, // Mayor tamaño para mejor impresión
+                                    margin: 4, // Mayor margen para mejor escaneo
+                                    errorCorrectionLevel: 'M', // Medio (menos complejo que 'H')
+                                    color: {
+                                        dark: '#000000',
+                                        light: '#FFFFFF'
+                                    }
+                                }, (err, qrUrl) => {
+                                    if (err) {
+                                        reject(err);
+                                        return;
+                                    }
+                                    
+                                    if (!qrUrl || qrUrl.length === 0) {
+                                        reject(new Error('QR generado vacío'));
+                                        return;
+                                    }
+                                    
+                                    // Cargar el logo y superponerlo en el centro del QR (más pequeño)
+                                    const logoImg = new Image();
+                                    logoImg.crossOrigin = 'anonymous';
+                                    
+                                    logoImg.onload = function() {
+                                        // Crear canvas para combinar QR + logo
+                                        const qrImg = new Image();
+                                        qrImg.onload = function() {
+                                            const canvas = document.createElement('canvas');
+                                            const size = 400; // Tamaño del QR (mayor para impresión)
+                                            canvas.width = size;
+                                            canvas.height = size;
+                                            const ctx = canvas.getContext('2d');
+                                            
+                                            // Mejorar calidad de renderizado para impresión
+                                            ctx.imageSmoothingEnabled = true;
+                                            ctx.imageSmoothingQuality = 'high';
+                                            
+                                            // Dibujar el QR
+                                            ctx.drawImage(qrImg, 0, 0, size, size);
+                                            
+                                            // Logo más pequeño (12% del tamaño) para no interferir con el QR
+                                            const logoSize = size * 0.12; // Reducido de 20% a 12%
+                                            const logoX = (size - logoSize) / 2;
+                                            const logoY = (size - logoSize) / 2;
+                                            
+                                            // Dibujar fondo blanco redondeado más pequeño para el logo
+                                            ctx.fillStyle = '#FFFFFF';
+                                            ctx.beginPath();
+                                            const cornerRadius = 6;
+                                            ctx.moveTo(logoX + cornerRadius, logoY);
+                                            ctx.lineTo(logoX + logoSize - cornerRadius, logoY);
+                                            ctx.quadraticCurveTo(logoX + logoSize, logoY, logoX + logoSize, logoY + cornerRadius);
+                                            ctx.lineTo(logoX + logoSize, logoY + logoSize - cornerRadius);
+                                            ctx.quadraticCurveTo(logoX + logoSize, logoY + logoSize, logoX + logoSize - cornerRadius, logoY + logoSize);
+                                            ctx.lineTo(logoX + cornerRadius, logoY + logoSize);
+                                            ctx.quadraticCurveTo(logoX, logoY + logoSize, logoX, logoY + logoSize - cornerRadius);
+                                            ctx.lineTo(logoX, logoY + cornerRadius);
+                                            ctx.quadraticCurveTo(logoX, logoY, logoX + cornerRadius, logoY);
+                                            ctx.closePath();
+                                            ctx.fill();
+                                            
+                                            // Dibujar el logo con padding
+                                            const padding = logoSize * 0.15;
+                                            ctx.drawImage(logoImg, logoX + padding, logoY + padding, logoSize - (padding * 2), logoSize - (padding * 2));
+                                            
+                                            // Convertir a DataURL con alta calidad para impresión
+                                            const finalDataUrl = canvas.toDataURL('image/png', 1.0);
+                                            resolve(finalDataUrl);
+                                        };
+                                        
+                                        qrImg.onerror = function() {
+                                            reject(new Error('Error cargando QR generado'));
+                                        };
+                                        
+                                        qrImg.src = qrUrl;
+                                    };
+                                    
+                                    logoImg.onerror = function() {
+                                        console.warn('[QR] Error cargando logo, usando QR sin logo');
+                                        // Si falla el logo, usar QR sin logo
+                                        resolve(qrUrl);
+                                    };
+                                    
+                                    logoImg.src = logoUrl;
+                                });
                             });
                             
                             if (qrDataUrl && qrDataUrl.length > 0) {
@@ -11786,16 +11945,11 @@ qrScriptHtml +
             <div class="ruta-box ruta-name">${_vEsc(resolvedData.NOMBRE)}</div>
             <div class="ruta-box ruta-dni">${_vEsc(resolvedData.DNI)}</div>
             <div class="ruta-box ruta-field">
-                <div class="ruta-field-label">TELÉFONOS</div>
+                <div class="ruta-field-label">TELEFONOS DE CONTACTO DEL PACIENTE</div>
                 <div class="ruta-field-value">${_vEsc(resolvedData.TELEFONOS)}</div>
             </div>
-            <div class="ruta-box ruta-meds">
-                <div class="ruta-field-label">MEDICAMENTOS</div>
-                <div class="ruta-meds-value">${_vEsc(resolvedData.MEDS_COUNT)}</div>
-            </div>
-            <div class="ruta-box ruta-field">
-                <div class="ruta-field-label">CONTACT CENTER</div>
-                <div class="ruta-field-value">${_vEsc(resolvedData.CONTACT_CENTER)}</div>
+            <div class="ruta-box ruta-fecha-box">
+                <div class="${fechaClass}">${_vEsc(resolvedData.FECHA_ENTREGA)}</div>
             </div>
         </div>
         <div class="ruta-lado-b">
@@ -11807,9 +11961,14 @@ qrScriptHtml +
                 </div>
             </div>
             <div class="ruta-b2">
-                <div class="ruta-b2-izquierda">
-                    <div class="ruta-fecha-box">
-                        <div class="${fechaClass}">${_vEsc(resolvedData.FECHA_ENTREGA)}</div>
+                <div class="ruta-b2-content">
+                    <div class="ruta-b2-info-item ruta-b2-meds">
+                        <span class="ruta-b2-info-label">MEDICAMENTOS:</span>
+                        <span class="ruta-b2-info-value">${_vEsc(resolvedData.MEDS_COUNT)}</span>
+                    </div>
+                    <div class="ruta-b2-info-item ruta-b2-contact">
+                        <span class="ruta-b2-info-label">CONTACT CENTER:</span>
+                        <span class="ruta-b2-info-value">${_vEsc(resolvedData.CONTACT_CENTER)}</span>
                     </div>
                 </div>
                 ${hasGpsActivated ? qrImageHtml : ''}
@@ -11915,7 +12074,7 @@ qrScriptHtml +
 
             const _vCSSVentanilla = () => `@page{size:71mm 165mm;margin:10mm 0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:71mm;min-height:145mm;height:145mm;margin:0;padding:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.sheet{width:71mm;min-height:145mm;height:145mm;padding:0.8mm 0.9mm;overflow:hidden;background:#fff;position:relative;display:flex;flex-direction:column;gap:1.1mm;}.v-logos-row{display:flex;align-items:center;justify-content:space-between;padding:0.8mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fff;}.v-logo{width:32mm;height:15mm;object-fit:contain;flex-shrink:0;}.v-title-full{font-size:2.9mm;font-weight:800;text-align:center;color:#000;line-height:1.25;letter-spacing:0.06mm;padding:0.9mm 0.8mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#f9f9f9;}.v-box{border:0.4mm solid #000;border-radius:2.5mm;padding:0.7mm 0.9mm;margin:0;}.v-name-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;word-wrap:break-word;text-align:center;background:#fafafa;}.v-dni-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.06mm;word-wrap:break-word;text-align:center;background:#fafafa;display:flex;flex-direction:column;gap:0.3mm;}.v-dni-box .v-dni-head{display:flex;align-items:center;justify-content:center;gap:0.5mm;}.v-dni-box .v-dni-label{font-size:2mm;font-weight:800;}.v-fecha-box,.v-cc-box{display:flex;flex-direction:column;gap:0.25mm;}.v-fecha-box,.v-cc-box{align-items:center;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{justify-content:center;}.v-fecha-box .v-box-label,.v-cc-box .v-box-label{font-size:1.8mm;font-weight:800;color:#000;}.v-fecha-box .v-box-value{font-size:4.2mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-cc-box .v-box-value{font-size:3mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{display:flex;align-items:center;gap:0.5mm;}.v-meds{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.3mm;}.v-meds .v-meds-label{font-size:2.2mm;font-weight:800;color:#000;text-align:center;}.v-meds .v-meds-value{font-size:6.5mm;font-weight:900;color:#000;text-align:center;letter-spacing:0.1mm;}.v-refri{display:flex;align-items:center;justify-content:center;gap:0.7mm;padding:0.6mm 0.8mm;border:0.4mm solid #000;border-radius:2.5mm;margin:0;background:#fff3cd;font-size:2.8mm;font-weight:900;}.v-refri-icon{width:4mm;height:4mm;flex-shrink:0;stroke-width:1.75;color:#000;}.v-ventanilla{border:1.2mm solid #000;padding:2mm 1.4mm;text-align:center;font-size:7.5mm;font-weight:900;color:#000;margin:0;letter-spacing:0.2mm;background:linear-gradient(to bottom,#f5f5f5 0%,#e8e8e8 100%);display:flex;align-items:center;justify-content:center;gap:1.2mm;border-radius:2.5mm;flex-shrink:0;}.v-ventanilla.has-obs{padding:1.4mm 1.2mm;font-size:6mm;margin:0;}.v-ventanilla .v-icon{width:6mm;height:6mm;margin:0;}.v-ventanilla.has-obs .v-icon{width:5mm;height:5mm;}.v-obs{font-size:1.8mm;font-weight:700;color:#000;line-height:1.3;word-wrap:break-word;padding:0.7mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fafafa;text-align:center;}.v-footer{margin-top:auto;padding:1mm 1mm;font-size:2.8mm;text-align:center;color:#000;font-weight:700;border:0.4mm solid #000;border-radius:2.5mm;letter-spacing:0.05mm;line-height:1.35;}.v-icon{width:3.5mm;height:3.5mm;flex-shrink:0;stroke-width:1.75;color:#000;}@media print{body*{visibility:hidden;}.sheet,.sheet *{visibility:visible;}.sheet{position:absolute;left:0;top:0;}}`;
 
-            const _vCSSRuta = () => `@page{size:210mm 71mm landscape;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:210mm;height:71mm;margin:0;padding:0;font-family:'Arial Black','Arial',Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:hidden;}.ruta-sheet{width:210mm;height:71mm;padding:3mm;position:relative;display:flex;flex-direction:column;gap:1.5mm;background:#fff;}.ruta-header{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:1.5mm;padding:0.8mm 0;border-bottom:0.5mm solid #000;margin-bottom:1.5mm;flex-shrink:0;width:100%;}.ruta-title{font-size:2.8mm;font-weight:900;text-align:center;color:#000;letter-spacing:0.15mm;flex:1;font-family:'Arial Black','Arial',sans-serif;min-width:0;}.ruta-logo-header{object-fit:contain;flex-shrink:0;image-rendering:crisp-edges;image-rendering:-webkit-optimize-contrast;image-rendering:pixelated;filter:contrast(1.1) brightness(0.98);-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-logo-left{width:20mm;height:10mm;max-width:20mm;max-height:10mm;}.ruta-logo-right{width:20mm;height:10mm;max-width:20mm;max-height:10mm;}.ruta-content{display:flex;gap:2.5mm;flex:1;min-height:0;}.ruta-lado-a{width:50%;display:flex;flex-direction:column;gap:1.2mm;padding-right:1.2mm;border-right:0.3mm dashed #ccc;}.ruta-lado-b{width:50%;display:flex;flex-direction:column;gap:1.2mm;min-height:0;position:relative;}.ruta-b1{height:75%;display:flex;flex-direction:column;gap:0.8mm;min-height:0;}.ruta-b2{height:25%;display:flex;flex-direction:row;gap:1.2mm;align-items:center;justify-content:center;min-height:0;padding:0.3mm 0;position:relative;}.ruta-b2-izquierda{display:flex;flex-direction:column;gap:0.5mm;flex:1;min-width:0;}.ruta-box{border:0.4mm solid #000;border-radius:1.5mm;padding:1.2mm 1.5mm;background:#fafafa;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-box-address{border:0.6mm solid #000;border-radius:2mm;padding:1.5mm;background:#fff;position:relative;min-height:0;flex:1;display:flex;flex-direction:column;height:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-name{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.1mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-dni{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field{font-size:3.2mm;font-weight:900;color:#000;line-height:1.25;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field-label{font-size:2.6mm;font-weight:900;color:#333;margin-bottom:0.4mm;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field-value{font-size:3.5mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-meds{text-align:center;}.ruta-meds-value{font-size:5mm;font-weight:900;color:#000;letter-spacing:0.2mm;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-content{font-weight:900;color:#000;line-height:1.4;word-wrap:break-word;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;min-height:0;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-text{flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;box-sizing:border-box;text-align:center;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-separator{margin:0.5mm 0;font-weight:900;color:#333;}.ruta-fecha-box{text-align:center;flex-shrink:0;display:flex;align-items:center;justify-content:center;width:100%;padding:0.5mm 0;}.ruta-fecha-value{font-size:8.5mm;font-weight:900;color:#000;letter-spacing:0.15mm;line-height:1.15;font-family:'Arial Black','Arial',sans-serif;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-fecha-value.no-qr{font-size:9mm;}.ruta-fecha-value-full{font-size:9mm;font-weight:900;color:#000;letter-spacing:0.15mm;line-height:1.15;font-family:'Arial Black','Arial',sans-serif;width:100%;text-align:center;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-leyenda{display:flex;align-items:center;justify-content:flex-start;gap:1mm;flex-wrap:wrap;width:100%;flex-shrink:0;padding-top:0.3mm;max-width:100%;box-sizing:border-box;}.ruta-qr-texto{font-size:2.8mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;flex-shrink:0;letter-spacing:0.05mm;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-instruction{font-size:2.4mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;flex-shrink:1;min-width:0;letter-spacing:0.03mm;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-flecha{font-size:4mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;flex-shrink:0;margin-left:0.5mm;line-height:1;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-container{width:22mm;height:22mm;display:flex;align-items:center;justify-content:center;border:0.4mm solid #000;border-radius:1.5mm;background:#fff;padding:0.5mm;flex-shrink:0;min-width:22mm;min-height:22mm;position:absolute;top:-8mm;right:0;z-index:10;box-shadow:0 0 0.3mm rgba(0,0,0,0.1);-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-container img{max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain;image-rendering:crisp-edges;image-rendering:-webkit-optimize-contrast;image-rendering:pixelated;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@media print{body*{visibility:hidden;}.ruta-sheet,.ruta-sheet *{visibility:visible;}.ruta-sheet{position:absolute;left:0;top:0;}}`;
+            const _vCSSRuta = () => `@page{size:210mm 71mm landscape;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:210mm;height:71mm;margin:0;padding:0;font-family:'Arial Black','Arial',Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:hidden;}.ruta-sheet{width:210mm;height:71mm;padding:0;position:relative;display:flex;flex-direction:column;gap:0.5mm;background:#fff;}.ruta-header{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:1mm;padding:0.5mm 0;border-bottom:0.4mm solid #000;flex-shrink:0;width:100%;margin:0 3mm;box-sizing:border-box;}.ruta-title{font-size:2.2mm;font-weight:900;text-align:center;color:#000;letter-spacing:0.1mm;flex:1;font-family:'Arial Black','Arial',sans-serif;min-width:0;line-height:1.1;}.ruta-logo-header{object-fit:contain;flex-shrink:0;image-rendering:crisp-edges;image-rendering:-webkit-optimize-contrast;image-rendering:pixelated;filter:contrast(1.1) brightness(0.98);-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-logo-left{width:18mm;height:8mm;max-width:18mm;max-height:8mm;margin-left:-3mm;}.ruta-logo-right{width:18mm;height:8mm;max-width:18mm;max-height:8mm;margin-right:-3mm;}.ruta-content{display:flex;gap:2.5mm;flex:1;min-height:0;margin:0 3mm;box-sizing:border-box;}.ruta-lado-a{width:50%;display:flex;flex-direction:column;gap:1.5mm;padding-right:1.2mm;border-right:0.3mm dashed #ccc;}.ruta-lado-b{width:50%;display:flex;flex-direction:column;gap:1.2mm;min-height:0;position:relative;}.ruta-b1{height:75%;display:flex;flex-direction:column;gap:0.8mm;min-height:0;}.ruta-b2{height:25%;display:flex;flex-direction:row;gap:1.2mm;align-items:flex-start;justify-content:flex-start;min-height:0;padding:0.3mm 0;position:relative;}.ruta-b2-content{display:flex;flex-direction:column;gap:0.8mm;flex:1;min-width:0;justify-content:space-between;height:100%;}.ruta-b2-info-item{display:flex;flex-direction:row;align-items:center;gap:0.8mm;flex-shrink:0;width:100%;}.ruta-b2-meds{justify-content:flex-start;}.ruta-b2-contact{justify-content:flex-start;}.ruta-b2-info-label{font-size:2.8mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-b2-info-value{font-size:3.2mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-box{border:0.4mm solid #000;border-radius:1.5mm;padding:1.2mm 1.5mm;background:#fafafa;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-box-address{border:0.6mm solid #000;border-radius:2mm;padding:1.5mm;background:#fff;position:relative;min-height:0;flex:1;display:flex;flex-direction:column;height:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-name{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.1mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-dni{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field{font-size:3.2mm;font-weight:900;color:#000;line-height:1.25;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field-label{font-size:3.6mm;font-weight:900;color:#333;margin-bottom:0.4mm;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field-value{font-size:3.5mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-meds{text-align:center;}.ruta-meds-value{font-size:5mm;font-weight:900;color:#000;letter-spacing:0.2mm;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-content{font-weight:900;color:#000;line-height:1.4;word-wrap:break-word;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;min-height:0;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-text{flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;box-sizing:border-box;text-align:center;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-separator{margin:0.5mm 0;font-weight:900;color:#333;}.ruta-fecha-box{text-align:center;flex-shrink:0;display:flex;align-items:center;justify-content:center;width:100%;padding:0.5mm 0;border:0.4mm solid #000;border-radius:1.5mm;background:#fafafa;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-fecha-value{font-size:8.5mm;font-weight:900;color:#000;letter-spacing:0.15mm;line-height:1.15;font-family:'Arial Black','Arial',sans-serif;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-fecha-value.no-qr{font-size:9mm;}.ruta-fecha-value-full{font-size:9mm;font-weight:900;color:#000;letter-spacing:0.15mm;line-height:1.15;font-family:'Arial Black','Arial',sans-serif;width:100%;text-align:center;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-leyenda{display:flex;align-items:center;justify-content:flex-start;gap:1mm;flex-wrap:wrap;width:100%;flex-shrink:0;padding-top:0.3mm;max-width:100%;box-sizing:border-box;}.ruta-qr-texto{font-size:2.8mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;flex-shrink:0;letter-spacing:0.05mm;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-instruction{font-size:2.4mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;flex-shrink:1;min-width:0;letter-spacing:0.03mm;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-flecha{font-size:4mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;flex-shrink:0;margin-left:0.5mm;line-height:1;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-container{width:22mm;height:22mm;display:flex;align-items:center;justify-content:center;border:0.4mm solid #000;border-radius:1.5mm;background:#fff;padding:0.5mm;flex-shrink:0;min-width:22mm;min-height:22mm;position:absolute;top:-8mm;right:0;z-index:10;box-shadow:0 0 0.3mm rgba(0,0,0,0.1);-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-container img{max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain;image-rendering:crisp-edges;image-rendering:-webkit-optimize-contrast;image-rendering:pixelated;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@media print{body*{visibility:hidden;}.ruta-sheet,.ruta-sheet *{visibility:visible;}.ruta-sheet{position:absolute;left:0;top:0;}}`;
 
             const sep = ' ----- ';
             const _vFormatCC = (agenteName, userList, contactList) => {
