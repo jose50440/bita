@@ -3146,7 +3146,7 @@
         };
 
         // --- BLOCK: OPERACIONES LISTA DE ESPERA ---
-        const OperacionesListaEsperaBlock = ({ kits, patients, onSaveKit, currentUser, users = [], printRutaVignette, printVentanillaVignette, printRefrigeradoVignette }) => {
+        const OperacionesListaEsperaBlock = ({ kits, patients, onSaveKit, currentUser, users = [], printRutaVignette, printVentanillaVignette, printRefrigeradoVignette, pendingTrabajarKitId, onClearPendingTrabajarKit }) => {
             const [vistaPrincipal, setVistaPrincipal] = useState('operaciones'); // 'despacho' | 'operaciones'
             const [listaEsperaTab, setListaEsperaTab] = useState('ventanilla');
             const [listaEsperaSearch, setListaEsperaSearch] = useState('');
@@ -3161,7 +3161,8 @@
                 fechaArmado: '',
                 horaOperaciones: '',
                 isRefrigerated: false,
-                cantRefriGlobal: ''
+                cantRefriGlobal: '',
+                tipoDespachoRefrigerado: ''
             });
             const [trabajarGuardado, setTrabajarGuardado] = useState(false);
             const [trabajarKitActualizado, setTrabajarKitActualizado] = useState(null);
@@ -3275,7 +3276,6 @@
             const abrirVer = (kit) => { setVerKit(kit); setShowVerModal(true); };
             const cerrarVer = () => { setVerKit(null); setShowVerModal(false); };
             const abrirTrabajar = (kit, desdeBitacora = false) => {
-                setTrabajarKit(kit);
                 setTrabajarGuardado(false);
                 setTrabajarKitActualizado(null);
                 setEditandoDesdeBitacora(!!desdeBitacora);
@@ -3283,11 +3283,17 @@
                 const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                 const fa = (kit.fechaArmado || '').toString().slice(0, 10) || today;
                 const ho = (kit.horaOperaciones || '').toString().trim() || now;
+                const hasRefri = !!(kit.isRefrigerated || (kit.cantRefriGlobal && parseInt(String(kit.cantRefriGlobal), 10) > 0));
+                const tipoRefri = hasRefri ? (kit.tipoDespachoRefrigerado === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO') : '';
+                const nRefri = hasRefri ? (parseInt(String(kit.cantRefriGlobal), 10) || 0) : 0;
+                const medicamentosWithRefri = (kit.medicamentos || []).map((m, i) => ({ ...m, incluirRefrigerado: hasRefri && (i < nRefri) }));
+                setTrabajarKit({ ...kit, medicamentos: medicamentosWithRefri });
                 setTrabajarData({
                     fechaArmado: desdeBitacora ? fa : today,
                     horaOperaciones: desdeBitacora ? ho : now,
                     isRefrigerated: !!kit.isRefrigerated,
-                    cantRefriGlobal: kit.cantRefriGlobal != null ? String(kit.cantRefriGlobal) : ''
+                    cantRefriGlobal: kit.cantRefriGlobal != null ? String(kit.cantRefriGlobal) : '',
+                    tipoDespachoRefrigerado: tipoRefri
                 });
                 setShowTrabajarForm(true);
             };
@@ -3297,7 +3303,7 @@
                 setTrabajarGuardado(false);
                 setViñetasImpresas(false);
                 setEditandoDesdeBitacora(false);
-                setTrabajarData({ fechaArmado: '', horaOperaciones: '', isRefrigerated: false, cantRefriGlobal: '' });
+                setTrabajarData({ fechaArmado: '', horaOperaciones: '', isRefrigerated: false, cantRefriGlobal: '', tipoDespachoRefrigerado: '' });
                 setShowTrabajarForm(false);
             };
             useEffect(() => {
@@ -3311,11 +3317,20 @@
                     if (kit) abrirTrabajar(kit);
                 } catch (_) {}
             }, [kits]);
+            useEffect(() => {
+                if (!pendingTrabajarKitId || !kits || !kits.length || !onClearPendingTrabajarKit) return;
+                const kit = kits.find(k => k.id === pendingTrabajarKitId);
+                if (kit) {
+                    abrirTrabajar(kit, true);
+                    onClearPendingTrabajarKit();
+                }
+            }, [pendingTrabajarKitId, kits]);
             const handleTrabajarSubmit = async (e) => {
                 e.preventDefault();
                 if (!trabajarKit || !onSaveKit) return;
                 const today = new Date().toISOString().split('T')[0];
                 const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                const cantRefriFromCheckboxes = (trabajarKit.medicamentos || []).filter(m => m.incluirRefrigerado === true).length;
                 const payload = {
                     fechaArmado: trabajarData.fechaArmado,
                     horaOperaciones: trabajarData.horaOperaciones,
@@ -3323,9 +3338,10 @@
                     fechaEntregaCalidad: today,
                     horaEntregaCalidad: now,
                     isRefrigerated: !!trabajarData.isRefrigerated,
-                    cantRefriGlobal: trabajarData.isRefrigerated ? (trabajarData.cantRefriGlobal && parseInt(trabajarData.cantRefriGlobal, 10) > 0 ? parseInt(trabajarData.cantRefriGlobal, 10) : 1) : '',
+                    cantRefriGlobal: trabajarData.isRefrigerated ? cantRefriFromCheckboxes : '',
+                    tipoDespachoRefrigerado: trabajarData.isRefrigerated ? ((trabajarData.tipoDespachoRefrigerado === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO')) : null,
                     usuarioOperaciones: (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim() || '',
-                    medicamentos: trabajarKit.medicamentos || []
+                    medicamentos: (trabajarKit.medicamentos || []).map(({ incluirRefrigerado, ...rest }) => rest)
                 };
                 try {
                     await onSaveKit(trabajarKit.id, payload, trabajarKit.patientId, true);
@@ -3797,6 +3813,67 @@
                                         </div>
                                     )}
                                     <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Refrigerado</h5>
+                                        <div className="flex flex-wrap items-center gap-4">
+                                            <div className="relative inline-flex items-center bg-slate-100 rounded-full p-1 shadow-inner w-full max-w-xs overflow-hidden">
+                                                <div 
+                                                    className="absolute inset-y-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out"
+                                                    style={{
+                                                        left: trabajarData.isRefrigerated ? 'calc(50% + 0.125rem)' : '0.25rem',
+                                                        width: 'calc(50% - 0.25rem)',
+                                                        backgroundColor: trabajarData.isRefrigerated ? '#fef3c7' : '#ffffff'
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setTrabajarData({ ...trabajarData, isRefrigerated: false, cantRefriGlobal: '', tipoDespachoRefrigerado: '' });
+                                                        setTrabajarKit(prev => ({ ...prev, medicamentos: (prev.medicamentos || []).map(m => ({ ...m, incluirRefrigerado: false })) }));
+                                                    }}
+                                                    className={`
+                                                        relative z-10 flex-1 px-6 py-2.5 text-sm font-bold uppercase rounded-full transition-colors duration-300 ease-in-out
+                                                        ${!trabajarData.isRefrigerated ? 'text-slate-700' : 'text-slate-500'}
+                                                        focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2
+                                                    `}
+                                                >
+                                                    {!trabajarData.isRefrigerated ? '✓ NO' : 'NO'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setTrabajarData({ ...trabajarData, isRefrigerated: true, tipoDespachoRefrigerado: trabajarData.tipoDespachoRefrigerado || 'SOLO REFRIGERADO' });
+                                                        setTrabajarKit(prev => ({
+                                                            ...prev,
+                                                            medicamentos: (prev.medicamentos || []).map((m, i) => ({ ...m, incluirRefrigerado: i === 0 && m.dispensar !== false }))
+                                                        }));
+                                                    }}
+                                                    className={`
+                                                        relative z-10 flex-1 px-6 py-2.5 text-sm font-bold uppercase rounded-full transition-colors duration-300 ease-in-out
+                                                        ${trabajarData.isRefrigerated ? 'text-amber-700' : 'text-slate-500'}
+                                                        focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2
+                                                    `}
+                                                >
+                                                    {trabajarData.isRefrigerated ? '✓ SÍ' : 'SÍ'}
+                                                </button>
+                                            </div>
+                                            {trabajarData.isRefrigerated && (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-bold text-slate-600">Refrigerados:</span>
+                                                    <span className="text-lg font-bold text-amber-700 tabular-nums">{(trabajarKit.medicamentos || []).filter(m => m.incluirRefrigerado === true).length}</span>
+                                                </div>
+                                            )}
+                                            {trabajarData.isRefrigerated && (
+                                                <div className="w-full max-w-xs">
+                                                    <label className="text-[10px] font-bold text-slate-600 uppercase block mb-2">Tipo despacho (refrigerado)</label>
+                                                    <select value={trabajarData.tipoDespachoRefrigerado === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO'} onChange={e => setTrabajarData({ ...trabajarData, tipoDespachoRefrigerado: e.target.value })} className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-turquoise-300 outline-none">
+                                                        <option value="SOLO REFRIGERADO">SOLO REFRIGERADO</option>
+                                                        <option value="KIT + REFRIGERADO">KIT + REFRIGERADO</option>
+                                                    </select>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                                         <div className="flex items-center justify-between mb-3">
                                             <h5 className="text-xs font-bold text-slate-500 uppercase">Medicamentos asignados</h5>
                                             <span className="text-lg font-bold text-turquoise-600 tabular-nums">{calcularMedCounter(trabajarKit.medicamentos).str}</span>
@@ -3806,6 +3883,23 @@
                                                 const va = m.dispensar !== false;
                                                 return (
                                                     <div key={i} className={`p-3 rounded-lg border-2 ${va ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                                        {trabajarData.isRefrigerated && va && (
+                                                            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-amber-200">
+                                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={!!m.incluirRefrigerado}
+                                                                        onChange={e => {
+                                                                            const newMeds = [...(trabajarKit.medicamentos || [])];
+                                                                            newMeds[i] = { ...newMeds[i], incluirRefrigerado: e.target.checked };
+                                                                            setTrabajarKit({ ...trabajarKit, medicamentos: newMeds });
+                                                                        }}
+                                                                        className="w-4 h-4 rounded border-amber-400 text-amber-600 focus:ring-amber-400"
+                                                                    />
+                                                                    <span className="text-xs font-bold text-amber-800">Incluir en refrigerado</span>
+                                                                </label>
+                                                            </div>
+                                                        )}
                                                         <div className="flex items-start justify-between gap-3 mb-2">
                                                             <div className="flex-1">
                                                                 <span className={`font-semibold ${va ? 'text-green-800' : 'text-red-800'}`}>{m.nombre || '—'}</span>
@@ -3866,49 +3960,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Refrigerado</h5>
-                                        <div className="flex flex-wrap items-center gap-4">
-                                            <div className="relative inline-flex items-center bg-slate-100 rounded-full p-1 shadow-inner w-full max-w-xs overflow-hidden">
-                                                <div 
-                                                    className="absolute inset-y-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out"
-                                                    style={{
-                                                        left: trabajarData.isRefrigerated ? 'calc(50% + 0.125rem)' : '0.25rem',
-                                                        width: 'calc(50% - 0.25rem)',
-                                                        backgroundColor: trabajarData.isRefrigerated ? '#fef3c7' : '#ffffff'
-                                                    }}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setTrabajarData({ ...trabajarData, isRefrigerated: false, cantRefriGlobal: '' })}
-                                                    className={`
-                                                        relative z-10 flex-1 px-6 py-2.5 text-sm font-bold uppercase rounded-full transition-colors duration-300 ease-in-out
-                                                        ${!trabajarData.isRefrigerated ? 'text-slate-700' : 'text-slate-500'}
-                                                        focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2
-                                                    `}
-                                                >
-                                                    {!trabajarData.isRefrigerated ? '✓ NO' : 'NO'}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setTrabajarData({ ...trabajarData, isRefrigerated: true, cantRefriGlobal: trabajarData.cantRefriGlobal || '1' })}
-                                                    className={`
-                                                        relative z-10 flex-1 px-6 py-2.5 text-sm font-bold uppercase rounded-full transition-colors duration-300 ease-in-out
-                                                        ${trabajarData.isRefrigerated ? 'text-amber-700' : 'text-slate-500'}
-                                                        focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2
-                                                    `}
-                                                >
-                                                    {trabajarData.isRefrigerated ? '✓ SÍ' : 'SÍ'}
-                                                </button>
-                                            </div>
-                                            {trabajarData.isRefrigerated && (
-                                                <div className="flex items-center gap-2">
-                                                    <label className="text-xs font-bold text-slate-500">Cantidad:</label>
-                                                    <input type="number" min={1} className="w-20 p-2 border rounded-lg text-sm bg-white border-slate-200" value={trabajarData.cantRefriGlobal} onChange={e => setTrabajarData({ ...trabajarData, cantRefriGlobal: e.target.value })} placeholder="1" />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
                                     <p className="text-xs text-slate-500">Al guardar se registran automáticamente la fecha y hora de salida de Operaciones y entrega a Calidad.</p>
                                     <div className="flex gap-3 pt-2">
                                         <button type="submit" className="flex-1 py-3 bg-amber-600 text-white font-bold rounded-xl hover:bg-amber-700">Guardar</button>
@@ -3937,7 +3988,6 @@
                 btp: '',
                 btg: '',
                 tipoBolsaVerde: 'GRANDE',
-                tipoDespachoRefrigerado: '',
                 incidenciasActivo: false,
                 incidencias: [] // [{ tipo: 'medicamento', medIdx: number } | { tipo: 'otra', texto: string }]
             });
@@ -3988,13 +4038,11 @@
                 setTrabajarKitLocal(JSON.parse(JSON.stringify(k)));
                 setTrabajarGuardado(false);
                 setTrabajarEnviadoLogistica(false);
-                const hasRefri = !!(kit.isRefrigerated || (kit.cantRefriGlobal && parseInt(String(kit.cantRefriGlobal), 10) > 0));
                 setTrabajarData({
                     observacionesCalidad: (kit.observacionesCalidad || '').trim(),
                     btp: (kit.btp != null && kit.btp !== '') ? String(kit.btp) : '',
                     btg: (kit.btg != null && kit.btg !== '') ? String(kit.btg) : '',
                     tipoBolsaVerde: kit.tipoBolsaVerde === 'PEQUEÑA' ? 'PEQUEÑA' : kit.tipoBolsaVerde === 'NINGUNA' ? 'NINGUNA' : 'GRANDE',
-                    tipoDespachoRefrigerado: hasRefri ? (kit.tipoDespachoRefrigerado === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO') : 'SOLO KIT',
                     incidenciasActivo: false,
                     incidencias: Array.isArray(kit.incidenciasCalidad) ? [...kit.incidenciasCalidad] : []
                 });
@@ -4005,7 +4053,7 @@
                 setTrabajarKitLocal(null);
                 setTrabajarGuardado(false);
                 setTrabajarEnviadoLogistica(false);
-                setTrabajarData({ observacionesCalidad: '', btp: '', btg: '', tipoBolsaVerde: 'GRANDE', tipoDespachoRefrigerado: '', incidenciasActivo: false, incidencias: [] });
+                setTrabajarData({ observacionesCalidad: '', btp: '', btg: '', tipoBolsaVerde: 'GRANDE', incidenciasActivo: false, incidencias: [] });
                 setIncidenciaMedIdx(null);
                 setIncidenciaTipoSel('error_cantidad');
                 setIncidenciaOtraTexto('');
@@ -4026,8 +4074,7 @@
                     btp: trabajarData.btp.trim() || null,
                     btg: trabajarData.btg.trim() || null,
                     tipoBolsaVerde: trabajarData.tipoBolsaVerde || 'GRANDE',
-                    incidenciasCalidad: (trabajarData.incidencias || []).length ? trabajarData.incidencias : null,
-                    tipoDespachoRefrigerado: (trabajarData.tipoDespachoRefrigerado || '').trim() || null
+                    incidenciasCalidad: (trabajarData.incidencias || []).length ? trabajarData.incidencias : null
                 };
                 try {
                     await onSaveKit(trabajarKit.id, payload, trabajarKit.patientId, true);
@@ -4491,6 +4538,7 @@
                                                     <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">BTP</label><input type="text" value={trabajarData.btp} onChange={e=>setTrabajarData({...trabajarData, btp:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white" placeholder="Cantidad" /></div>
                                                     <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">BTG</label><input type="text" value={trabajarData.btg} onChange={e=>setTrabajarData({...trabajarData, btg:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white" placeholder="Cantidad" /></div>
                                                     <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo bolsa verde</label><select value={trabajarData.tipoBolsaVerde} onChange={e=>setTrabajarData({...trabajarData, tipoBolsaVerde:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white"><option value="GRANDE">GRANDE</option><option value="PEQUEÑA">PEQUEÑA</option><option value="NINGUNA">NINGUNA</option></select></div>
+                                                    <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo despacho (Operaciones)</label><div className="w-full p-2.5 border rounded-lg text-sm bg-slate-100 text-slate-700 border-slate-200">{(()=>{ const hasRefri = !!(k.isRefrigerated || (k.cantRefriGlobal && parseInt(String(k.cantRefriGlobal), 10) > 0)); const tipo = hasRefri ? (k.tipoDespachoRefrigerado === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO') : 'SOLO KIT'; return tipo === 'KIT + REFRIGERADO' ? <span className="font-bold">{tipo}</span> : <span>{tipo}</span>; })()}</div></div>
                                                 </div>
                                                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
                                                     <div className="flex items-center justify-between mb-2">
@@ -4544,19 +4592,6 @@
                                                     <label className="text-[10px] font-bold text-green-800 uppercase block mb-2">Observaciones calidad</label>
                                                     <textarea className="w-full p-3 border border-green-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-green-300 outline-none" rows={2} value={trabajarData.observacionesCalidad||''} onChange={e=>setTrabajarData({...trabajarData, observacionesCalidad:e.target.value})} placeholder="Observaciones de la revisión..." />
                                                 </div>
-                                                {(() => {
-                                                    const hasRefri = !!(k.isRefrigerated || (k.cantRefriGlobal && parseInt(String(k.cantRefriGlobal), 10) > 0));
-                                                    const opciones = hasRefri ? ['SOLO REFRIGERADO', 'KIT + REFRIGERADO'] : ['SOLO KIT'];
-                                                    const valor = trabajarData.tipoDespachoRefrigerado && opciones.includes(trabajarData.tipoDespachoRefrigerado) ? trabajarData.tipoDespachoRefrigerado : opciones[0];
-                                                    return (
-                                                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                                            <label className="text-[10px] font-bold text-slate-600 uppercase block mb-2">Tipo despacho {hasRefri ? '(refrigerado)' : '(kit)'}</label>
-                                                            <select value={valor} onChange={e=>setTrabajarData({...trabajarData, tipoDespachoRefrigerado:e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-turquoise-300 outline-none">
-                                                                {opciones.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                                            </select>
-                                                        </div>
-                                                    );
-                                                })()}
                                                 <p className="text-xs text-slate-500">Hora de revisión automática. Al guardar se registra la revisión y el kit sale de tu lista. Luego puedes enviar a logística.</p>
                                                 <div className="flex gap-3 pt-2">
                                                     <button type="submit" className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700">Guardar</button>
@@ -5071,7 +5106,7 @@
         };
 
         // --- BLOCK: PACIENTES ---
-        const PatientManagementBlock = ({ patients: patientsProp, kits: kitsProp, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts, printRutaVignette, users = [] }) => {
+        const PatientManagementBlock = ({ patients: patientsProp, kits: kitsProp, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts, printRutaVignette, printVentanillaVignette, printRefrigeradoVignette, users = [], onOpenTrabajarKit }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
             const [selectedPatientFullData, setSelectedPatientFullData] = useState(null);
@@ -8164,165 +8199,6 @@ html +
 
             // Función para imprimir viñeta RUTA (movida dentro de App - ver más abajo)
 
-            // Función para imprimir viñeta VENTANILLA — 71mm x 180mm, vertical, profesional
-            const printVentanillaVignette = async (kit, patient) => {
-                let updatedKit = kit;
-                let updatedPatient = patient || selectedPatientFullData || {};
-                if (kit?.id && firebaseInitialized && db) {
-                    try {
-                        const d = await db.collection('prod_kits').doc(kit.id).get();
-                        if (d.exists) updatedKit = { id: d.id, ...d.data() };
-                    } catch (e) { console.warn('Kit actualizado no disponible:', e); }
-                }
-                if (updatedKit?.patientId && firebaseInitialized && db) {
-                    try {
-                        const d = await db.collection('prod_patients').doc(updatedKit.patientId).get();
-                        if (d.exists) updatedPatient = { id: d.id, ...d.data() };
-                    } catch (e) { console.warn('Paciente actualizado no disponible:', e); }
-                }
-                const pt = updatedPatient;
-                const nombre = (updatedKit.nombre || pt.nombre || '').toUpperCase();
-                const dni = (updatedKit.dni || pt.dni || '').toUpperCase();
-                const fechaEntrega = updatedKit.fechaArmado || '';
-                const contactCenterDisplay = formatAgenteContactCenterDisplay(pt.agenteContactCenter || updatedKit.agenteContactCenter, users);
-                const observaciones = (updatedKit.observations || updatedKit.observacionesEntrega || '').trim().toUpperCase();
-                const usuarioOperaciones = (updatedKit.usuarioOperaciones || currentUser?.name || currentUser?.email || 'OPERADOR').toUpperCase();
-                const medicamentos = updatedKit.medicamentos || [];
-                const totalMeds = medicamentos.length;
-                const dispensadosMeds = medicamentos.filter(m => m.dispensar !== false).length;
-                const cantidadMeds = totalMeds > 0 ? `${dispensadosMeds}/${totalMeds}` : '0/0';
-                const isRefrigerado = updatedKit.isRefrigerated || false;
-                const cantRefri = updatedKit.cantRefriGlobal || (isRefrigerado ? 1 : 0);
-                const logo1Url = LOGO1_URL || '/assets/logo1.png';
-                const logo2Url = LOGO2_URL || '/assets/logo2.png';
-                const logo1Src = escapeHtml(logo1Url);
-                const logo2Src = escapeHtml(logo2Url);
-                const obsHtml = observaciones ? '<div class="v-obs">' + escapeHtml(observaciones) + '</div>' : '';
-                const hasObs = !!observaciones;
-                const iconId = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>';
-                const iconCalendar = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>';
-                const iconPhone = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
-                const iconWindow = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>';
-                const iconMeds = '<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>';
-                const iconRefri = '<svg class="v-refri-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
-                const ventanillaClass = hasObs ? 'v-ventanilla has-obs' : 'v-ventanilla';
-                const nameHtml = '<div class="v-box v-name-box">' + escapeHtml(nombre) + '</div>';
-                const dniHtml = '<div class="v-box v-dni-box"><div class="v-dni-head">' + iconId + '<span class="v-dni-label">DNI / AFILIACIÓN</span></div><div>' + escapeHtml(dni) + '</div></div>';
-                const fechaHtml = '<div class="v-box v-fecha-box"><div class="v-box-head">' + iconCalendar + '<span class="v-box-label">FECHA DE ENTREGA</span></div><div class="v-box-value">' + escapeHtml(fechaEntrega) + '</div></div>';
-                const ccHtml = '<div class="v-box v-cc-box"><div class="v-box-head">' + iconPhone + '<span class="v-box-label">CONTACT CENTER</span></div><div class="v-box-value">' + escapeHtml(contactCenterDisplay) + '</div></div>';
-                const medsBoxHtml = '<div class="v-box v-meds">' + iconMeds + '<span>MEDICAMENTOS: ' + escapeHtml(cantidadMeds) + '</span></div>';
-                const refriBoxHtml = cantRefri > 0 ? '<div class="v-refri">' + iconRefri + '<span>REFRIGERADO: ' + escapeHtml(String(cantRefri)) + '</span></div>' : '';
-                const html = '<div class="sheet">' +
-                    '<div class="v-logos-row">' +
-                    '<img src="' + logo1Src + '" alt="Logo 1" class="v-logo" onerror="this.style.display=\'none\'"/>' +
-                    '<img src="' + logo2Src + '" alt="Logo 2" class="v-logo" onerror="this.style.display=\'none\'"/>' +
-                    '</div>' +
-                    '<div class="v-title-full">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>' +
-                    nameHtml +
-                    dniHtml +
-                    fechaHtml +
-                    ccHtml +
-                    medsBoxHtml +
-                    refriBoxHtml +
-                    '<div class="' + ventanillaClass + '">' + iconWindow + ' VENTANILLA</div>' +
-                    obsHtml +
-                    '<div class="v-footer">OPERACIONES: ' + escapeHtml(usuarioOperaciones) + '</div>' +
-                    '</div>';
-                buildPrintWindow(html, getPrintVignetteCSSVentanilla(), 'Imprimir Viñeta Ventanilla');
-            };
-
-            // Función para imprimir viñeta REFRIGERADO
-            const printRefrigeradoVignette = async (kit, patient) => {
-                // Obtener datos actualizados de la base de datos antes de imprimir
-                let updatedKit = kit;
-                let updatedPatient = patient || selectedPatientFullData || {};
-                
-                if (kit && kit.id && firebaseInitialized && db) {
-                    try {
-                        const kitDoc = await db.collection('prod_kits').doc(kit.id).get();
-                        if (kitDoc.exists) {
-                            updatedKit = { id: kitDoc.id, ...kitDoc.data() };
-                            console.log('✅ Kit actualizado desde base de datos (Refrigerado):', updatedKit);
-                        }
-                    } catch (error) {
-                        console.warn('⚠️ No se pudo obtener kit actualizado, usando datos locales:', error);
-                    }
-                }
-                
-                // Obtener datos actualizados del paciente si hay patientId
-                if (updatedKit && updatedKit.patientId && firebaseInitialized && db) {
-                    try {
-                        const patientDoc = await db.collection('prod_patients').doc(updatedKit.patientId).get();
-                        if (patientDoc.exists) {
-                            updatedPatient = { id: patientDoc.id, ...patientDoc.data() };
-                            console.log('✅ Paciente actualizado desde base de datos (Refrigerado)');
-                        }
-                    } catch (error) {
-                        console.warn('⚠️ No se pudo obtener paciente actualizado, usando datos locales:', error);
-                    }
-                }
-                
-                const patientData = updatedPatient;
-                const operatorName = currentUser?.name || currentUser?.email || auth?.currentUser?.email || 'OPERADOR';
-                const printedAt = new Date().toLocaleString('es-ES', { 
-                    year: 'numeric', 
-                    month: '2-digit', 
-                    day: '2-digit', 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                });
-                
-                const data = {
-                    nombre: (updatedKit.nombre || patientData.nombre || '').toUpperCase(),
-                    dni: (updatedKit.dni || patientData.dni || '').toUpperCase(),
-                    fechaEntrega: updatedKit.fechaArmado || '',
-                    cantRefrigerados: updatedKit.isRefrigerated ? (updatedKit.cantRefriGlobal || 1) : 0,
-                    operatorName: operatorName.toUpperCase(),
-                    printedAt: printedAt.toUpperCase()
-                };
-                
-                // Asegurar URLs de logos bien formadas (usar rutas absolutas si son locales)
-                const logo1Url = LOGO1_URL || '/assets/logo1.png';
-                const logo2Url = LOGO2_URL || '/assets/logo2.png';
-                
-                // Construir URLs de logos de forma segura
-                const logo1Src = escapeHtml(logo1Url);
-                const logo2Src = escapeHtml(logo2Url);
-                
-                // Construir HTML usando concatenación (evita problemas con Babel y template literals)
-                const html = '<div class="sheet">' +
-'<div class="header">' +
-'<div class="header-logos">' +
-'<img src="' + logo1Src + '" alt="Logo 1" class="header-logo" onerror="this.style.display=\'none\'"/>' +
-'<img src="' + logo2Src + '" alt="Logo 2" class="header-logo" onerror="this.style.display=\'none\'"/>' +
-'</div>' +
-'<div class="header-title">DEPARTAMENTO DE DISPENSACIÓN DE MEDICAMENTOS A DOMICILIO</div>' +
-'</div>' +
-'<div class="banner">❄ PRODUCTO REFRIGERADO ❄</div>' +
-'<div class="info-grid">' +
-'<div class="info-box">' +
-'<div class="info-box-title">NOMBRE COMPLETO</div>' +
-'<div class="info-box-content-large">' + escapeHtml(data.nombre) + '</div>' +
-'</div>' +
-'<div class="info-box">' +
-'<div class="info-box-title">DNI / AFILIACIÓN</div>' +
-'<div class="info-box-content">' + escapeHtml(data.dni) + '</div>' +
-'</div>' +
-'<div class="info-box">' +
-'<div class="info-box-title">FECHA DESPACHO</div>' +
-'<div class="info-box-content-date">' + escapeHtml(data.fechaEntrega) + '</div>' +
-'</div>' +
-'<div style="margin-top: 1mm;">' +
-'<div class="cantidad-label">CANTIDAD DE REFRIGERADOS</div>' +
-'<div class="cantidad-box">' + escapeHtml(data.cantRefrigerados) + '</div>' +
-'</div>' +
-'</div>' +
-'<div class="footer">OP: ' + escapeHtml(data.operatorName) + ' | ' + escapeHtml(data.printedAt) + '</div>' +
-'</div>';
-                
-                buildPrintWindow(html, getPrintVignetteCSSRefrigerado(), 'Imprimir Viñeta Refrigerado');
-            };
-
             // Función para imprimir (mantener compatibilidad)
             const handlePrint = (kit, templateOverride = null) => {
                 const template = templateOverride || selectedPrintTemplate;
@@ -9316,7 +9192,34 @@ html +
                                             </div>
                                         </div>
                                         <div className="flex flex-wrap gap-2 justify-end sm:justify-center items-start">
-                                            {(() => {
+                                            {isOperaciones ? (
+                                                <>
+                                                    {onOpenTrabajarKit ? (
+                                                        <button onClick={() => onOpenTrabajarKit(kit)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-bold" title="Editar kit (abre formulario de Operaciones)">
+                                                            <Icons.Edit size={16}/> Editar
+                                                        </button>
+                                                    ) : (
+                                                        <button onClick={() => openEditKit(kit, true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 text-xs font-bold" title="Solo visualización e imprimir viñetas">
+                                                            <Icons.Eye size={16}/> Ver
+                                                        </button>
+                                                    )}
+                                                    {kit.deliveryMode === 'ruta' && printRutaVignette && (
+                                                        <button type="button" onClick={() => printRutaVignette(kit, selectedPatientFullData || selectedPatient).catch(err => { console.error(err); alert('Error al imprimir.'); })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-bold">
+                                                            <Icons.Printer size={14}/> Ruta
+                                                        </button>
+                                                    )}
+                                                    {kit.deliveryMode === 'ventanilla' && printVentanillaVignette && (
+                                                        <button type="button" onClick={() => printVentanillaVignette(kit, selectedPatientFullData || selectedPatient).catch(err => { console.error(err); alert('Error al imprimir.'); })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-bold">
+                                                            <Icons.Printer size={14}/> Ventanilla
+                                                        </button>
+                                                    )}
+                                                    {(!!kit.isRefrigerated || !!(kit.cantRefriGlobal && parseInt(String(kit.cantRefriGlobal), 10) > 0)) && printRefrigeradoVignette && (
+                                                        <button type="button" onClick={() => printRefrigeradoVignette(kit, selectedPatientFullData || selectedPatient).catch(err => { console.error(err); alert('Error al imprimir.'); })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold">
+                                                            <Icons.Printer size={14}/> Refrigerado
+                                                        </button>
+                                                    )}
+                                                </>
+                                            ) : (() => {
                                                 const ccAsignado = (kit.contactCenter || '').trim().toLowerCase();
                                                 const ccYo = (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim().toLowerCase();
                                                 const esMiAsignado = !!ccAsignado && !!ccYo && ccAsignado === ccYo;
@@ -11343,6 +11246,7 @@ html +
             const [userName, setUserName] = useState(sessionStorage.getItem('leq_username'));
             const [currentUserData, setCurrentUserData] = useState(null);
             const [view, setView] = useState('dashboard');
+            const [pendingTrabajarKitId, setPendingTrabajarKitId] = useState(null);
             const [patients, setPatients] = useState([]);
             const [kits, setKits] = useState([]);
             const [medicines, setMedicines] = useState([]);
@@ -11675,6 +11579,10 @@ qrScriptHtml +
                     const direccionCompleta = resolvedData.DIRECCION_ENTREGA;
                     const observaciones = resolvedData.OBSERVACIONES;
                     const direccionYObs = [direccionCompleta, observaciones].filter(Boolean).join(' | ');
+                    // Tipo despacho (refrigerado) para mostrar en item medicamentos
+                    const hasRefriRuta = !!(updatedKit.isRefrigerated || (updatedKit.cantRefriGlobal && parseInt(String(updatedKit.cantRefriGlobal), 10) > 0));
+                    const tipoDespachoRuta = hasRefriRuta ? (updatedKit.tipoDespachoRefrigerado === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO') : '';
+                    const tipoDespachoDisplay = tipoDespachoRuta === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : tipoDespachoRuta === 'SOLO REFRIGERADO' ? 'REFRIGERADO' : '';
                     
                     // Generar QR usando módulo local (OFFLINE) - SOLO si el GPS está activado
                     // Payload único: IHSS|KIT=<kitId>|GPS=<gpsValue>|DNI=<dni>|TS=<timestamp>|SIG=<hash>
@@ -11936,9 +11844,7 @@ qrScriptHtml +
                     const html = `
 <div class="ruta-sheet">
     <div class="ruta-header">
-        <img src="${_vEsc(logo1)}" alt="Logo 1" class="ruta-logo-header ruta-logo-left" onerror="this.style.display='none'"/>
-        <div class="ruta-title">DEPARTAMENTO DE DISPENSASION A DOMICILIO</div>
-        <img src="${_vEsc(logo2)}" alt="Logo 2" class="ruta-logo-header ruta-logo-right" onerror="this.style.display='none'"/>
+        <div class="ruta-title">FARMACIA DOMICILIARIA</div>
     </div>
     <div class="ruta-content">
         <div class="ruta-lado-a">
@@ -11948,8 +11854,15 @@ qrScriptHtml +
                 <div class="ruta-field-label">TELEFONOS DE CONTACTO DEL PACIENTE</div>
                 <div class="ruta-field-value">${_vEsc(resolvedData.TELEFONOS)}</div>
             </div>
-            <div class="ruta-box ruta-fecha-box">
-                <div class="${fechaClass}">${_vEsc(resolvedData.FECHA_ENTREGA)}</div>
+            <div class="ruta-fila-fecha-tipo">
+                <div class="ruta-box ruta-fecha-box ruta-fecha-flex">
+                    <div class="${fechaClass}">${_vEsc(resolvedData.FECHA_ENTREGA)}</div>
+                </div>
+                ${tipoDespachoDisplay ? (tipoDespachoDisplay === 'KIT + REFRIGERADO' ? '<div class="ruta-box ruta-tipo-despacho-stacked"><span class="ruta-tipo-line">KIT</span><span class="ruta-tipo-line ruta-tipo-plus">+</span><span class="ruta-tipo-line">REFRIGERADO</span></div>' : '<div class="ruta-box ruta-tipo-despacho-value-only">' + _vEsc(tipoDespachoDisplay) + '</div>') : ''}
+            </div>
+            <div class="ruta-logos-footer">
+                <img src="${_vEsc(logo1)}" alt="Logo 1" class="ruta-logo-footer" onerror="this.style.display='none'"/>
+                <img src="${_vEsc(logo2)}" alt="Logo 2" class="ruta-logo-footer" onerror="this.style.display='none'"/>
             </div>
         </div>
         <div class="ruta-lado-b">
@@ -11980,8 +11893,8 @@ qrScriptHtml +
                     // Script para autoajustar fuente de dirección centrada con lógica inteligente (poco texto = grande, mucho texto = pequeño)
                     // Los logos ya no están en la dirección, así que usamos todo el espacio disponible
                     let autoAdjustScript = '<script>(function(){function adjustFontSize(){var addressText=document.getElementById("ruta-address-text");if(!addressText)return;var addressContent=addressText.parentElement;var addressBox=addressContent.parentElement;if(!addressBox)return;var marginTop=1;var marginBottom=1;var boxHeight=addressBox.offsetHeight;var availableHeight=boxHeight-marginTop-marginBottom;if(availableHeight<=0)return;addressText.style.textAlign="center";addressText.style.fontFamily="Arial Black, Arial, sans-serif";addressText.style.fontWeight="900";addressText.style.fontSize="1mm";addressText.style.lineHeight="1.4";addressText.style.overflow="hidden";addressText.style.paddingTop=marginTop+"mm";addressText.style.paddingBottom=marginBottom+"mm";var textLength=addressText.textContent.trim().length;var minFontSize=3;var maxFontSize=textLength<30?8:textLength<60?7:textLength<100?6:textLength<150?5:textLength<200?4.5:3.5;var fontSize=minFontSize;var bestFit=minFontSize;var precision=0.1;for(var testSize=minFontSize;testSize<=maxFontSize;testSize+=precision){addressText.style.fontSize=testSize+"mm";var textHeight=addressText.scrollHeight;if(textHeight<=availableHeight){bestFit=testSize;}else{break;}}addressText.style.fontSize=bestFit+"mm";}setTimeout(adjustFontSize,50);setTimeout(adjustFontSize,150);setTimeout(adjustFontSize,300);})();<\/script>';
-                    
-                    const htmlDoc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Viñeta Ruta</title><style>' + _vCSSRuta() + '</style></head><body>' + html + autoAdjustScript + '</body></html>';
+                    var verifyDimensionsScript = '<script>(function(){setTimeout(function(){var sheet=document.querySelector(".ruta-sheet");if(!sheet)return;var st=getComputedStyle(sheet);var w=parseFloat(st.width);var h=parseFloat(st.height);var pxToMm=1/3.7795275591;var wMm=Math.round(w*pxToMm*100)/100;var hMm=Math.round(h*pxToMm*100)/100;var okW=wMm>=205&&wMm<=207;var okH=hMm>=77&&hMm<=79;var ok=okW&&okH;try{console.log("[Viñeta Ruta] Dimensiones interiores .ruta-sheet: "+wMm+"mm x "+hMm+"mm | Esperado: 206mm x 78mm | "+(ok?"OK respeta 78x206":"FUERA de rango"));if(!ok){console.warn("[Viñeta Ruta] Verificación: el interior debe ser 206mm x 78mm. Actual: "+wMm+"mm x "+hMm+"mm");}}catch(e){};},200);})();<\/script>';
+                    const htmlDoc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Viñeta Ruta</title><style>' + _vCSSRuta() + '</style></head><body>' + html + autoAdjustScript + verifyDimensionsScript + '</body></html>';
                     
                     // Imprimir usando iframe oculto (evita bloqueos de popups)
                     const iframe = document.createElement('iframe');
@@ -12074,7 +11987,7 @@ qrScriptHtml +
 
             const _vCSSVentanilla = () => `@page{size:71mm 165mm;margin:10mm 0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:71mm;min-height:145mm;height:145mm;margin:0;padding:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.sheet{width:71mm;min-height:145mm;height:145mm;padding:0.8mm 0.9mm;overflow:hidden;background:#fff;position:relative;display:flex;flex-direction:column;gap:1.1mm;}.v-logos-row{display:flex;align-items:center;justify-content:space-between;padding:0.8mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fff;}.v-logo{width:32mm;height:15mm;object-fit:contain;flex-shrink:0;}.v-title-full{font-size:2.9mm;font-weight:800;text-align:center;color:#000;line-height:1.25;letter-spacing:0.06mm;padding:0.9mm 0.8mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#f9f9f9;}.v-box{border:0.4mm solid #000;border-radius:2.5mm;padding:0.7mm 0.9mm;margin:0;}.v-name-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;word-wrap:break-word;text-align:center;background:#fafafa;}.v-dni-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.06mm;word-wrap:break-word;text-align:center;background:#fafafa;display:flex;flex-direction:column;gap:0.3mm;}.v-dni-box .v-dni-head{display:flex;align-items:center;justify-content:center;gap:0.5mm;}.v-dni-box .v-dni-label{font-size:2mm;font-weight:800;}.v-fecha-box,.v-cc-box{display:flex;flex-direction:column;gap:0.25mm;}.v-fecha-box,.v-cc-box{align-items:center;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{justify-content:center;}.v-fecha-box .v-box-label,.v-cc-box .v-box-label{font-size:1.8mm;font-weight:800;color:#000;}.v-fecha-box .v-box-value{font-size:4.2mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-cc-box .v-box-value{font-size:3mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{display:flex;align-items:center;gap:0.5mm;}.v-meds{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.3mm;}.v-meds .v-meds-label{font-size:2.2mm;font-weight:800;color:#000;text-align:center;}.v-meds .v-meds-value{font-size:6.5mm;font-weight:900;color:#000;text-align:center;letter-spacing:0.1mm;}.v-refri{display:flex;align-items:center;justify-content:center;gap:0.7mm;padding:0.6mm 0.8mm;border:0.4mm solid #000;border-radius:2.5mm;margin:0;background:#fff3cd;font-size:2.8mm;font-weight:900;}.v-refri-icon{width:4mm;height:4mm;flex-shrink:0;stroke-width:1.75;color:#000;}.v-ventanilla{border:1.2mm solid #000;padding:2mm 1.4mm;text-align:center;font-size:7.5mm;font-weight:900;color:#000;margin:0;letter-spacing:0.2mm;background:linear-gradient(to bottom,#f5f5f5 0%,#e8e8e8 100%);display:flex;align-items:center;justify-content:center;gap:1.2mm;border-radius:2.5mm;flex-shrink:0;}.v-ventanilla.has-obs{padding:1.4mm 1.2mm;font-size:6mm;margin:0;}.v-ventanilla .v-icon{width:6mm;height:6mm;margin:0;}.v-ventanilla.has-obs .v-icon{width:5mm;height:5mm;}.v-obs{font-size:1.8mm;font-weight:700;color:#000;line-height:1.3;word-wrap:break-word;padding:0.7mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fafafa;text-align:center;}.v-footer{margin-top:auto;padding:1mm 1mm;font-size:2.8mm;text-align:center;color:#000;font-weight:700;border:0.4mm solid #000;border-radius:2.5mm;letter-spacing:0.05mm;line-height:1.35;}.v-icon{width:3.5mm;height:3.5mm;flex-shrink:0;stroke-width:1.75;color:#000;}@media print{body*{visibility:hidden;}.sheet,.sheet *{visibility:visible;}.sheet{position:absolute;left:0;top:0;}}`;
 
-            const _vCSSRuta = () => `@page{size:210mm 71mm landscape;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:210mm;height:71mm;margin:0;padding:0;font-family:'Arial Black','Arial',Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:hidden;}.ruta-sheet{width:210mm;height:71mm;padding:0;position:relative;display:flex;flex-direction:column;gap:0.5mm;background:#fff;}.ruta-header{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:1mm;padding:0.5mm 0;border-bottom:0.4mm solid #000;flex-shrink:0;width:100%;margin:0 3mm;box-sizing:border-box;}.ruta-title{font-size:2.2mm;font-weight:900;text-align:center;color:#000;letter-spacing:0.1mm;flex:1;font-family:'Arial Black','Arial',sans-serif;min-width:0;line-height:1.1;}.ruta-logo-header{object-fit:contain;flex-shrink:0;image-rendering:crisp-edges;image-rendering:-webkit-optimize-contrast;image-rendering:pixelated;filter:contrast(1.1) brightness(0.98);-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-logo-left{width:18mm;height:8mm;max-width:18mm;max-height:8mm;margin-left:-3mm;}.ruta-logo-right{width:18mm;height:8mm;max-width:18mm;max-height:8mm;margin-right:-3mm;}.ruta-content{display:flex;gap:2.5mm;flex:1;min-height:0;margin:0 3mm;box-sizing:border-box;}.ruta-lado-a{width:50%;display:flex;flex-direction:column;gap:1.5mm;padding-right:1.2mm;border-right:0.3mm dashed #ccc;}.ruta-lado-b{width:50%;display:flex;flex-direction:column;gap:1.2mm;min-height:0;position:relative;}.ruta-b1{height:75%;display:flex;flex-direction:column;gap:0.8mm;min-height:0;}.ruta-b2{height:25%;display:flex;flex-direction:row;gap:1.2mm;align-items:flex-start;justify-content:flex-start;min-height:0;padding:0.3mm 0;position:relative;}.ruta-b2-content{display:flex;flex-direction:column;gap:0.8mm;flex:1;min-width:0;justify-content:space-between;height:100%;}.ruta-b2-info-item{display:flex;flex-direction:row;align-items:center;gap:0.8mm;flex-shrink:0;width:100%;}.ruta-b2-meds{justify-content:flex-start;}.ruta-b2-contact{justify-content:flex-start;}.ruta-b2-info-label{font-size:2.8mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-b2-info-value{font-size:3.2mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-box{border:0.4mm solid #000;border-radius:1.5mm;padding:1.2mm 1.5mm;background:#fafafa;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-box-address{border:0.6mm solid #000;border-radius:2mm;padding:1.5mm;background:#fff;position:relative;min-height:0;flex:1;display:flex;flex-direction:column;height:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-name{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.1mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-dni{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field{font-size:3.2mm;font-weight:900;color:#000;line-height:1.25;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field-label{font-size:3.6mm;font-weight:900;color:#333;margin-bottom:0.4mm;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field-value{font-size:3.5mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-meds{text-align:center;}.ruta-meds-value{font-size:5mm;font-weight:900;color:#000;letter-spacing:0.2mm;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-content{font-weight:900;color:#000;line-height:1.4;word-wrap:break-word;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;min-height:0;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-text{flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;box-sizing:border-box;text-align:center;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-separator{margin:0.5mm 0;font-weight:900;color:#333;}.ruta-fecha-box{text-align:center;flex-shrink:0;display:flex;align-items:center;justify-content:center;width:100%;padding:0.5mm 0;border:0.4mm solid #000;border-radius:1.5mm;background:#fafafa;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-fecha-value{font-size:8.5mm;font-weight:900;color:#000;letter-spacing:0.15mm;line-height:1.15;font-family:'Arial Black','Arial',sans-serif;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-fecha-value.no-qr{font-size:9mm;}.ruta-fecha-value-full{font-size:9mm;font-weight:900;color:#000;letter-spacing:0.15mm;line-height:1.15;font-family:'Arial Black','Arial',sans-serif;width:100%;text-align:center;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-leyenda{display:flex;align-items:center;justify-content:flex-start;gap:1mm;flex-wrap:wrap;width:100%;flex-shrink:0;padding-top:0.3mm;max-width:100%;box-sizing:border-box;}.ruta-qr-texto{font-size:2.8mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;flex-shrink:0;letter-spacing:0.05mm;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-instruction{font-size:2.4mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;flex-shrink:1;min-width:0;letter-spacing:0.03mm;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-flecha{font-size:4mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;flex-shrink:0;margin-left:0.5mm;line-height:1;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-container{width:22mm;height:22mm;display:flex;align-items:center;justify-content:center;border:0.4mm solid #000;border-radius:1.5mm;background:#fff;padding:0.5mm;flex-shrink:0;min-width:22mm;min-height:22mm;position:absolute;top:-8mm;right:0;z-index:10;box-shadow:0 0 0.3mm rgba(0,0,0,0.1);-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-container img{max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain;image-rendering:crisp-edges;image-rendering:-webkit-optimize-contrast;image-rendering:pixelated;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@media print{body*{visibility:hidden;}.ruta-sheet,.ruta-sheet *{visibility:visible;}.ruta-sheet{position:absolute;left:0;top:0;}}`;
+            const _vCSSRuta = () => `@page{size:210mm 80mm landscape;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:210mm;height:80mm;margin:0;padding:0;font-family:'Arial Black','Arial',Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:hidden;}.ruta-sheet{width:206mm;height:78mm;margin:1mm 2mm;padding:0;position:relative;display:flex;flex-direction:column;gap:0.5mm;background:#fff;box-sizing:border-box;overflow:hidden;}.ruta-header{display:flex;justify-content:center;align-items:center;padding:0.5mm 0;border-bottom:0.4mm solid #000;flex-shrink:0;width:100%;margin:0 3mm;box-sizing:border-box;}.ruta-title{font-size:2.8mm;font-weight:900;text-align:center;color:#000;letter-spacing:0.1mm;font-family:'Arial Black','Arial',sans-serif;line-height:1.1;}.ruta-logos-footer{display:flex;flex-direction:row;align-items:center;justify-content:space-between;width:100%;flex-shrink:0;padding:0.8mm 0;margin-top:0.5mm;box-sizing:border-box;}.ruta-logo-footer{width:24.1mm;height:12.1mm;object-fit:contain;flex-shrink:0;image-rendering:crisp-edges;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-content{display:flex;gap:2.5mm;flex:1;min-height:0;margin:0 3mm;box-sizing:border-box;align-items:stretch;}.ruta-lado-a{width:50%;display:flex;flex-direction:column;gap:1.2mm;padding-right:1.2mm;border-right:0.3mm dashed #ccc;flex:1;min-height:0;justify-content:flex-start;}.ruta-lado-a .ruta-name,.ruta-lado-a .ruta-dni{flex-shrink:0;}.ruta-lado-a .ruta-field{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;}.ruta-lado-a .ruta-fila-fecha-tipo{flex-shrink:0;}.ruta-lado-a .ruta-logos-footer{flex-shrink:0;margin-top:auto;}.ruta-lado-b{width:50%;display:flex;flex-direction:column;gap:1.2mm;min-height:0;position:relative;flex:1;}.ruta-b1{height:75%;display:flex;flex-direction:column;gap:0.8mm;min-height:0;}.ruta-b2{height:25%;display:flex;flex-direction:row;gap:1.2mm;align-items:flex-start;justify-content:flex-start;min-height:0;padding:0.3mm 0;position:relative;}.ruta-b2-content{display:flex;flex-direction:column;gap:0.8mm;flex:1;min-width:0;justify-content:space-between;height:100%;}.ruta-b2-info-item{display:flex;flex-direction:row;align-items:center;gap:0.8mm;flex-shrink:0;width:100%;}.ruta-b2-meds{border:1px solid #d1d5db;border-radius:1.5mm;padding:0.5mm 0.8mm;justify-content:flex-start;flex-direction:column;align-items:flex-start;}.ruta-b2-meds-inner{display:flex;flex-direction:column;gap:0.3mm;}.ruta-b2-meds-row{display:flex;flex-direction:row;align-items:center;gap:0.8mm;}.ruta-b2-tipo-despacho{font-size:2.4mm;font-weight:700;color:#000;font-family:'Arial Black','Arial',sans-serif;}.ruta-b2-tipo-despacho-bold{font-weight:900;}.ruta-b2-contact{justify-content:flex-start;}.ruta-b2-info-label{font-size:2.8mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-b2-info-value{font-size:3.2mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-box{border:0.4mm solid #000;border-radius:1.5mm;padding:1.2mm 1.5mm;background:#fafafa;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-box-address{border:0.6mm solid #000;border-radius:2.5mm;padding:2mm;background:#fff;position:relative;min-height:0;flex:1;display:flex;flex-direction:column;height:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-name{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.1mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-dni{font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;text-align:center;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field{font-size:4.2mm;font-weight:900;color:#000;line-height:1.25;word-wrap:break-word;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field-label{font-size:3.6mm;font-weight:900;color:#333;margin-bottom:0.4mm;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-field-value{font-size:4mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-meds{text-align:center;}.ruta-meds-value{font-size:5mm;font-weight:900;color:#000;letter-spacing:0.2mm;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-content{font-weight:900;color:#000;line-height:1.4;word-wrap:break-word;flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;min-height:0;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-text{flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;box-sizing:border-box;text-align:center;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-address-separator{margin:0.5mm 0;font-weight:900;color:#333;}.ruta-fila-fecha-tipo{display:flex;flex-direction:row;align-items:stretch;gap:1.2mm;width:100%;flex-shrink:0;}.ruta-tipo-despacho-value-only{text-align:center;flex-shrink:0;padding:0.5mm 1mm;border:0.4mm solid #000;border-radius:1.5mm;background:#fafafa;font-size:3.2mm;font-weight:700;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;display:flex;align-items:center;justify-content:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-tipo-despacho-stacked{flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.15mm;padding:0.4mm 1mm;border:0.4mm solid #000;border-radius:1.5mm;background:#fafafa;font-family:'Arial Black','Arial',sans-serif;font-weight:900;color:#000;align-self:stretch;min-height:0;font-size:2.6mm;line-height:1.05;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-tipo-line{display:block;text-align:center;white-space:nowrap;}.ruta-tipo-plus{font-size:2.2mm;line-height:1;}.ruta-fecha-box{text-align:center;display:flex;align-items:center;justify-content:center;padding:0.5mm 0;border:0.4mm solid #000;border-radius:1.5mm;background:#fafafa;font-family:'Arial Black','Arial',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-fecha-box.ruta-fecha-flex{flex:1;min-width:0;}.ruta-fecha-value{font-size:8.5mm;font-weight:900;color:#000;letter-spacing:0.15mm;line-height:1.15;font-family:'Arial Black','Arial',sans-serif;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-fecha-value.no-qr{font-size:9mm;}.ruta-fecha-value-full{font-size:9mm;font-weight:900;color:#000;letter-spacing:0.15mm;line-height:1.15;font-family:'Arial Black','Arial',sans-serif;width:100%;text-align:center;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-leyenda{display:flex;align-items:center;justify-content:flex-start;gap:1mm;flex-wrap:wrap;width:100%;flex-shrink:0;padding-top:0.3mm;max-width:100%;box-sizing:border-box;}.ruta-qr-texto{font-size:2.8mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;white-space:nowrap;flex-shrink:0;letter-spacing:0.05mm;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-instruction{font-size:2.4mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;flex-shrink:1;min-width:0;letter-spacing:0.03mm;line-height:1.2;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-flecha{font-size:4mm;font-weight:900;color:#000;font-family:'Arial Black','Arial',sans-serif;flex-shrink:0;margin-left:0.5mm;line-height:1;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-container{width:22.5mm;height:22.5mm;display:flex;align-items:center;justify-content:center;border:0.4mm solid #000;border-radius:2mm;background:#fff;padding:1mm;flex-shrink:0;min-width:22.5mm;min-height:22.5mm;position:absolute;top:-8mm;right:0;z-index:10;box-shadow:0 0 0.3mm rgba(0,0,0,0.1);-webkit-print-color-adjust:exact;print-color-adjust:exact;}.ruta-qr-container img{max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain;image-rendering:crisp-edges;image-rendering:-webkit-optimize-contrast;image-rendering:pixelated;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@media print{body*{visibility:hidden;}.ruta-sheet,.ruta-sheet *{visibility:visible;}.ruta-sheet{position:absolute;left:0;top:0;}}`;
 
             const sep = ' ----- ';
             const _vFormatCC = (agenteName, userList, contactList) => {
@@ -13260,6 +13173,8 @@ Responde en formato JSON con esta estructura:
             }, [currentUserData, role]);
             const { showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo } = permissions;
             const currentUserForBlocks = { name: userName, role: role, ...(currentUserData || {}) };
+            const openTrabajarFromPacientes = (kit) => { if (kit?.id) { setPendingTrabajarKitId(kit.id); setView('operaciones'); } };
+            const clearPendingTrabajarKit = () => setPendingTrabajarKitId(null);
             useEffect(() => {
                 if (view === 'reports' && !canViewReports) {
                     setView('dashboard');
@@ -13460,10 +13375,10 @@ Responde en formato JSON con esta estructura:
                             {view === 'reports' && canViewReports && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} currentUser={currentUserForBlocks} users={users} />}
                             {view === 'calendario' && showCalendario && <CalendarioBlock kits={kits} patients={patients} setView={setView} currentUser={currentUserForBlocks} users={users} role={role} onSaveKit={saveKit} permissions={permissions} />}
                             {view === 'despacho' && showDespacho && <DespachoListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} />}
-                            {view === 'operaciones' && showOperaciones && <OperacionesListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} />}
+                            {view === 'operaciones' && showOperaciones && <OperacionesListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} pendingTrabajarKitId={pendingTrabajarKitId} onClearPendingTrabajarKit={clearPendingTrabajarKit} />}
                             {view === 'calidad' && showCalidad && <CalidadListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserForBlocks} users={users} />}
                             {view === 'bitacora' && showBitacoraTrabajo && <BitacoraTrabajoBlock kits={kits} patients={patients} currentUser={currentUserForBlocks} />}
-                            {view === 'pacientes' && canViewPacientes && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={currentUserForBlocks} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} users={users} />}
+                            {view === 'pacientes' && canViewPacientes && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={currentUserForBlocks} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} users={users} onOpenTrabajarKit={showOperaciones ? openTrabajarFromPacientes : undefined} />}
                             {view === 'config' && canViewConfig && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} rutaTemplateCurrent={rutaTemplateCurrent} importRutaTemplateFromExcel={importRutaTemplateFromExcel} importRutaTemplateFromWord={importRutaTemplateFromWord} importRutaTemplateFromPDF={importRutaTemplateFromPDF} saveRutaTemplate={saveRutaTemplate} loadRutaTemplateCurrent={loadRutaTemplateCurrent} />}
                             {view === 'users' && canViewConfig && <UserManagementBlock users={users} onAddUser={addUser} onUpdateUser={updateUser} onDeleteUser={deleteUser} />}
                             {((view === 'reports' && !canViewReports) || (view === 'calendario' && !showCalendario) || (view === 'despacho' && !showDespacho) || (view === 'operaciones' && !showOperaciones) || (view === 'calidad' && !showCalidad) || (view === 'bitacora' && !showBitacoraTrabajo) || (view === 'pacientes' && !canViewPacientes) || ((view === 'config' || view === 'users') && !canViewConfig)) && (
