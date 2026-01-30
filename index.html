@@ -3341,7 +3341,7 @@
                     cantRefriGlobal: trabajarData.isRefrigerated ? cantRefriFromCheckboxes : '',
                     tipoDespachoRefrigerado: trabajarData.isRefrigerated ? ((trabajarData.tipoDespachoRefrigerado === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO')) : null,
                     usuarioOperaciones: (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim() || '',
-                    medicamentos: (trabajarKit.medicamentos || []).map(({ incluirRefrigerado, ...rest }) => rest)
+                    medicamentos: (trabajarKit.medicamentos || []).map(m => { const { incluirRefrigerado, ...rest } = m; return { ...rest, refrigerado: !!incluirRefrigerado }; })
                 };
                 try {
                     await onSaveKit(trabajarKit.id, payload, trabajarKit.patientId, true);
@@ -4031,7 +4031,8 @@
                     observaciones: m.observaciones || '',
                     dispensacionParcial: !!m.dispensacionParcial,
                     tipo: m.tipo || 'no cronico',
-                    cantidadReceta: m.cantidadReceta ?? m.cantidad
+                    cantidadReceta: m.cantidadReceta ?? m.cantidad,
+                    refrigerado: !!m.refrigerado
                 }));
                 const k = { ...kit, medicamentos: meds };
                 setTrabajarKit(k);
@@ -4505,7 +4506,14 @@
                                                                             <span className="ml-2 text-base font-bold text-slate-800 uppercase">{tipoStr}</span>
                                                                             {m.observaciones && <p className={`text-xs mt-1 ${!va?'text-red-700':'text-slate-600'}`}>Obs: {m.observaciones}</p>}
                                                                         </div>
-                                                                        <span className={`text-xs font-bold ${!va?'text-red-600':parcial?'text-amber-600':'text-green-600'}`}>{label}</span>
+                                                                        <div className="flex flex-col items-end gap-0.5">
+                                                                            <span className={`text-xs font-bold ${!va?'text-red-600':parcial?'text-amber-600':'text-green-600'}`}>{label}</span>
+                                                                            {m.refrigerado && (
+                                                                                <span className="flex items-center gap-1 text-[10px] font-bold text-sky-700 uppercase">
+                                                                                    <span className="text-sm" aria-hidden="true">❄</span> REFRIGERADO
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                     <div className="mt-2 pt-2 border-t border-slate-200 space-y-2">
                                                                         <div className="flex flex-wrap items-center gap-3">
