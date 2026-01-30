@@ -1061,6 +1061,38 @@
             animation: slideInUp 0.3s ease-out;
         }
         
+        /* Copos de nieve en tarjetas refrigeradas (Calidad) - interactuando en el fondo */
+        @keyframes snowflakeFall {
+            0% { transform: translateY(-15%) translateX(0) rotate(0deg); opacity: 0.85; }
+            20% { transform: translateY(20%) translateX(6px) rotate(72deg); opacity: 0.7; }
+            40% { transform: translateY(45%) translateX(-4px) rotate(144deg); opacity: 0.75; }
+            60% { transform: translateY(70%) translateX(3px) rotate(216deg); opacity: 0.65; }
+            80% { transform: translateY(95%) translateX(-5px) rotate(288deg); opacity: 0.5; }
+            100% { transform: translateY(130%) translateX(0) rotate(360deg); opacity: 0.25; }
+        }
+        @keyframes snowflakeFloat {
+            0% { transform: translateY(-10%) translateX(0) scale(0.9); opacity: 0.6; }
+            33% { transform: translateY(40%) translateX(8px) scale(1.1); opacity: 0.75; }
+            66% { transform: translateY(80%) translateX(-6px) scale(0.95); opacity: 0.65; }
+            100% { transform: translateY(115%) translateX(2px) scale(1); opacity: 0.3; }
+        }
+        .snowflake-fall {
+            animation: snowflakeFall 6s linear infinite;
+            pointer-events: none;
+            position: absolute;
+            font-size: 11px;
+            color: rgba(14, 165, 233, 0.65);
+            text-shadow: 0 0 2px rgba(255,255,255,0.9), 0 0 4px rgba(255,255,255,0.5);
+        }
+        .snowflake-float {
+            animation: snowflakeFloat 7s ease-in-out infinite;
+            pointer-events: none;
+            position: absolute;
+            font-size: 10px;
+            color: rgba(56, 189, 248, 0.6);
+            text-shadow: 0 0 2px rgba(255,255,255,0.9);
+        }
+        
         /* Estilos para botones flotantes estilo Canva */
         .fab-menu {
             position: fixed;
@@ -4025,15 +4057,25 @@
             const abrirVer = (kit) => { setVerKit(kit); setShowVerModal(true); };
             const cerrarVer = () => { setVerKit(null); setShowVerModal(false); };
             const abrirTrabajar = (kit) => {
-                const meds = (kit.medicamentos || []).map(m => ({
-                    ...m,
-                    dispensar: m.dispensar !== false,
-                    observaciones: m.observaciones || '',
-                    dispensacionParcial: !!m.dispensacionParcial,
-                    tipo: m.tipo || 'no cronico',
-                    cantidadReceta: m.cantidadReceta ?? m.cantidad,
-                    refrigerado: !!m.refrigerado
-                }));
+                const nRefri = Math.max(0, parseInt(String(kit.cantRefriGlobal || 0), 10) || 0);
+                const hasRefriKit = !!(kit.isRefrigerated || nRefri > 0);
+                const meds = (kit.medicamentos || []).map((m, i) => {
+                    const dispensar = m.dispensar !== false;
+                    let refrigerado = !!m.refrigerado;
+                    if (!refrigerado && hasRefriKit && dispensar && nRefri > 0) {
+                        const numDispensadosAntes = (kit.medicamentos || []).slice(0, i).filter(x => x.dispensar !== false).length;
+                        if (numDispensadosAntes < nRefri) refrigerado = true;
+                    }
+                    return {
+                        ...m,
+                        dispensar,
+                        observaciones: m.observaciones || '',
+                        dispensacionParcial: !!m.dispensacionParcial,
+                        tipo: m.tipo || 'no cronico',
+                        cantidadReceta: m.cantidadReceta ?? m.cantidad,
+                        refrigerado
+                    };
+                });
                 const k = { ...kit, medicamentos: meds };
                 setTrabajarKit(k);
                 setTrabajarKitLocal(JSON.parse(JSON.stringify(k)));
@@ -4495,24 +4537,35 @@
                                                         {meds.map((m, i) => {
                                                             const va = m.dispensar !== false;
                                                             const parcial = !!m.dispensacionParcial;
+                                                            const esRefri = !!m.refrigerado;
                                                             const bg = !va ? 'bg-red-50 border-red-200' : parcial ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200';
                                                             const label = !va ? 'No dispensado' : parcial ? 'Dispensación parcial' : 'Dispensación completa';
                                                             const tipoStr = (m.tipo || 'no cronico').toLowerCase();
+                                                            const frostEffect = esRefri ? { boxShadow: 'inset 0 0 28px rgba(14,165,233,0.08), inset 0 1px 0 rgba(255,255,255,0.6), 0 0 0 2px rgba(14,165,233,0.25)' } : {};
                                                             return (
-                                                                <div key={i} className={`p-3 rounded-lg border-2 ${bg}`}>
-                                                                    <div className="flex items-start justify-between gap-3 mb-2">
+                                                                <div key={i} className={`p-3 rounded-lg border-2 ${bg} ${esRefri ? 'ring-2 ring-sky-200/60 relative overflow-hidden' : ''}`} style={frostEffect}>
+                                                                    {esRefri && <div className="absolute inset-0 pointer-events-none rounded-lg opacity-30" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255,255,255,0.9) 0%, transparent 70%)' }} aria-hidden="true" />}
+                                                                    {esRefri && (
+                                                                        <div className="absolute inset-0 pointer-events-none rounded-lg overflow-hidden z-0" aria-hidden="true">
+                                                                            {[0,1,2,3,4,5,6,7,8,9,10,11].map(j => {
+                                                                                const left = 3 + (j * 8.5) % 94;
+                                                                                const delay = (j * 0.6) % 5;
+                                                                                const useFloat = j % 3 === 1;
+                                                                                return (
+                                                                                    <span key={j} className={useFloat ? 'snowflake-float' : 'snowflake-fall'} style={{ left: `${left}%`, top: '-12%', animationDelay: `${delay}s`, fontSize: j % 2 === 0 ? '10px' : '12px' }}>❄</span>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="flex items-start justify-between gap-3 mb-2 relative z-10">
                                                                         <div className="flex-1">
                                                                             <span className={`font-semibold ${!va?'text-red-800':parcial?'text-amber-800':'text-green-800'}`}>{m.nombre || '—'}</span>
                                                                             <span className="ml-2 text-base font-bold text-slate-800 uppercase">{tipoStr}</span>
+                                                                            {esRefri && <span className="ml-1.5 text-xs font-bold text-sky-700 uppercase">❄ REFRIGERADO</span>}
                                                                             {m.observaciones && <p className={`text-xs mt-1 ${!va?'text-red-700':'text-slate-600'}`}>Obs: {m.observaciones}</p>}
                                                                         </div>
                                                                         <div className="flex flex-col items-end gap-0.5">
                                                                             <span className={`text-xs font-bold ${!va?'text-red-600':parcial?'text-amber-600':'text-green-600'}`}>{label}</span>
-                                                                            {m.refrigerado && (
-                                                                                <span className="flex items-center gap-1 text-[10px] font-bold text-sky-700 uppercase">
-                                                                                    <span className="text-sm" aria-hidden="true">❄</span> REFRIGERADO
-                                                                                </span>
-                                                                            )}
                                                                         </div>
                                                                     </div>
                                                                     <div className="mt-2 pt-2 border-t border-slate-200 space-y-2">
