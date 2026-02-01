@@ -13,8 +13,8 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     
-    <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Babel 7.24 - versión estable que evita error esmodules -->
+    <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1060,7 +1060,44 @@
         .animate-in {
             animation: slideInUp 0.3s ease-out;
         }
-        
+
+        /* Transiciones Login / Logout */
+        @keyframes transitionFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes transitionScaleIn {
+            from { opacity: 0; transform: scale(0.92); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes transitionProgressRing {
+            0% { stroke-dashoffset: 251.2; }
+            100% { stroke-dashoffset: 0; }
+        }
+        @keyframes transitionShimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        @keyframes transitionDotPulse {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        @keyframes transitionExitWave {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.3); opacity: 0.2; }
+        }
+        @keyframes transitionBarFill {
+            0% { transform: scaleX(0); }
+            100% { transform: scaleX(1); }
+        }
+        .transition-fade-in { animation: transitionFadeIn 0.4s ease-out forwards; }
+        .transition-scale-in { animation: transitionScaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        .transition-progress-ring { animation: transitionProgressRing 2.2s linear forwards; }
+        .transition-shimmer { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); background-size: 200% 100%; animation: transitionShimmer 1.5s ease-in-out infinite; }
+        .transition-dot-pulse { animation: transitionDotPulse 1s ease-in-out infinite; }
+        .transition-exit-wave { animation: transitionExitWave 1.2s ease-in-out infinite; }
+        .transition-bar-fill { transform-origin: left; animation: transitionBarFill 2.2s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
         /* Copos de nieve en tarjetas refrigeradas (Calidad) - interactuando en el fondo */
         @keyframes snowflakeFall {
             0% { transform: translateY(-15%) translateX(0) rotate(0deg); opacity: 0.85; }
@@ -1129,7 +1166,7 @@
 <body class="text-slate-600 h-screen overflow-hidden selection:bg-turquoise-200 selection:text-turquoise-900">
     <div id="root" class="h-full"></div>
 
-    <script type="text/babel" data-type="module">
+    <script type="text/babel" data-type="module" data-presets="env,react" data-targets="defaults">
         // CONFIGURACIÓN DE FIREBASE - NUEVA BASE DE DATOS
         const firebaseConfig = {
             apiKey: "AIzaSyBJYFlJFJgrGNKuxshG79zvMifPn57m5X8",
@@ -1523,7 +1560,7 @@
             }
         };
 
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
         
         // --- ICONS ---
         const Icon = ({ path, className = "w-5 h-5", size = 20 }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={`icon-elegant ${className || "w-5 h-5"}`.trim()} style={{ flexShrink: 0 }}>{path}</svg>;
@@ -2313,7 +2350,7 @@
 
         // --- BLOCK: CALENDARIO ---
         const getKitCalendarDate = (k) => {
-            const raw = (k.fechaConfirmacionContactCenter || k.fechaEntregaKit || k.fechaArmado || '').toString().trim();
+            const raw = (k.fechaEntregaKit || k.fechaConfirmacionContactCenter || k.fechaArmado || '').toString().trim();
             if (!raw) return '';
             if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
             try {
@@ -3115,6 +3152,7 @@
                     {showKitForm && (
                         <Modal isOpen={true} onClose={closeForm} title={formViewOnly ? (kitData.complemento ? 'Ver complemento — Despacho de medicamentos' : 'Ver kit — Despacho de medicamentos') : (kitData.complemento ? 'Complemento — Despacho de medicamentos — Verificar recetas' : 'Despacho de medicamentos — Verificar recetas')} maxWidth="max-w-4xl">
                             <form onSubmit={(e) => { e.preventDefault(); if (!formViewOnly) handleDespachoSubmit(e); }} className="space-y-5">
+                                <p className="text-[10px] text-slate-400 italic leading-tight">Verifique que las recetas físicas coincidan con el sistema. Marque cada medicamento verificado. Luego envíe a Operaciones.</p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                     <div>
                                         <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI</label>
@@ -3980,7 +4018,8 @@
                                         </div>
                                     </div>
                                     <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
-                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Operaciones</h5>
+                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 border-b border-slate-200 pb-1">Operaciones</h5>
+                                        <p className="text-[10px] text-slate-400 italic mt-1 leading-tight mb-3">Arme el kit físico con los medicamentos. Marque cuáles van refrigerados. Al guardar, el kit pasa a Calidad.</p>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Fecha Armado</label>
@@ -4506,6 +4545,7 @@
                                 </div>
                             ) : (
                                 <form onSubmit={handleTrabajarSubmit} className="space-y-5">
+                                    <p className="text-[10px] text-slate-400 italic leading-tight">Revise el kit armado. Indique cantidad real de cada medicamento. Reporte incidencias si hay faltantes o errores. Luego envíe a Logística.</p>
                                     {(() => {
                                         const pt = (patients || []).find(p => p.id === trabajarKit.patientId || (p.dni && trabajarKit.dni && String(p.dni).trim() === String(trabajarKit.dni).trim()));
                                         const k = trabajarKitLocal || trabajarKit;
@@ -5202,12 +5242,13 @@
             const isDelivery = userDeptLower === 'delivery' && (userRoles.includes('motorista') || userRoles.includes('supervisor'));
 
             const KIT_SECTIONS = { REV_ASIG: 'rev_asig', CONTACT_CENTER: 'contact_center', DESPACHO: 'despacho', OPERACIONES: 'operaciones', CALIDAD: 'calidad', LOGISTICA: 'logistica', DELIVERY: 'delivery' };
+            const KitHelpNote = ({ text }) => text ? <p className="text-[10px] text-slate-400 italic mt-1 leading-tight" title={text}>{text}</p> : null;
             const sectionUnlocked = (section, kit) => {
                 if (!kit || !editingKitId) return section === KIT_SECTIONS.REV_ASIG;
                 const k = kit.id ? kit : { ...kitData, ...kit };
                 switch (section) {
                     case KIT_SECTIONS.REV_ASIG: return true;
-                    case KIT_SECTIONS.CONTACT_CENTER: return !!(k.contactCenter && String(k.contactCenter).trim());
+                    case KIT_SECTIONS.CONTACT_CENTER: return !!(k.contactCenter && String(k.contactCenter).trim()) || (String(k.deliveryMode || '').toLowerCase() === 'ventanilla' && !!k.recetaImpresa);
                     case KIT_SECTIONS.DESPACHO: return !!k.confirmadoPorContactCenter;
                     case KIT_SECTIONS.OPERACIONES: return !!k.confirmadoPorContactCenter;
                     case KIT_SECTIONS.LOGISTICA: return !!k.recetaImpresa;
@@ -5977,8 +6018,13 @@
                 }
                 if (isAgenteContactCenter) {
                     if (klist.length === 0) return 'green';
-                    const pending = klist.some(k => !k.confirmadoPorContactCenter);
-                    return pending ? 'red' : 'green';
+                    const sorted = [...klist].sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0));
+                    const latest = sorted[0];
+                    const revNeverSent = !(latest.contactCenter && String(latest.contactCenter).trim());
+                    const esVentanilla = String(latest.deliveryMode || '').toLowerCase() === 'ventanilla';
+                    if (esVentanilla && revNeverSent) return 'purple';
+                    if (!latest.confirmadoPorContactCenter) return 'red';
+                    return 'green';
                 }
                 return 'green';
             };
@@ -6303,6 +6349,11 @@
                             alert('Confirme Ventanilla o Ruta antes de guardar.');
                             return;
                         }
+                        if (!(finalData.contactCenter && String(finalData.contactCenter).trim()) && (selectedPatientFullData?.agenteContactCenter || selectedPatient?.agenteContactCenter)) {
+                            const agente = (selectedPatientFullData?.agenteContactCenter || selectedPatient?.agenteContactCenter || '').trim();
+                            const contacto = (contacts || []).find(c => (c.name || '').trim().toLowerCase() === agente.toLowerCase());
+                            finalData.contactCenter = contacto ? `${contacto.name} --- ${contacto.phone || ''}` : agente;
+                        }
                         finalData.phoneHighlight = kitData.tipoTelefonoCC === 'personal' ? 'personal' : kitData.tipoTelefonoCC === 'familiar' ? 'familiar' : '';
                         finalData.direccionEntrega = kitData.esUbicacionPrincipal ? (selectedPatientFullData?.direccion || selectedPatient?.direccion || '').trim() : (kitData.direccionAlternativa || '').trim();
                         finalData.observationsEnabled = !!kitData.observacionesEntregaEnabled || kitData.tipoTelefonoCC === 'otro';
@@ -6355,6 +6406,7 @@
                         }
                     }
                     
+                    if (finalData.medicamentos) finalData.medicamentos = sortMedicamentosParaGuardar(finalData.medicamentos);
                     const kitId = await onSaveKit(editingKitId, finalData, selectedPatient.id, !!editingKitId);
                     
                     patientCache.clearPatientCache(selectedPatient.id);
@@ -6400,7 +6452,7 @@
                     const payload = {
                         recetaImpresa: true,
                         fechaImpresionReceta: today,
-                        medicamentos: kitData.medicamentos,
+                        medicamentos: sortMedicamentosParaGuardar(kitData.medicamentos),
                         triggerMeds,
                         digitador: currentUser.name,
                         dni: selectedPatient.dni,
@@ -6434,7 +6486,7 @@
                     const ccFields = ['devueltoPorContactCenter','deliveryMode','fechaEntregaKit','tipoTelefonoCC','phoneHighlight','esUbicacionPrincipal','direccionAlternativa','direccionEntrega','observacionesEntregaEnabled','observacionesEntrega','observationsEnabled','observations','gpsStatus','gpsValue','observacionesRegresoEnabled','observacionesRegresoFarmacia','confirmadoPorContactCenter','fechaConfirmacionContactCenter'];
                     const filtered = {};
                     ccFields.forEach(f => { if (payload[f] !== undefined) filtered[f] = payload[f]; });
-                    const finalData = { ...filtered, digitador: currentUser.name, dni: selectedPatient.dni, nombre: selectedPatient.nombre, patientId: selectedPatient.id, medicamentos: kitData.medicamentos };
+                    const finalData = { ...filtered, digitador: currentUser.name, dni: selectedPatient.dni, nombre: selectedPatient.nombre, patientId: selectedPatient.id, medicamentos: sortMedicamentosParaGuardar(kitData.medicamentos) };
                     await onSaveKit(editingKitId, finalData, selectedPatient.id, true);
                     patientCache.clearPatientCache(selectedPatient.id);
                     patientCache.clearCache(patientCache.KITS_CACHE_KEY);
@@ -6561,17 +6613,33 @@
                 setShowKitForm(true); 
             };
 
+            const medicamentosListRef = useRef(null);
             const addMedRow = () => {
                 const base = kitData.medicamentos || [];
+                const newMed = { nombre: '', idReceta: '', cantidad: '', cantRefri: '', dispensar: true, observaciones: '' };
                 setKitData({
                     ...kitData,
-                    medicamentos: [...base, { nombre: '', idReceta: '', cantidad: '', cantRefri: '', dispensar: true, observaciones: '' }]
+                    medicamentos: [newMed, ...base]
                 });
+                setTimeout(() => {
+                    medicamentosListRef.current?.querySelector('[data-med-row]')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+                }, 80);
             };
 
             const removeMedRow = (idx) => {
                 const next = (kitData.medicamentos || []).filter((_, i) => i !== idx);
                 setKitData({ ...kitData, medicamentos: next });
+            };
+
+            const sortMedicamentosParaGuardar = (meds) => {
+                if (!meds || !Array.isArray(meds)) return meds;
+                return [...meds].sort((a, b) => {
+                    const aVa = a.dispensar !== false;
+                    const bVa = b.dispensar !== false;
+                    if (aVa && !bVa) return -1;
+                    if (!aVa && bVa) return 1;
+                    return 0;
+                });
             };
 
             const handleMedChange = (idx, field, val) => {
@@ -8512,6 +8580,7 @@ html +
                                 <fieldset disabled={isViewMode} className="space-y-6">
                                     {isRevAsigFormView ? (
                                     <div className="space-y-5">
+                                        <KitHelpNote text="Flujo: Usted crea el kit → Contact Center confirma datos → Despacho verifica recetas → Operaciones arma → Logística envía → Calidad revisa → Delivery entrega." />
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI</label>
@@ -8537,6 +8606,7 @@ html +
                                                 <button type="button" onClick={() => setKitData({ ...kitData, deliveryMode: 'ruta' })} className={`relative z-10 flex-1 px-6 py-2.5 text-sm font-extrabold uppercase rounded-full ${kitData.deliveryMode === 'ruta' ? 'text-green-700' : 'text-slate-600'}`}>✓ RUTA</button>
                                             </div>
                                         </div>
+                                        <KitHelpNote text="Ventanilla: el paciente retira en sede. Ruta: entrega domiciliaria." />
                                         <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Fecha de entrega del kit</label>
                                             <input type="date" className="w-full max-w-xs p-2.5 border rounded-lg text-sm bg-white" value={toDateInputValue(kitData.fechaEntregaKit)} onChange={e=>setKitData({...kitData, fechaEntregaKit: e.target.value || ''})} />
@@ -8549,15 +8619,19 @@ html +
                                                     <button type="button" onClick={addMedRow} className="p-2 rounded-full bg-turquoise-500 text-white hover:bg-turquoise-600 transition-colors" title="Agregar medicamento"><span className="text-xl leading-none">+</span></button>
                                                 </div>
                                             </div>
-                                            <div className="space-y-3">
+                                            <p className="text-xs text-slate-500 mb-3 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                                                <strong>Entrada manual permitida:</strong> Si el medicamento no está en el catálogo, escríbalo directamente. No es necesario esperar a que el admin lo agregue.
+                                            </p>
+                                            <KitHelpNote text="Use + para agregar. Los nuevos aparecen arriba. Al guardar, los que van (Dispensar Sí) quedan arriba; los que no van abajo." />
+                                            <div ref={medicamentosListRef} className="space-y-3">
                                                 {(kitData.medicamentos||[]).map((med, idx) => {
                                                     const va = med.dispensar !== false;
                                                     return (
-                                                    <div key={idx} className={`p-3 rounded-lg border-2 shadow-sm space-y-2 transition-all ${va ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                                    <div key={idx} data-med-row className={`p-3 rounded-lg border-2 shadow-sm space-y-2 transition-all ${va ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                                                         <div className="flex flex-wrap gap-2 items-end">
                                                             <div className="flex-1 min-w-[180px]">
                                                                 <label className={`text-[10px] font-bold block ${va ? 'text-green-700' : 'text-red-700'}`}>Medicamento</label>
-                                                                <input list="medsList" className={`w-full p-2 border-2 rounded text-sm ${va ? 'border-green-300 bg-white focus:border-green-500' : 'border-red-300 bg-white focus:border-red-500'}`} value={med.nombre} onChange={e=>handleMedChange(idx,'nombre',e.target.value)} placeholder="Buscar..." />
+                                                                <input list="medsList" className={`w-full p-2 border-2 rounded text-sm ${va ? 'border-green-300 bg-white focus:border-green-500' : 'border-red-300 bg-white focus:border-red-500'}`} value={med.nombre} onChange={e=>handleMedChange(idx,'nombre',e.target.value)} onFocus={e=>e.target.closest('[data-med-row]')?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })} placeholder="Buscar en catálogo o escribir manualmente" />
                                                             </div>
                                                             <div className="flex items-center gap-2">
                                                                 <span className={`text-[10px] font-bold ${va ? 'text-green-700' : 'text-red-700'}`}>Dispensar</span>
@@ -8621,6 +8695,7 @@ html +
                                     </div>
                                     ) : isCCFormView ? (
                                     <div className="space-y-5">
+                                        <KitHelpNote text="Confirme los datos con el paciente por teléfono. Al guardar, el kit pasa a Despacho de medicamentos." />
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI</label>
@@ -8657,6 +8732,7 @@ html +
                                         <>
                                         <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">Teléfono confirmado</label>
+                                            <KitHelpNote text="Si es ruta, confirme teléfono, dirección y GPS para el motorista." />
                                             <div className="flex flex-wrap gap-2">
                                                 {['personal','familiar','ninguno','otro'].map(t => (
                                                     <button key={t} type="button" onClick={()=>setKitData({...kitData, tipoTelefonoCC: t, phoneHighlight: t === 'personal' ? 'personal' : t === 'familiar' ? 'familiar' : ''})} className={`px-4 py-2 rounded-xl border-2 text-sm font-bold capitalize ${kitData.tipoTelefonoCC === t ? 'border-turquoise-500 bg-turquoise-50 text-turquoise-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}>
@@ -8743,6 +8819,7 @@ html +
                                     </div>
                                     ) : isDespachoFormView ? (
                                     <div className="space-y-5">
+                                        <KitHelpNote text="Verifique que las recetas físicas coincidan con el sistema. Marque cada medicamento verificado. Al guardar, el kit pasa a Operaciones." />
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI</label>
@@ -8851,7 +8928,8 @@ html +
 
                                     <div className={`transition-all duration-300 ${kitData.deliveryMode === 'ventanilla' ? 'opacity-40 pointer-events-none grayscale' : sectionDisabled(KIT_SECTIONS.LOGISTICA) ? 'opacity-60 pointer-events-none' : ''}`}>
                                         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4">
-                                            <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Logística – Ruta (Datos obligatorios)</h5>
+                                            <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 border-b border-slate-200 pb-1">Logística – Ruta (Datos obligatorios)</h5>
+                                            <KitHelpNote text="Indique teléfono, dirección de entrega y GPS para el motorista." />
                                             
                                             <div className="space-y-3 mb-4">
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block">Teléfonos del paciente (se imprimen los 2; el seleccionado se marca en recuadro):</label>
@@ -8972,7 +9050,8 @@ html +
                                     </div>
 
                                     <div className={`border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4 transition-all ${sectionDisabled(KIT_SECTIONS.REV_ASIG) ? 'opacity-60 pointer-events-none' : ''}`}>
-                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Revisión y asignación</h5>
+                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 border-b border-slate-200 pb-1">Revisión y asignación</h5>
+                                        <KitHelpNote text="Origen del kit. Aquí se crea con medicamentos y tipo de entrega (ventanilla/ruta)." />
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Contact Center</label>
@@ -8991,7 +9070,8 @@ html +
                                     </div>
 
                                     <div className={`border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4 transition-all ${sectionDisabled(KIT_SECTIONS.OPERACIONES) ? 'opacity-60 pointer-events-none' : ''}`}>
-                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Operaciones</h5>
+                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 border-b border-slate-200 pb-1">Operaciones</h5>
+                                        <KitHelpNote text="Operaciones arma el kit físico. El operador de empaque indica cantidades de cada medicamento." />
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-xl border border-slate-100 mb-4">
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI del Paciente</label>
@@ -9031,7 +9111,8 @@ html +
                                     </div>
 
                                     <div className={`border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4 transition-all ${sectionDisabled(KIT_SECTIONS.LOGISTICA) ? 'opacity-60 pointer-events-none' : ''}`}>
-                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Logística</h5>
+                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 border-b border-slate-200 pb-1">Logística</h5>
+                                        <KitHelpNote text="Fecha en que el kit se entrega a logística para envío al paciente." />
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Entrega a Logística</label>
@@ -9049,7 +9130,8 @@ html +
                                     </div>
 
                                     <div className={`border border-slate-200 rounded-xl p-4 bg-slate-50/50 mb-4 transition-all ${sectionDisabled(KIT_SECTIONS.DELIVERY) ? 'opacity-60 pointer-events-none' : ''}`}>
-                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-200 pb-1">Delivery</h5>
+                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 border-b border-slate-200 pb-1">Delivery</h5>
+                                        <KitHelpNote text="Fecha de entrega del kit al paciente." />
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Entrega de Kit (Paciente)</label>
@@ -9077,18 +9159,24 @@ html +
                                                     <label className="text-xs font-bold text-slate-500">% Medicamentos:</label>
                                                     <input type="text" className="w-20 p-1 border rounded text-center font-bold bg-white" value={kitData.triggerMeds} onChange={e=>handleTriggerMeds(e.target.value)} placeholder="Ej: 6/9" />
                                                 </div>
+                                                <button type="button" onClick={addMedRow} className="p-2 rounded-full bg-turquoise-500 text-white hover:bg-turquoise-600 transition-colors" title="Agregar medicamento"><span className="text-xl leading-none">+</span></button>
                                             </div>
                                         </div>
-                                        <div className="space-y-3">
-                                            {kitData.medicamentos.map((med, idx) => (
-                                                <div key={idx} className="bg-white p-3 rounded-lg border shadow-sm flex flex-col md:flex-row gap-2 items-end">
-                                                    <div className="flex-1 w-full">
+                                        <KitHelpNote text="Verifica recetas físicas. La cantidad la indica Operaciones al armar el kit." />
+                                        <p className="text-xs text-slate-500 mb-3 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                                            <strong>Entrada manual permitida:</strong> Si el medicamento no está en el catálogo, escríbalo directamente.
+                                        </p>
+                                        <div ref={medicamentosListRef} className="space-y-3">
+                                            {(kitData.medicamentos||[]).map((med, idx) => (
+                                                <div key={idx} data-med-row className="bg-white p-3 rounded-lg border shadow-sm flex flex-col md:flex-row gap-2 items-end">
+                                                    <div className="flex-1 w-full min-w-0">
                                                         <label className="text-[10px] font-bold text-slate-400 block">Medicamento</label>
-                                                        <input list="medsList" className="w-full p-1.5 border rounded text-xs" value={med.nombre} onChange={e => handleMedChange(idx, 'nombre', e.target.value)} placeholder="Buscar..." />
+                                                        <input list="medsList" className="w-full p-1.5 border rounded text-xs" value={med.nombre} onChange={e => handleMedChange(idx, 'nombre', e.target.value)} onFocus={e=>e.target.closest('[data-med-row]')?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })} placeholder="Buscar en catálogo o escribir manualmente" />
                                                     </div>
+                                                    <button type="button" onClick={()=>removeMedRow(idx)} className="p-1.5 text-slate-400 hover:text-red-500 rounded shrink-0" title="Quitar">×</button>
                                                 </div>
                                             ))}
-                                            {kitData.medicamentos.length === 0 && <div className="text-center text-xs text-slate-400 italic py-4">Use el botón + para agregar medicamentos.</div>}
+                                            {(kitData.medicamentos||[]).length === 0 && <div className="text-center text-xs text-slate-400 italic py-4">Use el botón + para agregar medicamentos.</div>}
                                         </div>
                                     </div>
 
@@ -9222,10 +9310,20 @@ html +
                                     </div>
                                 )}
                             </div>
+                            {isAgenteContactCenter && patientKits.length > 0 && (
+                                <p className="text-[10px] text-slate-400 italic mb-2">Morado: Ventanilla, Revisión no lo envió — puede trabajar. Verde: ya lo trabajó.</p>
+                            )}
                             <div className="grid gap-3">
                                 {patientKits.map(kit => {
                                     const sem = getPatientSemaphore(selectedPatient, patientKits);
-                                    const semBorder = sem === 'red' ? 'border-l-4 border-l-red-500 bg-red-50/30' : sem === 'orange' ? 'border-l-4 border-l-amber-500 bg-amber-50/30' : 'border-l-4 border-l-green-500 bg-green-50/30';
+                                    const kitSem = isAgenteContactCenter ? (() => {
+                                        const revNeverSent = !(kit.contactCenter && String(kit.contactCenter).trim());
+                                        const esVentanilla = String(kit.deliveryMode || '').toLowerCase() === 'ventanilla';
+                                        if (esVentanilla && revNeverSent) return 'purple';
+                                        if (!kit.confirmadoPorContactCenter) return 'red';
+                                        return 'green';
+                                    })() : sem;
+                                    const semBorder = (isAgenteContactCenter ? kitSem : sem) === 'red' ? 'border-l-4 border-l-red-500 bg-red-50/30' : (isAgenteContactCenter ? kitSem : sem) === 'purple' ? 'border-l-4 border-l-violet-500 bg-violet-50/30' : (isAgenteContactCenter ? kitSem : sem) === 'orange' ? 'border-l-4 border-l-amber-500 bg-amber-50/30' : 'border-l-4 border-l-green-500 bg-green-50/30';
                                     return (
                                     <div key={kit.id} className={`p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-4 relative group ${semBorder}`}>
                                         <div className="flex-1">
@@ -9281,22 +9379,33 @@ html +
                                                     )}
                                                 </>
                                             ) : (() => {
-                                                const ccAsignado = (kit.contactCenter || '').trim().toLowerCase();
                                                 const ccYo = (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim().toLowerCase();
-                                                const esMiAsignado = !!ccAsignado && !!ccYo && ccAsignado === ccYo;
-                                                const ccPuedeModificar = isAgenteContactCenter && esMiAsignado;
-                                                const soloVisualizar = (folderSoloLectura || kit.trabajadoOperaciones) && !ccPuedeModificar;
-                                                if (soloVisualizar) {
+                                                const ccKitRaw = (kit.contactCenter || '').trim();
+                                                const ccPatient = (selectedPatientFullData?.agenteContactCenter || selectedPatient?.agenteContactCenter || '').trim();
+                                                const norm = (s) => (s || '').toLowerCase().replace(/\s*---.*$/, '').trim();
+                                                const revNeverSent = !(kit.contactCenter && String(kit.contactCenter).trim());
+                                                const esVentanilla = String(kit.deliveryMode || '').toLowerCase() === 'ventanilla';
+                                                const esMiAsignado = !!ccYo && (norm(ccKitRaw) === ccYo || norm(ccPatient) === ccYo);
+                                                const ccPuedeModificar = isAgenteContactCenter && (esMiAsignado || (esVentanilla && revNeverSent && norm(ccPatient) === ccYo));
+                                                const soloVisualizar = isAgenteContactCenter && (folderSoloLectura || kit.trabajadoOperaciones) && !ccPuedeModificar;
+                                                if (isAgenteContactCenter) {
+                                                    if (soloVisualizar) {
+                                                        return (
+                                                            <button onClick={() => openEditKit(kit, true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 text-xs font-bold" title={kit.trabajadoOperaciones ? "Solo visualización y reimprimir viñetas" : "Solo visualización"}>
+                                                                <Icons.Eye size={16}/> Ver
+                                                            </button>
+                                                        );
+                                                    }
+                                                    if (ccPuedeModificar) {
+                                                        return (
+                                                            <button onClick={() => openEditKit(kit, false)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-turquoise-50 text-turquoise-700 hover:bg-turquoise-100 border border-turquoise-200 text-xs font-bold" title={esVentanilla && revNeverSent ? "Trabajar kit (Revisión nunca lo mandó — puede modificar tipo de envío)" : "Ver / Editar kit"}>
+                                                                <Icons.Edit size={16}/> {esVentanilla && revNeverSent ? 'Trabajar' : 'Ver / Editar'}
+                                                            </button>
+                                                        );
+                                                    }
                                                     return (
-                                                        <button onClick={() => openEditKit(kit, true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 text-xs font-bold" title={kit.trabajadoOperaciones ? "Solo visualización y reimprimir viñetas" : "Solo visualización"}>
-                                                            <Icons.Eye size={16}/> Visualizar
-                                                        </button>
-                                                    );
-                                                }
-                                                if (ccPuedeModificar && (folderSoloLectura || kit.trabajadoOperaciones)) {
-                                                    return (
-                                                        <button onClick={() => openEditKit(kit, false)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 text-xs font-bold" title="Modificar información del kit (Contact Center)">
-                                                            <Icons.Edit size={16}/> Modificar
+                                                        <button onClick={() => openEditKit(kit, true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 text-xs font-bold" title="Solo visualización">
+                                                            <Icons.Eye size={16}/> Ver
                                                         </button>
                                                     );
                                                 }
@@ -11301,11 +11410,77 @@ html +
             );
         };
 
+        const formatDepartamento = (d) => {
+            if (!d) return 'Sistema';
+            return String(d).split(/[\s_-]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+        };
+
+        const TransitionScreen = ({ phase, data }) => {
+            const isEntering = phase === 'entering';
+            const msg = isEntering 
+                ? `Ingresando al ${formatDepartamento(data?.departamento)}`
+                : 'Cerrando sesión';
+            const subMsg = data?.nombre || '';
+            const cx = 44; const cy = 44; const r = 40;
+            const circumference = 2 * Math.PI * r;
+            return (
+                <div className={`fixed inset-0 z-[200] flex flex-col items-center justify-center transition-fade-in overflow-hidden ${isEntering ? 'bg-gradient-to-br from-turquoise-900 via-teal-900 to-emerald-900' : 'bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800'}`} style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                    {/* Fondo decorativo */}
+                    <div className="absolute inset-0 opacity-20">
+                        <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
+                        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-white/5 blur-3xl" />
+                    </div>
+                    <div className="relative z-10 flex flex-col items-center justify-center px-6 transition-scale-in">
+                        {/* Logo IHSS */}
+                        <div className="mb-8 flex items-center gap-3">
+                            <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center shadow-xl border border-white/20 overflow-hidden">
+                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" alt="IHSS" className="w-9 h-9 object-contain" onError={e => { e.target.style.display = 'none'; }} />
+                            </div>
+                            <span className="text-white font-bold text-xl brand-font tracking-tight">IHSS A TU CASA</span>
+                        </div>
+                        {/* Indicador circular (login) o icono salida (logout) */}
+                        {isEntering ? (
+                            <div className="relative mb-8">
+                                <svg className="w-24 h-24 -rotate-90" viewBox="0 0 88 88">
+                                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="4" />
+                                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={0} className="transition-progress-ring" style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.5))' }} />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <svg className="w-8 h-8 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="relative mb-8">
+                                <div className="w-24 h-24 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20 transition-exit-wave">
+                                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                                </div>
+                            </div>
+                        )}
+                        <h2 className="text-xl md:text-2xl font-bold text-white text-center brand-font max-w-xs">{msg}</h2>
+                        {subMsg && <p className="text-white/70 text-sm mt-3 font-medium">{subMsg}</p>}
+                        {/* Barra de carga o puntos */}
+                        {isEntering ? (
+                            <div className="mt-8 w-48 h-1.5 rounded-full bg-white/20 overflow-hidden">
+                                <div className="h-full rounded-full bg-white/95 transition-bar-fill" style={{ width: '100%' }} />
+                            </div>
+                        ) : (
+                            <div className="mt-8 flex gap-2">
+                                {[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-white/80 transition-dot-pulse" style={{ animationDelay: `${i * 0.2}s` }} />)}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
         // --- MAIN APP ---
         const App = () => {
             const [role, setRole] = useState(sessionStorage.getItem('leq_role'));
             const [userName, setUserName] = useState(sessionStorage.getItem('leq_username'));
             const [currentUserData, setCurrentUserData] = useState(null);
+            const [transitionPhase, setTransitionPhase] = useState(null);
+            const [transitionData, setTransitionData] = useState(null);
+            const pendingLoginRef = useRef(null);
             const [view, setView] = useState('dashboard');
             const [pendingTrabajarKitId, setPendingTrabajarKitId] = useState(null);
             const [patients, setPatients] = useState([]);
@@ -12662,17 +12837,7 @@ Responde en formato JSON con esta estructura:
                 };
             }, []);
 
-            const handleLogout = () => { 
-                // NO LIMPIAR EL CACHE al cerrar sesión
-                sessionStorage.removeItem('leq_role');
-                sessionStorage.removeItem('leq_username');
-                sessionStorage.removeItem('leq_userData');
-                setRole(null); 
-                setUserName(null); 
-                setCurrentUserData(null);
-            };
-            
-            const handleLogin = (r, n, userData = null) => { 
+            const applyLogin = (r, n, userData) => {
                 setRole(r); 
                 setUserName(n); 
                 setCurrentUserData(userData);
@@ -12682,6 +12847,39 @@ Responde en formato JSON con esta estructura:
                     sessionStorage.setItem('leq_userData', JSON.stringify(userData));
                 }
             };
+
+            const handleLogout = () => { 
+                setTransitionPhase('exiting');
+                setTransitionData({ nombre: userName });
+            };
+            
+            const handleLogin = (r, n, userData = null) => { 
+                const dept = (userData?.departamento || 'Sistema').trim();
+                setTransitionPhase('entering');
+                setTransitionData({ departamento: dept, nombre: n });
+                pendingLoginRef.current = { r, n, userData };
+            };
+
+            useEffect(() => {
+                if (!transitionPhase) return;
+                const t = setTimeout(() => {
+                    if (transitionPhase === 'entering' && pendingLoginRef.current) {
+                        const { r, n, userData } = pendingLoginRef.current;
+                        pendingLoginRef.current = null;
+                        applyLogin(r, n, userData);
+                    } else if (transitionPhase === 'exiting') {
+                        sessionStorage.removeItem('leq_role');
+                        sessionStorage.removeItem('leq_username');
+                        sessionStorage.removeItem('leq_userData');
+                        setRole(null); 
+                        setUserName(null); 
+                        setCurrentUserData(null);
+                    }
+                    setTransitionPhase(null);
+                    setTransitionData(null);
+                }, 2200);
+                return () => clearTimeout(t);
+            }, [transitionPhase]);
             
             // Cargar datos del usuario desde sessionStorage al iniciar (departamento, rolesDepartamento, etc.)
             useEffect(() => {
@@ -13277,6 +13475,7 @@ Responde en formato JSON con esta estructura:
                 return <FirebaseConnectionScreen />;
             }
             
+            if (transitionPhase) return <TransitionScreen phase={transitionPhase} data={transitionData} />;
             if (!role) return <LoginBlock onLogin={handleLogin} />;
 
             const NavItem = ({ id, label, icon: Icon }) => (
