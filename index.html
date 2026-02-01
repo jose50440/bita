@@ -1013,7 +1013,10 @@
             .mobile-content-area { min-height: 0 !important; }
             .mobile-modal-top { top: 44px !important; }
         }
-        .glass-panel { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05); }
+        .glass-panel { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.7); box-shadow: 0 8px 32px 0 rgba(13, 148, 136, 0.08), 0 0 0 1px rgba(255,255,255,0.5) inset; }
+        .glass-panel-futuro { background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(240,253,250,0.85) 50%, rgba(220,252,231,0.85) 100%); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(20, 184, 166, 0.15); box-shadow: 0 12px 40px -10px rgba(13, 148, 136, 0.15), 0 0 0 1px rgba(255,255,255,0.6) inset; }
+        .futuro-orb { position: absolute; border-radius: 9999px; pointer-events: none; }
+        .futuro-glow { box-shadow: 0 0 20px rgba(13, 148, 136, 0.2), 0 0 40px rgba(34, 197, 94, 0.08); }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -1666,8 +1669,8 @@
             }, [isOpen, onClose]);
             if (!isOpen) return null;
             return (
-                <div className="mobile-modal-top fixed left-0 right-0 bottom-0 top-14 md:top-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col modal-animate p-6 text-center">
+                <div className="mobile-modal-top fixed left-0 right-0 bottom-0 top-14 md:top-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in">
+                    <div className="glass-panel-futuro rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col modal-animate p-6 text-center border-turquoise-200/30" style={{ boxShadow: '0 24px 48px -12px rgba(13, 148, 136, 0.2)' }}>
                         <h3 className="text-lg font-medium text-slate-900 mb-2">{title}</h3>
                         <p className="text-sm text-slate-500 mb-6">{message}</p>
                         <div className="flex justify-center gap-3">
@@ -1837,8 +1840,12 @@
             }
             
             return (
-                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-turquoise-50 to-clinical-50 p-6">
-                    <div className="glass-panel p-10 rounded-3xl shadow-soft w-full max-w-md border-white/50 text-center">
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-turquoise-100 via-teal-50 to-clinical-50 p-6 relative overflow-hidden">
+                    <div className="absolute inset-0 pointer-events-none">
+                        <div className="futuro-orb top-1/4 left-1/4 w-64 h-64 bg-turquoise-300/20 blur-3xl" />
+                        <div className="futuro-orb bottom-1/4 right-1/4 w-80 h-80 bg-clinical-400/15 blur-3xl" />
+                    </div>
+                    <div className="glass-panel-futuro futuro-glow p-10 rounded-3xl w-full max-w-md text-center relative z-10">
                         <div className="mb-8">
                             {status === 'initializing' ? (
                                 <div className="bg-gradient-to-tr from-turquoise-500 to-clinical-400 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow text-white animate-pulse">
@@ -2173,20 +2180,39 @@
             };
             
             return (
-                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-turquoise-50 to-clinical-50 p-6 relative">
-                    <div className="absolute top-6 right-6 flex flex-col gap-2">
-                        <div className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 shadow-sm transition-all ${isOnline ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-turquoise-100 via-teal-50 to-clinical-50 p-6 relative overflow-hidden">
+                    {/* Orbes decorativos estilo futurista */}
+                    <div className="absolute inset-0 pointer-events-none">
+                        <div className="futuro-orb top-1/4 left-1/4 w-64 h-64 bg-turquoise-300/20 blur-3xl" />
+                        <div className="futuro-orb bottom-1/4 right-1/4 w-80 h-80 bg-clinical-400/15 blur-3xl" />
+                        <div className="futuro-orb top-1/2 left-1/2 w-40 h-40 bg-turquoise-400/10 blur-2xl -translate-x-1/2 -translate-y-1/2" />
+                    </div>
+                    <div className="absolute top-6 right-6 flex flex-col gap-2 z-20">
+                        <div className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 shadow-sm backdrop-blur-md transition-all border ${isOnline ? 'bg-green-100/90 text-green-700 border-green-200' : 'bg-red-100/90 text-red-700 border-red-200'}`}>
                             {isOnline ? <Icons.Wifi size={16}/> : <Icons.WifiOff size={16}/>}
                             {isOnline ? 'Conectado a Internet' : 'Sin Conexión'}
                         </div>
-                        <div className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 ${firebaseStatus === 'Conectado' ? 'bg-green-100 text-green-700 border border-green-200' : firebaseStatus === 'Conectando...' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
+                        <div className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 backdrop-blur-md border ${firebaseStatus === 'Conectado' ? 'bg-green-100/90 text-green-700 border-green-200' : firebaseStatus === 'Conectando...' ? 'bg-yellow-100/90 text-yellow-700 border-yellow-200' : 'bg-red-100/90 text-red-700 border-red-200'}`}>
                             {firebaseStatus === 'Conectado' ? '✅ Base de datos' : firebaseStatus === 'Conectando...' ? '🔄 Conectando...' : '❌ Base de datos'}
                         </div>
                     </div>
 
-                    <div className="glass-panel p-10 rounded-3xl shadow-soft w-full max-w-sm border-white/50 relative z-10">
+                    {/* GIF animado - solo en PC, lado izquierdo. Archivo local login-animacion.gif (incluir en GitHub/hosting). */}
+                    <div className="hidden md:block absolute left-8 xl:left-16 top-1/2 -translate-y-1/2 w-48 xl:w-56 max-h-[320px] z-[5] pointer-events-none">
+                        <img 
+                            src="./login-animacion.gif" 
+                            alt="IHSS A Tu Casa" 
+                            className="w-full h-auto max-h-[320px] object-contain object-center"
+                            onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://i.ibb.co/JWjBx8LL/Dise-o-sin-t-tulo-1.gif';
+                            }}
+                        />
+                    </div>
+
+                    <div className="glass-panel-futuro futuro-glow p-10 rounded-3xl w-full max-w-sm relative z-10">
                         <div className="text-center mb-10">
-                            <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-glow overflow-hidden bg-white">
+                            <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 overflow-hidden bg-white/90 backdrop-blur-sm border border-turquoise-200/50 shadow-lg" style={{ boxShadow: '0 0 24px rgba(13, 148, 136, 0.15)' }}>
                                 <img 
                                     src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" 
                                     alt="IHSS Logo" 
@@ -2207,7 +2233,7 @@
                                     <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Usuario</label>
                                     <input 
                                         type="text" 
-                                        className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl outline-none focus:border-turquoise-500 transition-colors" 
+                                        className="w-full px-4 py-3 bg-white/70 backdrop-blur-sm border border-slate-200/80 rounded-xl outline-none focus:border-turquoise-500 focus:ring-2 focus:ring-turquoise-500/20 transition-all" 
                                         value={username} 
                                         onChange={(e) => setUsername(e.target.value)} 
                                         required 
@@ -2217,7 +2243,7 @@
                                     <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Contraseña</label>
                                     <input 
                                         type="password" 
-                                        className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl outline-none focus:border-turquoise-500 transition-colors" 
+                                        className="w-full px-4 py-3 bg-white/70 backdrop-blur-sm border border-slate-200/80 rounded-xl outline-none focus:border-turquoise-500 focus:ring-2 focus:ring-turquoise-500/20 transition-all" 
                                         value={password} 
                                         onChange={(e) => setPassword(e.target.value)} 
                                         required 
@@ -2227,7 +2253,7 @@
                             <button 
                                 type="submit" 
                                 disabled={loading} 
-                                className="w-full bg-gradient-to-r from-turquoise-500 to-clinical-500 text-white font-bold py-3.5 rounded-xl shadow-lg mt-4 btn-hover-effect"
+                                className="w-full bg-gradient-to-r from-turquoise-500 to-clinical-500 text-white font-bold py-3.5 rounded-xl shadow-lg mt-4 btn-hover-effect focus:ring-2 focus:ring-turquoise-500/40 focus:ring-offset-2"
                             >
                                 {loading ? 'Verificando...' : 'Iniciar Sesión'}
                             </button>
@@ -2289,7 +2315,8 @@
 
             return (
                 <div className="w-full min-w-0 max-w-6xl mx-auto space-y-6 md:space-y-8 animate-in px-0">
-                    <div className="bg-gradient-to-r from-turquoise-600 to-clinical-600 rounded-2xl md:rounded-3xl p-5 md:p-8 text-white shadow-lg relative overflow-hidden">
+                    <div className="bg-gradient-to-r from-turquoise-600 via-teal-600 to-clinical-600 rounded-2xl md:rounded-3xl p-5 md:p-8 text-white shadow-lg relative overflow-hidden border border-turquoise-500/20" style={{ boxShadow: '0 12px 40px -10px rgba(13, 148, 136, 0.4), 0 0 0 1px rgba(255,255,255,0.2) inset' }}>
+                        <div className="absolute inset-0 pointer-events-none"><div className="futuro-orb top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl -mr-24 -mt-24" /></div>
                         <div className="relative z-10">
                             <h1 className="text-3xl font-bold brand-font mb-2">¡Hola, {userName}!</h1>
                             <p className="opacity-90 text-sm font-medium uppercase tracking-wider">Plataforma de Dispensación</p>
@@ -2310,12 +2337,12 @@
                         <div className="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-right"></div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-white p-6 rounded-3xl shadow-soft border border-slate-100 flex flex-col justify-center items-center text-center">
+                        <div className="glass-panel-futuro p-6 rounded-3xl flex flex-col justify-center items-center text-center futuro-glow">
                             <div className="text-5xl font-mono font-bold text-slate-700 tracking-widest mb-2">{time.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
                             <div className="text-sm text-slate-400 font-medium uppercase">{time.toLocaleDateString([], {weekday:'long', day:'numeric', month:'long'})}</div>
                         </div>
                         <div className="md:col-span-2">
-                            <div className="bg-white p-6 rounded-3xl shadow-soft border border-slate-100 flex items-center gap-4">
+                            <div className="glass-panel-futuro p-6 rounded-3xl flex items-center gap-4 futuro-glow">
                                 <div className="p-4 bg-turquoise-50 text-turquoise-600 rounded-2xl"><Icons.Box size={32}/></div>
                                 <div>
                                     <div className="text-3xl font-bold text-slate-800"><AnimatedCounter value={userStats.workToday}/></div>
@@ -2333,7 +2360,7 @@
                             <button 
                                 key={c.id} 
                                 onClick={() => setView(c.id)} 
-                                className="group relative bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl shadow-soft border border-slate-100 hover:shadow-xl transition-all duration-300 text-left hover:-translate-y-1 overflow-hidden touch-manipulation min-h-[100px]"
+                                className="group relative glass-panel-futuro p-5 md:p-6 rounded-2xl md:rounded-3xl hover:shadow-xl transition-all duration-300 text-left hover:-translate-y-1 overflow-hidden touch-manipulation min-h-[100px] hover:border-turquoise-300/40"
                             >
                                 <div className={`absolute top-0 right-0 w-24 h-24 ${c.color} opacity-10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
                                 <div className={`w-12 h-12 rounded-2xl ${c.color} flex items-center justify-center text-white mb-4 shadow-md group-hover:scale-110 transition-transform`}>
@@ -2837,6 +2864,18 @@
             }, [kits, currentUser?.name]);
             const listaKitsVentanilla = useMemo(() => listaKits.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKits]);
             const listaKitsRuta = useMemo(() => listaKits.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKits]);
+            const listaKitsRefrigerados = useMemo(() => {
+                return (kits || []).filter(k => {
+                    if (!k.fechaEntregaLogistica || !String(k.fechaEntregaLogistica).trim()) return false;
+                    if (k.refrigeradosDespachados) return false;
+                    const hasRefri = !!(k.enviadoADespachoRefrigerados || (k.isRefrigerated && (parseInt(String(k.cantRefriGlobal || 0), 10) > 0)));
+                    if (!hasRefri) return false;
+                    const medsRefri = (k.medicamentos || []).filter(m => m.refrigerado === true);
+                    return medsRefri.length > 0;
+                }).sort((a, b) => new Date(b.fechaEnvioDespachoRefrigerados || b.fechaEntregaLogistica || 0) - new Date(a.fechaEnvioDespachoRefrigerados || a.fechaEntregaLogistica || 0));
+            }, [kits]);
+            const listaRefriVentanilla = useMemo(() => listaKitsRefrigerados.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsRefrigerados]);
+            const listaRefriRuta = useMemo(() => listaKitsRefrigerados.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsRefrigerados]);
             const bitacoraPorDia = useMemo(() => {
                 const porFecha = {};
                 (kits || []).forEach(k => {
@@ -2865,6 +2904,7 @@
             }, [kits]);
             const [listaEsperaTab, setListaEsperaTab] = useState('ventanilla');
             const [listaEsperaSearch, setListaEsperaSearch] = useState('');
+            const [vistaDespacho, setVistaDespacho] = useState('normal'); // 'normal' | 'refrigerados'
             const [bitacoraFechaAbierta, setBitacoraFechaAbierta] = useState(null);
             const [bitacoraModalSearch, setBitacoraModalSearch] = useState('');
             const [bitacoraCarpetasSearch, setBitacoraCarpetasSearch] = useState('');
@@ -2883,7 +2923,9 @@
             const handleMedChange = (idx, field, val) => {
                 const v = (field === 'nombre' || field === 'observaciones' || field === 'idReceta') ? toUpper(val) : val;
                 const newMeds = [...(kitData.medicamentos || [])];
-                newMeds[idx] = { ...newMeds[idx], [field]: v };
+                const current = newMeds[idx] || {};
+                newMeds[idx] = { ...current, [field]: v };
+                if (field === 'dispensar' && v === true) newMeds[idx].observaciones = '';
                 setKitData({ ...kitData, medicamentos: newMeds });
             };
             const openKitForm = (kit, viewOnly) => {
@@ -2954,6 +2996,13 @@
                     alert('Error al enviar ' + (esComplemento ? 'complemento' : 'a Operaciones') + ': ' + (e?.message || e));
                 }
             };
+            const handleMarcarRefrigeradosSacados = async (kit) => {
+                try {
+                    await onSaveKit(kit.id, { refrigeradosDespachados: true }, kit.patientId, true);
+                } catch (e) {
+                    alert('Error al marcar refrigerados sacados: ' + (e?.message || e));
+                }
+            };
             const formatearFechaBitacora = (f) => {
                 if (!f) return '';
                 const d = new Date(f + 'T12:00:00');
@@ -3017,7 +3066,41 @@
                     </div>
                 );
             };
+            const renderRefriRow = (kit) => {
+                const pt = (patients || []).find(p => p.id === kit.patientId || (p.dni && kit.dni && String(p.dni).trim() === String(kit.dni).trim()));
+                const medsRefri = (kit.medicamentos || []).filter(m => m.refrigerado === true);
+                const nombresRefri = medsRefri.map(m => m.nombre || '—').filter(Boolean);
+                const cantRefri = medsRefri.length;
+                return (
+                    <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4 border-b border-slate-100 last:border-b-0">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-slate-800">{kit.nombre || pt?.nombre || '—'}</span>
+                                <span className="px-2 py-0.5 rounded-lg bg-sky-100 text-sky-800 text-xs font-bold">❄ {cantRefri} refrigerado(s)</span>
+                            </div>
+                            <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                <span>DNI: {kit.dni || pt?.dni || '—'}</span>
+                                <span className={kit.deliveryMode === 'ruta' ? 'text-emerald-600 font-semibold' : 'text-indigo-600 font-semibold'}>
+                                    {kit.deliveryMode === 'ruta' ? 'Ruta' : kit.deliveryMode === 'ventanilla' ? 'Ventanilla' : '—'}
+                                </span>
+                            </div>
+                            <div className="mt-2 text-xs text-slate-600">
+                                <span className="font-bold text-slate-700">Medicamentos refrigerados:</span>
+                                <ul className="list-disc list-inside mt-0.5 space-y-0.5">
+                                    {nombresRefri.map((n, i) => <li key={i}>{n}</li>)}
+                                </ul>
+                            </div>
+                        </div>
+                        <div>
+                            <button onClick={() => handleMarcarRefrigeradosSacados(kit)} className="px-4 py-2 rounded-xl bg-sky-600 text-white font-bold text-sm hover:bg-sky-700 transition-colors btn-hover-effect flex items-center gap-2">
+                                Marcar refrigerados sacados
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
             const listadoParaTab = listaEsperaTab === 'ventanilla' ? listaKitsVentanilla : listaKitsRuta;
+            const listadoRefriParaTab = listaEsperaTab === 'ventanilla' ? listaRefriVentanilla : listaRefriRuta;
             const listadoFiltrado = useMemo(() => {
                 const t = (listaEsperaSearch || '').trim().toLowerCase();
                 if (!t) return listadoParaTab;
@@ -3028,29 +3111,55 @@
                     return nombre.includes(t) || dni.includes(t);
                 });
             }, [listadoParaTab, patients, listaEsperaSearch]);
+            const listadoRefriFiltrado = useMemo(() => {
+                const t = (listaEsperaSearch || '').trim().toLowerCase();
+                if (!t) return listadoRefriParaTab;
+                return listadoRefriParaTab.filter(kit => {
+                    const pt = (patients || []).find(p => p.id === kit.patientId || (p.dni && kit.dni && String(p.dni).trim() === String(kit.dni).trim()));
+                    const nombre = (kit.nombre || pt?.nombre || '').toLowerCase();
+                    const dni = (kit.dni || pt?.dni || '').toString().toLowerCase();
+                    return nombre.includes(t) || dni.includes(t);
+                });
+            }, [listadoRefriParaTab, patients, listaEsperaSearch]);
 
             useEffect(() => {
                 if (listaEsperaTab === 'bitacora') return;
-                if (listaEsperaTab === 'ventanilla' && listaKitsVentanilla.length === 0 && listaKitsRuta.length > 0) setListaEsperaTab('ruta');
-                else if (listaEsperaTab === 'ruta' && listaKitsRuta.length === 0 && listaKitsVentanilla.length > 0) setListaEsperaTab('ventanilla');
-            }, [listaEsperaTab, listaKitsVentanilla.length, listaKitsRuta.length]);
+                const ventanilla = vistaDespacho === 'refrigerados' ? listaRefriVentanilla : listaKitsVentanilla;
+                const ruta = vistaDespacho === 'refrigerados' ? listaRefriRuta : listaKitsRuta;
+                if (listaEsperaTab === 'ventanilla' && ventanilla.length === 0 && ruta.length > 0) setListaEsperaTab('ruta');
+                else if (listaEsperaTab === 'ruta' && ruta.length === 0 && ventanilla.length > 0) setListaEsperaTab('ventanilla');
+            }, [listaEsperaTab, vistaDespacho, listaKitsVentanilla.length, listaKitsRuta.length, listaRefriVentanilla.length, listaRefriRuta.length]);
 
             return (
                 <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <h2 className="text-2xl font-bold text-slate-800 brand-font">Lista de espera — Despacho de medicamentos</h2>
-                        <p className="text-sm text-slate-500">Kits que vienen de Revisión y asignación</p>
+                        <p className="text-sm text-slate-500">{vistaDespacho === 'refrigerados' ? 'Kits con refrigerados enviados a logística — sacar medicamentos' : 'Kits que vienen de Revisión y asignación'}</p>
                     </div>
-                    <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl w-fit">
-                        <button onClick={() => setListaEsperaTab('ventanilla')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${listaEsperaTab === 'ventanilla' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Ventanilla</button>
-                        <button onClick={() => setListaEsperaTab('ruta')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${listaEsperaTab === 'ruta' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Ruta</button>
-                        <button onClick={() => setListaEsperaTab('bitacora')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${listaEsperaTab === 'bitacora' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Bitácora</button>
+                    <div className="flex flex-wrap gap-3">
+                        <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl">
+                            <button onClick={() => { setVistaDespacho('normal'); if (listaEsperaTab === 'bitacora') setListaEsperaTab('ventanilla'); }} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all btn-hover-effect ${vistaDespacho === 'normal' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Despacho</button>
+                            <button onClick={() => { setVistaDespacho('refrigerados'); setListaEsperaTab('ventanilla'); }} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all btn-hover-effect ${vistaDespacho === 'refrigerados' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Refrigerados</button>
+                        </div>
+                        <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl">
+                            <button onClick={() => setListaEsperaTab('ventanilla')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${listaEsperaTab === 'ventanilla' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Ventanilla</button>
+                            <button onClick={() => setListaEsperaTab('ruta')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${listaEsperaTab === 'ruta' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Ruta</button>
+                            {vistaDespacho === 'normal' && (
+                                <button onClick={() => setListaEsperaTab('bitacora')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${listaEsperaTab === 'bitacora' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Bitácora</button>
+                            )}
+                        </div>
                     </div>
                     {listaEsperaTab !== 'bitacora' ? (
                     <div className="bg-white rounded-3xl shadow-soft border border-slate-100 overflow-hidden">
                         <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-3">
-                                <span className="font-bold text-slate-700">{listadoFiltrado.length}{listadoParaTab.length !== listadoFiltrado.length ? ` de ${listadoParaTab.length}` : ''} kit(s) en espera — {listaEsperaTab === 'ventanilla' ? 'Ventanilla' : 'Ruta'}</span>
+                                <span className="font-bold text-slate-700">
+                                    {vistaDespacho === 'refrigerados' ? listadoRefriFiltrado.length : listadoFiltrado.length}
+                                    {vistaDespacho === 'refrigerados' 
+                                        ? (listadoRefriParaTab.length !== listadoRefriFiltrado.length ? ` de ${listadoRefriParaTab.length}` : '')
+                                        : (listadoParaTab.length !== listadoFiltrado.length ? ` de ${listadoParaTab.length}` : '')}
+                                    {' kit(s) — '}{vistaDespacho === 'refrigerados' ? 'Refrigerados ' : ''}{listaEsperaTab === 'ventanilla' ? 'Ventanilla' : 'Ruta'}
+                                </span>
                                 <div className="relative w-full sm:w-64">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
                                     <input type="text" placeholder="Buscar por nombre o DNI..." value={listaEsperaSearch} onChange={e=>setListaEsperaSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-200" />
@@ -3058,12 +3167,14 @@
                             </div>
                         </div>
                         <div className="divide-y divide-slate-100 max-h-[60vh] overflow-y-auto">
-                            {listadoFiltrado.length === 0 ? (
+                            {(vistaDespacho === 'refrigerados' ? listadoRefriFiltrado : listadoFiltrado).length === 0 ? (
                                 <div className="p-12 text-center text-slate-500">
-                                    <Icons.Box size={48} className="mx-auto mb-3 opacity-40"/>
-                                    <p className="font-medium">{listadoParaTab.length === 0 ? 'No hay kits en lista de espera' : 'Sin resultados para la búsqueda'}</p>
-                                    <p className="text-sm mt-1">{listadoParaTab.length === 0 ? 'Los kits marcados impresos por Revisión y asignación, o complementos pendientes, aparecerán aquí filtrados por ' + (listaEsperaTab === 'ventanilla' ? 'Ventanilla' : 'Ruta') + '.' : 'Pruebe otro término.'}</p>
+                                    {vistaDespacho === 'refrigerados' ? <span className="text-4xl mb-3 block">❄</span> : <Icons.Box size={48} className="mx-auto mb-3 opacity-40"/>}
+                                    <p className="font-medium">{vistaDespacho === 'refrigerados' ? (listadoRefriParaTab.length === 0 ? 'No hay kits con refrigerados pendientes' : 'Sin resultados para la búsqueda') : (listadoParaTab.length === 0 ? 'No hay kits en lista de espera' : 'Sin resultados para la búsqueda')}</p>
+                                    <p className="text-sm mt-1">{vistaDespacho === 'refrigerados' ? (listadoRefriParaTab.length === 0 ? 'Los kits con refrigerados enviados a logística por Calidad aparecerán aquí.' : 'Pruebe otro término.') : (listadoParaTab.length === 0 ? 'Los kits marcados impresos por Revisión y asignación, o complementos pendientes, aparecerán aquí filtrados por ' + (listaEsperaTab === 'ventanilla' ? 'Ventanilla' : 'Ruta') + '.' : 'Pruebe otro término.')}</p>
                                 </div>
+                            ) : vistaDespacho === 'refrigerados' ? (
+                                listadoRefriFiltrado.map(kit => renderRefriRow(kit))
                             ) : (
                                 listadoFiltrado.map(kit => renderKitRow(kit, false))
                             )}
@@ -3356,7 +3467,10 @@
                 const hasRefri = !!(kit.isRefrigerated || (kit.cantRefriGlobal && parseInt(String(kit.cantRefriGlobal), 10) > 0));
                 const tipoRefri = hasRefri ? (kit.tipoDespachoRefrigerado === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO') : '';
                 const nRefri = hasRefri ? (parseInt(String(kit.cantRefriGlobal), 10) || 0) : 0;
-                const medicamentosWithRefri = (kit.medicamentos || []).map((m, i) => ({ ...m, incluirRefrigerado: hasRefri && (i < nRefri) }));
+                const medicamentosWithRefri = (kit.medicamentos || []).map((m, i) => ({
+                    ...m,
+                    incluirRefrigerado: (m.refrigerado !== undefined && m.refrigerado !== null) ? !!m.refrigerado : (hasRefri && (i < nRefri))
+                }));
                 setTrabajarKit({ ...kit, medicamentos: medicamentosWithRefri });
                 setTrabajarData({
                     fechaArmado: desdeBitacora ? fa : today,
@@ -4047,6 +4161,7 @@
         // --- BLOCK: CALIDAD LISTA DE ESPERA ---
         const CalidadListaEsperaBlock = ({ kits, patients, onSaveKit, onRefreshKits, currentUser, users = [] }) => {
             const [vistaPrincipal, setVistaPrincipal] = useState('calidad'); // 'despacho' | 'operaciones' | 'calidad'
+            const [vistaDespachoCalidad, setVistaDespachoCalidad] = useState('normal'); // 'normal' | 'refrigerados' (solo cuando vistaPrincipal === 'despacho')
             const [listaEsperaTab, setListaEsperaTab] = useState('ventanilla'); // 'ventanilla' | 'ruta'
             const [listaEsperaSearch, setListaEsperaSearch] = useState('');
             const [showVerModal, setShowVerModal] = useState(false);
@@ -4082,6 +4197,7 @@
                 setBitacoraModalSearch('');
                 if (vistaPrincipal === 'despacho' || vistaPrincipal === 'operaciones') setListaEsperaTab('ventanilla');
                 if (vistaPrincipal === 'despacho' || vistaPrincipal === 'operaciones') setBitacoraCarpetasSearch('');
+                if (vistaPrincipal !== 'despacho') setVistaDespachoCalidad('normal');
             }, [vistaPrincipal]);
 
             const toUpper = (v) => (v != null && v !== '' ? String(v).toUpperCase() : v);
@@ -4090,7 +4206,8 @@
                 const m = meds || [];
                 const total = m.length;
                 const dispensados = m.filter(x => x.dispensar !== false).length;
-                return { dispensados, total, str: total ? `${dispensados}/${total}` : '0/0' };
+                const refrigerados = m.filter(x => x.refrigerado === true).length;
+                return { dispensados, total, refrigerados, str: total ? `${dispensados}/${total}` : '0/0', strRefri: refrigerados > 0 ? `${refrigerados} refrigerado(s)` : '' };
             };
 
             const abrirVer = (kit) => { setVerKit(kit); setShowVerModal(true); };
@@ -4146,13 +4263,14 @@
                 if (!trabajarKit || !trabajarKitLocal || !onSaveKit) return;
                 const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                 const today = new Date().toISOString().split('T')[0];
+                const meds = trabajarKitLocal.medicamentos || [];
                 const payload = {
                     revisadoCalidad: true,
                     fechaRevisionCalidad: today,
                     horaRevisionCalidad: now,
                     usuarioCalidad: (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim() || '',
                     observacionesCalidad: (trabajarData.observacionesCalidad || '').trim() || (trabajarKit.observacionesCalidad || ''),
-                    medicamentos: trabajarKitLocal.medicamentos || [],
+                    medicamentos: meds,
                     btp: trabajarData.btp.trim() || null,
                     btg: trabajarData.btg.trim() || null,
                     tipoBolsaVerde: trabajarData.tipoBolsaVerde || 'GRANDE',
@@ -4170,8 +4288,14 @@
             const handleEnviarALogistica = async () => {
                 if (!trabajarKit || !onSaveKit) return;
                 const today = new Date().toISOString().split('T')[0];
+                const hasRefri = !!(trabajarKit.isRefrigerated || (trabajarKit.cantRefriGlobal && parseInt(String(trabajarKit.cantRefriGlobal), 10) > 0));
+                const payload = { fechaEntregaLogistica: today };
+                if (hasRefri) {
+                    payload.enviadoADespachoRefrigerados = true;
+                    payload.fechaEnvioDespachoRefrigerados = today;
+                }
                 try {
-                    await onSaveKit(trabajarKit.id, { fechaEntregaLogistica: today }, trabajarKit.patientId, true);
+                    await onSaveKit(trabajarKit.id, payload, trabajarKit.patientId, true);
                     setTrabajarEnviadoLogistica(true);
                     setTimeout(cerrarTrabajar, 600);
                 } catch (err) {
@@ -4191,6 +4315,23 @@
                 } catch (_) {}
             }, [kits]);
 
+            // Sincronizar en vivo: cuando Operaciones actualiza refrigerados, reflejar en el form de Calidad
+            useEffect(() => {
+                if (!trabajarKit?.id || !trabajarKitLocal || trabajarGuardado || !kits?.length) return;
+                const freshKit = kits.find(k => k.id === trabajarKit.id);
+                if (!freshKit) return;
+                const freshMeds = freshKit.medicamentos || [];
+                const localMeds = trabajarKitLocal.medicamentos || [];
+                const hasRefriChange = freshMeds.some((fm, i) => (localMeds[i]?.refrigerado) !== (fm?.refrigerado)) || (!!freshKit.isRefrigerated !== !!trabajarKit.isRefrigerated) || (String(freshKit.cantRefriGlobal || '') !== String(trabajarKit.cantRefriGlobal || ''));
+                if (!hasRefriChange) return;
+                const medsMerged = localMeds.map((lm, i) => {
+                    const fm = freshMeds[i];
+                    return fm ? { ...lm, refrigerado: !!fm.refrigerado } : lm;
+                });
+                setTrabajarKit(prev => prev ? { ...prev, medicamentos: freshMeds, isRefrigerated: !!freshKit.isRefrigerated, cantRefriGlobal: freshKit.cantRefriGlobal } : null);
+                setTrabajarKitLocal(prev => prev ? { ...prev, medicamentos: medsMerged, isRefrigerated: !!freshKit.isRefrigerated, cantRefriGlobal: freshKit.cantRefriGlobal } : null);
+            }, [kits, trabajarKit?.id, trabajarGuardado]);
+
             // Lista Despacho (solo lectura): kits con receta impresa, no enviados a Operaciones
             const listaKitsDespacho = useMemo(() => {
                 return (kits || []).filter(k => {
@@ -4201,6 +4342,20 @@
             }, [kits]);
             const listaDespachoVentanilla = useMemo(() => listaKitsDespacho.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsDespacho]);
             const listaDespachoRuta = useMemo(() => listaKitsDespacho.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsDespacho]);
+
+            // Lista Refrigerados Despacho (solo lectura para Calidad): kits con refrigerados enviados a logística
+            const listaKitsRefrigeradosDespacho = useMemo(() => {
+                return (kits || []).filter(k => {
+                    if (!k.fechaEntregaLogistica || !String(k.fechaEntregaLogistica).trim()) return false;
+                    if (k.refrigeradosDespachados) return false;
+                    const hasRefri = !!(k.enviadoADespachoRefrigerados || (k.isRefrigerated && (parseInt(String(k.cantRefriGlobal || 0), 10) > 0)));
+                    if (!hasRefri) return false;
+                    const medsRefri = (k.medicamentos || []).filter(m => m.refrigerado === true);
+                    return medsRefri.length > 0;
+                }).sort((a, b) => new Date(b.fechaEnvioDespachoRefrigerados || b.fechaEntregaLogistica || 0) - new Date(a.fechaEnvioDespachoRefrigerados || a.fechaEntregaLogistica || 0));
+            }, [kits]);
+            const listaRefriDespVentanilla = useMemo(() => listaKitsRefrigeradosDespacho.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsRefrigeradosDespacho]);
+            const listaRefriDespRuta = useMemo(() => listaKitsRefrigeradosDespacho.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsRefrigeradosDespacho]);
 
             // Lista Operaciones (solo lectura): lista de espera de Operaciones — kits enviados a Ops, pendientes de trabajar (vienen en camino a Calidad)
             const listaKitsOperaciones = useMemo(() => {
@@ -4227,16 +4382,17 @@
             const listaCalidadRuta = useMemo(() => listaKitsCalidad.filter(k => (k.deliveryMode || '').toLowerCase() !== 'ventanilla'), [listaKitsCalidad]);
 
             const listadoDespacho = listaEsperaTab === 'ventanilla' ? listaDespachoVentanilla : listaDespachoRuta;
+            const listadoRefriDesp = listaEsperaTab === 'ventanilla' ? listaRefriDespVentanilla : listaRefriDespRuta;
             const listadoOps = listaEsperaTab === 'ventanilla' ? listaOpsVentanilla : listaOpsRuta;
             const listadoCalidad = listaEsperaTab === 'ventanilla' ? listaCalidadVentanilla : listaCalidadRuta;
 
             useEffect(() => {
                 if (listaEsperaTab === 'bitacora') return;
-                const ventanilla = vistaPrincipal === 'despacho' ? listaDespachoVentanilla : vistaPrincipal === 'operaciones' ? listaOpsVentanilla : listaCalidadVentanilla;
-                const ruta = vistaPrincipal === 'despacho' ? listaDespachoRuta : vistaPrincipal === 'operaciones' ? listaOpsRuta : listaCalidadRuta;
+                const ventanilla = vistaPrincipal === 'despacho' ? (vistaDespachoCalidad === 'refrigerados' ? listaRefriDespVentanilla : listaDespachoVentanilla) : vistaPrincipal === 'operaciones' ? listaOpsVentanilla : listaCalidadVentanilla;
+                const ruta = vistaPrincipal === 'despacho' ? (vistaDespachoCalidad === 'refrigerados' ? listaRefriDespRuta : listaDespachoRuta) : vistaPrincipal === 'operaciones' ? listaOpsRuta : listaCalidadRuta;
                 if (listaEsperaTab === 'ventanilla' && ventanilla.length === 0 && ruta.length > 0) setListaEsperaTab('ruta');
                 else if (listaEsperaTab === 'ruta' && ruta.length === 0 && ventanilla.length > 0) setListaEsperaTab('ventanilla');
-            }, [listaEsperaTab, vistaPrincipal, listaDespachoVentanilla.length, listaDespachoRuta.length, listaOpsVentanilla.length, listaOpsRuta.length, listaCalidadVentanilla.length, listaCalidadRuta.length]);
+            }, [listaEsperaTab, vistaPrincipal, vistaDespachoCalidad, listaDespachoVentanilla.length, listaDespachoRuta.length, listaRefriDespVentanilla.length, listaRefriDespRuta.length, listaOpsVentanilla.length, listaOpsRuta.length, listaCalidadVentanilla.length, listaCalidadRuta.length]);
 
             const bitacoraCalidad = useMemo(() => {
                 const porFecha = {};
@@ -4280,6 +4436,35 @@
                                 <span className="font-mono">Fecha armado: {kit.fechaArmado || '—'}</span>
                                 <span className={kit.deliveryMode === 'ruta' ? 'text-emerald-600 font-semibold' : 'text-indigo-600 font-semibold'}>{kit.deliveryMode === 'ruta' ? 'Ruta' : kit.deliveryMode === 'ventanilla' ? 'Ventanilla' : '—'}</span>
                                 <span>{(kit.medicamentos || []).length} med(s)</span>
+                            </div>
+                        </div>
+                        <button onClick={() => abrirVer(kit)} className="px-4 py-2 rounded-xl bg-slate-500 text-white font-bold text-sm hover:bg-slate-600 transition-colors btn-hover-effect flex items-center gap-2">
+                            <Icons.Eye size={16}/> Visualizar
+                        </button>
+                    </div>
+                );
+            };
+            const renderRowRefriDespacho = (kit) => {
+                const pt = (patients || []).find(p => p.id === kit.patientId || (p.dni && kit.dni && String(p.dni).trim() === String(kit.dni).trim()));
+                const medsRefri = (kit.medicamentos || []).filter(m => m.refrigerado === true);
+                const nombresRefri = medsRefri.map(m => m.nombre || '—').filter(Boolean);
+                const cantRefri = medsRefri.length;
+                return (
+                    <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4 border-b border-slate-100 last:border-b-0">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-slate-800">{kit.nombre || pt?.nombre || '—'}</span>
+                                <span className="px-2 py-0.5 rounded-lg bg-sky-100 text-sky-800 text-xs font-bold">❄ {cantRefri} refrigerado(s)</span>
+                            </div>
+                            <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                <span>DNI: {kit.dni || pt?.dni || '—'}</span>
+                                <span className={kit.deliveryMode === 'ruta' ? 'text-emerald-600 font-semibold' : 'text-indigo-600 font-semibold'}>{kit.deliveryMode === 'ruta' ? 'Ruta' : kit.deliveryMode === 'ventanilla' ? 'Ventanilla' : '—'}</span>
+                            </div>
+                            <div className="mt-2 text-xs text-slate-600">
+                                <span className="font-bold text-slate-700">Medicamentos refrigerados:</span>
+                                <ul className="list-disc list-inside mt-0.5 space-y-0.5">
+                                    {nombresRefri.map((n, i) => <li key={i}>{n}</li>)}
+                                </ul>
                             </div>
                         </div>
                         <button onClick={() => abrirVer(kit)} className="px-4 py-2 rounded-xl bg-slate-500 text-white font-bold text-sm hover:bg-slate-600 transition-colors btn-hover-effect flex items-center gap-2">
@@ -4370,7 +4555,7 @@
                 );
             };
 
-            const listaActual = vistaPrincipal === 'despacho' ? listadoDespacho : vistaPrincipal === 'operaciones' ? listadoOps : listadoCalidad;
+            const listaActual = vistaPrincipal === 'despacho' ? (vistaDespachoCalidad === 'refrigerados' ? listadoRefriDesp : listadoDespacho) : vistaPrincipal === 'operaciones' ? listadoOps : listadoCalidad;
             const listaFiltrada = useMemo(() => {
                 const t = (listaEsperaSearch || '').trim().toLowerCase();
                 if (!t) return listaActual;
@@ -4392,10 +4577,19 @@
                         <p className="text-sm text-slate-500">Despacho y Operaciones en solo lectura (kits en camino). En Mi lista trabajas y revisas.</p>
                     </div>
                     <div className="flex flex-wrap gap-3">
-                        <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl">
-                            <button onClick={() => setVistaPrincipal('despacho')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isDespacho ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Lista Despacho (solo lectura)</button>
-                            <button onClick={() => setVistaPrincipal('operaciones')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isOps ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Lista Operaciones (solo lectura)</button>
-                            <button onClick={() => { setVistaPrincipal('calidad'); if (onRefreshKits) onRefreshKits(); }} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isCalidad ? 'bg-white text-green-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Mi lista Calidad (trabajar)</button>
+                        <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100 rounded-2xl items-center">
+                                <button onClick={() => { setVistaPrincipal('despacho'); setVistaDespachoCalidad('normal'); }} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isDespacho ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Lista Despacho (solo lectura)</button>
+                                {isDespacho && (
+                                    <>
+                                        <span className="text-slate-400 text-xs font-medium hidden sm:inline">Ver:</span>
+                                        <button onClick={() => setVistaDespachoCalidad('normal')} className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${vistaDespachoCalidad === 'normal' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Normal</button>
+                                        <button onClick={() => setVistaDespachoCalidad('refrigerados')} className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${vistaDespachoCalidad === 'refrigerados' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Refrigerados</button>
+                                    </>
+                                )}
+                                <button onClick={() => setVistaPrincipal('operaciones')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isOps ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Lista Operaciones (solo lectura)</button>
+                                <button onClick={() => { setVistaPrincipal('calidad'); if (onRefreshKits) onRefreshKits(); }} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${isCalidad ? 'bg-white text-green-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Mi lista Calidad (trabajar)</button>
+                            </div>
                         </div>
                         <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl w-fit">
                             <button onClick={() => setListaEsperaTab('ventanilla')} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all btn-hover-effect ${listaEsperaTab === 'ventanilla' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}>Ventanilla</button>
@@ -4412,7 +4606,7 @@
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                     <span className="font-bold text-slate-700">
                                         {listaFiltrada.length}{listaActual.length !== listaFiltrada.length ? ` de ${listaActual.length}` : ''} kit(s) — {listaEsperaTab === 'ventanilla' ? 'Ventanilla' : 'Ruta'}
-                                        {isDespacho ? ' (Despacho)' : isOps ? ' (Operaciones)' : ' (Calidad)'}
+                                        {isDespacho ? (vistaDespachoCalidad === 'refrigerados' ? ' (Refrigerados)' : ' (Despacho)') : isOps ? ' (Operaciones)' : ' (Calidad)'}
                                     </span>
                                     <div className="flex flex-wrap items-center gap-2">
                                         {onRefreshKits && (
@@ -4430,13 +4624,13 @@
                             <div className="divide-y divide-slate-100 max-h-[60vh] overflow-y-auto">
                                 {listaFiltrada.length === 0 ? (
                                     <div className="p-12 text-center text-slate-500">
-                                        <Icons.Box size={48} className="mx-auto mb-3 opacity-40"/>
-                                        <p className="font-medium">{listaActual.length === 0 ? (isDespacho ? 'No hay kits en Despacho' : isOps ? 'No hay kits en Operaciones' : 'No hay kits pendientes de revisar en Calidad') : 'Sin resultados para la búsqueda'}</p>
+                                        {isDespacho && vistaDespachoCalidad === 'refrigerados' ? <span className="text-4xl mb-3 block">❄</span> : <Icons.Box size={48} className="mx-auto mb-3 opacity-40"/>}
+                                        <p className="font-medium">{listaActual.length === 0 ? (isDespacho ? (vistaDespachoCalidad === 'refrigerados' ? 'No hay kits con refrigerados pendientes en Despacho' : 'No hay kits en Despacho') : isOps ? 'No hay kits en Operaciones' : 'No hay kits pendientes de revisar en Calidad') : 'Sin resultados para la búsqueda'}</p>
                                         {isCalidad && listaActual.length === 0 && onRefreshKits && (
                                             <p className="text-sm mt-2">Si acaba de enviar kits desde Operaciones, pulse <button type="button" onClick={() => onRefreshKits()} className="font-bold text-green-600 hover:underline">Refrescar</button>.</p>
                                         )}
                                     </div>
-                                ) : isDespacho ? listaFiltrada.map(k => renderRowDespacho(k)) :
+                                ) : isDespacho ? (vistaDespachoCalidad === 'refrigerados' ? listaFiltrada.map(k => renderRowRefriDespacho(k)) : listaFiltrada.map(k => renderRowDespacho(k))) :
                                   isOps ? listaFiltrada.map(k => renderRowOperaciones(k)) :
                                   listaFiltrada.map(k => renderRowCalidad(k))
                                 }
@@ -4572,7 +4766,13 @@
                                                     </div>
                                                 )}
                                                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                                    <div className="flex items-center justify-between mb-3"><h5 className="text-xs font-bold text-slate-500 uppercase">Medicamentos asignados</h5><span className="text-lg font-bold text-turquoise-600 tabular-nums">{calcularMedCounter(meds).str}</span></div>
+                                                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                                        <h5 className="text-xs font-bold text-slate-500 uppercase">Medicamentos asignados</h5>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-lg font-bold text-turquoise-600 tabular-nums">{calcularMedCounter(meds).str}</span>
+                                                            {calcularMedCounter(meds).strRefri && <span className="text-sm font-bold text-sky-600 tabular-nums">❄ {calcularMedCounter(meds).strRefri}</span>}
+                                                        </div>
+                                                    </div>
                                                     <div className="space-y-3 max-h-60 overflow-y-auto">
                                                         {meds.map((m, i) => {
                                                             const va = m.dispensar !== false;
@@ -4813,7 +5013,7 @@
             };
 
             return (
-                <div className="glass-panel rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden border-0 bg-white">
+                <div className="glass-panel-futuro rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden">
                     <div className="p-6 border-b border-slate-100 bg-white/50 backdrop-blur-md flex justify-between items-center">
                         <div className="flex items-center gap-4">
                             <button onClick={handleBack} className={`p-2 rounded-xl transition-colors ${selectedMonth ? 'hover:bg-slate-100 text-slate-500' : 'opacity-0 pointer-events-none'}`}>
@@ -6645,7 +6845,9 @@
             const handleMedChange = (idx, field, val) => {
                 const v = (field === 'nombre' || field === 'observaciones' || field === 'idReceta') ? toUpper(val) : val;
                 const newMeds = [...kitData.medicamentos];
-                newMeds[idx] = { ...newMeds[idx], [field]: v };
+                const current = newMeds[idx] || {};
+                newMeds[idx] = { ...current, [field]: v };
+                if (field === 'dispensar' && v === true) newMeds[idx].observaciones = '';
                 setKitData({...kitData, medicamentos: newMeds});
             };
             
@@ -8447,7 +8649,7 @@ html +
 
             if (loadingPatients) {
                 return (
-                    <div className="glass-panel rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden border-0 bg-white">
+                    <div className="glass-panel-futuro rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden">
                         <div className="flex-1 flex items-center justify-center">
                             <div className="text-center">
                                 <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-turquoise-600 mb-4"></div>
@@ -8469,7 +8671,7 @@ html +
 
             if (selectedPatient) {
                 return (
-                    <div className="glass-panel rounded-3xl shadow-soft h-full flex flex-col animate-in border-0 bg-white">
+                    <div className="glass-panel-futuro rounded-3xl shadow-soft h-full flex flex-col animate-in">
                         
                         <ConfirmModal isOpen={!!confirmData} onClose={()=>setConfirmData(null)} onConfirm={confirmData?.action} title={confirmData?.title} message={confirmData?.msg} />
                         
@@ -9453,7 +9655,7 @@ html +
             }
 
             return (
-                <div className="glass-panel rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden border-0 bg-white">
+                <div className="glass-panel-futuro rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden">
                     <ConfirmModal isOpen={!!confirmData} onClose={()=>setConfirmData(null)} onConfirm={confirmData?.action} title={confirmData?.title} message={confirmData?.msg} />
                     <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-center bg-white/50 backdrop-blur-md">
                         <div className="flex items-center gap-4 w-full md:w-auto">
@@ -10310,7 +10512,7 @@ html +
             };
 
             return (
-                <div className="glass-panel rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden border-0 bg-white">
+                <div className="glass-panel-futuro rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden">
                     <div className="p-6 border-b border-slate-100 bg-white/50 backdrop-blur-md flex items-center gap-4">
                         <div className="bg-turquoise-100 p-3 rounded-2xl text-turquoise-600">
                             <Icons.Settings size={24} />
@@ -10933,7 +11135,7 @@ html +
             };
 
             return (
-                <div className="glass-panel rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden border-0 bg-white">
+                <div className="glass-panel-futuro rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden">
                     <ConfirmModal isOpen={!!confirmData} onClose={()=>setConfirmData(null)} onConfirm={confirmData?.action} title={confirmData?.title} message={confirmData?.msg} />
                     
                     <div className="p-6 border-b border-slate-100 bg-white/50 backdrop-blur-md flex justify-between items-center">
@@ -13496,9 +13698,15 @@ Responde en formato JSON con esta estructura:
             };
 
             return (
-                <div className="app-layout flex h-screen bg-[#f0fdfa] font-sans overflow-hidden overflow-x-hidden">
+                <div className="app-layout flex h-screen bg-gradient-to-br from-turquoise-50 via-teal-50/80 to-clinical-50 font-sans overflow-hidden overflow-x-hidden relative">
+                    {/* Orbes decorativos sutiles en fondo */}
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                        <div className="futuro-orb top-0 right-0 w-[400px] h-[400px] bg-turquoise-200/20 blur-3xl -translate-y-1/2 translate-x-1/2" />
+                        <div className="futuro-orb bottom-0 left-0 w-[300px] h-[300px] bg-clinical-200/15 blur-3xl translate-y-1/2 -translate-x-1/2" />
+                        <div className="futuro-orb top-1/3 left-1/4 w-[200px] h-[200px] bg-turquoise-300/10 blur-2xl" />
+                    </div>
                     {mobileMenuOpen && ( 
-                        <div className="fixed inset-0 z-[100] bg-turquoise-900/95 backdrop-blur-sm flex flex-col md:hidden animate-in" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                        <div className="fixed inset-0 z-[100] bg-gradient-to-br from-turquoise-900 via-teal-900 to-turquoise-900/98 backdrop-blur-md flex flex-col md:hidden animate-in" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
                             <div className="p-4 flex justify-between items-center border-b border-turquoise-800 shrink-0">
                                 <div className="font-bold text-white text-xl flex items-center gap-2 brand-font">
                                     <img 
@@ -13535,7 +13743,7 @@ Responde en formato JSON con esta estructura:
                         </div> 
                     )}
                     
-                    <aside className={`${sidebarCollapsed ? 'w-24' : 'w-72'} bg-turquoise-900 text-turquoise-100 flex-col shadow-2xl z-20 hidden md:flex relative transition-all duration-300 ease-in-out`}>
+                    <aside className={`${sidebarCollapsed ? 'w-24' : 'w-72'} bg-gradient-to-b from-turquoise-900 via-turquoise-800 to-teal-900 text-turquoise-100 flex-col shadow-2xl z-20 hidden md:flex relative transition-all duration-300 ease-in-out border-r border-turquoise-700/50`} style={{ boxShadow: '4px 0 24px rgba(13, 148, 136, 0.08)' }}>
                         <div className={`p-6 pb-2 relative z-10 flex ${sidebarCollapsed ? 'justify-center' : 'justify-between'} items-center`}>
                             {!sidebarCollapsed && (
                                 <div className="flex items-center gap-3 text-white">
@@ -13615,8 +13823,8 @@ Responde en formato JSON con esta estructura:
                         </div>
                     </aside>
 
-                    <main className="main-col flex-1 flex flex-col h-full overflow-hidden overflow-x-hidden bg-[#f0fdfa] relative transition-all duration-300 min-w-0">
-                        <header className="md:hidden mobile-header-height fixed top-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur-md shadow-sm flex justify-between items-center h-14 shrink-0 border-b border-slate-200" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+                    <main className="main-col flex-1 flex flex-col h-full overflow-hidden overflow-x-hidden bg-gradient-to-br from-turquoise-50/95 via-white/80 to-clinical-50/95 relative z-10 transition-all duration-300 min-w-0 backdrop-blur-[1px]">
+                        <header className="md:hidden mobile-header-height fixed top-0 left-0 right-0 z-[60] bg-white/90 backdrop-blur-xl shadow-sm flex justify-between items-center h-14 shrink-0 border-b border-slate-200/80" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
                             <button onClick={() => setMobileMenuOpen(true)} className="text-slate-600 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 btn-hover-effect touch-manipulation rounded-xl" aria-label="Abrir menú">
                                 <Icons.Menu size={24}/>
                             </button>
