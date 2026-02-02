@@ -1616,7 +1616,8 @@
             XCircle: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></>} />,
             UserCheck: (p) => <Icon {...p} path={<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></>} />,
             ChevronsLeft: (p) => <Icon {...p} path={<><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></>} />,
-            Eye: (p) => <Icon {...p} path={<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></>} />
+            Eye: (p) => <Icon {...p} path={<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></>} />,
+            Truck: (p) => <Icon {...p} path={<><path d="M16 3h5l5 5v11a2 2 0 0 1-2 2h-2"></path><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h2"></path><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></>} />
         };
 
         // --- COMPONENTS ---
@@ -2269,7 +2270,7 @@
             useEffect(() => { const t = setInterval(()=>setTime(new Date()),1000); return ()=>clearInterval(t); }, []);
             const userDept = (currentUser?.departamento || '').toLowerCase();
             const userRoles = currentUser?.rolesDepartamento || [];
-            const { showCalendario, showDespacho, showOperaciones, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo } = permissions || {};
+            const { showCalendario, showDespacho, showOperaciones, showLogistica, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo } = permissions || {};
             const allCards = [
                 { id: 'reports', label: 'Reportes y Carpetas', icon: Icons.List, color: 'bg-amber-500', desc: 'Ver kits por fecha', allow: () => !!canViewReports && (role === 'admin' || role === 'superadmin') },
                 { id: 'reports', label: 'Reportes de mi Departamento', icon: Icons.List, color: 'bg-amber-500', desc: 'Generar reportes de tu departamento', allow: () => !!canViewReports && role === 'supervisor' },
@@ -2277,6 +2278,7 @@
                 { id: 'calendario', label: 'Calendario', icon: Icons.Calendar, color: 'bg-emerald-500', desc: 'Ver programación y semáforos', allow: () => !!showCalendario },
                 { id: 'despacho', label: 'Lista de espera', icon: Icons.Box, color: 'bg-violet-500', desc: 'Kits de Revisión y asignación', allow: () => !!showDespacho },
                 { id: 'operaciones', label: 'Lista de espera Operaciones', icon: Icons.Box, color: 'bg-amber-600', desc: 'Kits enviados por Despacho', allow: () => !!showOperaciones },
+                { id: 'logistica', label: 'Logística', icon: Icons.Truck, color: 'bg-cyan-600', desc: 'Asignación de rutas y envíos', allow: () => !!showLogistica, externalLink: 'logistica.html' },
                 { id: 'pacientes', label: 'Gestión de Pacientes', icon: Icons.Users, color: 'bg-turquoise-500', desc: 'Crear kits por DH', allow: () => !!canViewPacientes },
                 { id: 'config', label: 'Configuración', icon: Icons.Settings, color: 'bg-slate-500', desc: 'Catálogos del Sistema', allow: () => !!canViewConfig },
                 { id: 'users', label: 'Gestión de Usuarios', icon: Icons.UserCog, color: 'bg-indigo-500', desc: 'Control de accesos', allow: () => !!canViewConfig },
@@ -2359,7 +2361,7 @@
                         {visibleCards.map(c => (
                             <button 
                                 key={c.id} 
-                                onClick={() => setView(c.id)} 
+                                onClick={() => c.externalLink ? window.open(c.externalLink, '_blank') : setView(c.id)} 
                                 className="group relative glass-panel-futuro p-5 md:p-6 rounded-2xl md:rounded-3xl hover:shadow-xl transition-all duration-300 text-left hover:-translate-y-1 overflow-hidden touch-manipulation min-h-[100px] hover:border-turquoise-300/40"
                             >
                                 <div className={`absolute top-0 right-0 w-24 h-24 ${c.color} opacity-10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
@@ -3349,6 +3351,7 @@
             const [trabajarKitActualizado, setTrabajarKitActualizado] = useState(null);
             const [viñetasImpresas, setViñetasImpresas] = useState(false);
             const [editandoDesdeBitacora, setEditandoDesdeBitacora] = useState(false);
+            const [enviandoACalidadId, setEnviandoACalidadId] = useState(null);
 
             useEffect(() => {
                 setBitacoraFechaAbierta(null);
@@ -3490,6 +3493,20 @@
                 setTrabajarData({ fechaArmado: '', horaOperaciones: '', isRefrigerated: false, cantRefriGlobal: '', tipoDespachoRefrigerado: '' });
                 setShowTrabajarForm(false);
             };
+            const handleEnviarACalidadDesdeBitacora = async (kit) => {
+                if (!kit || !onSaveKit) return;
+                setEnviandoACalidadId(kit.id);
+                const today = new Date().toISOString().split('T')[0];
+                const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                const payload = { enviadoACalidad: true, fechaEnvioCalidad: today, fechaEntregaCalidad: today, horaEnvioCalidad: now };
+                try {
+                    await onSaveKit(kit.id, payload, kit.patientId, true);
+                } catch (err) {
+                    alert('Error al enviar a Calidad: ' + (err?.message || err));
+                } finally {
+                    setEnviandoACalidadId(null);
+                }
+            };
             useEffect(() => {
                 try {
                     const raw = sessionStorage.getItem('trabajarFromCalendar');
@@ -3595,12 +3612,15 @@
                 const isVentanilla = (kit.deliveryMode || '').toLowerCase() === 'ventanilla';
                 const hasRefri = !!kit.isRefrigerated || !!(kit.cantRefriGlobal && parseInt(kit.cantRefriGlobal, 10) > 0);
                 const puedeEditar = esOperadorQueTrabajo(kit);
+                const pendienteEnviarCalidad = !(kit.enviadoACalidad || (kit.fechaEnvioCalidad && String(kit.fechaEnvioCalidad).trim()));
+                const enviando = enviandoACalidadId === kit.id;
                 return (
                     <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4">
                         <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-bold text-slate-800">{kit.nombre || pt?.nombre || '—'}</span>
                                 {!!kit.complemento && <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold uppercase">Complemento</span>}
+                                {!pendienteEnviarCalidad && <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-800 text-xs font-bold">✓ Enviado a Calidad</span>}
                             </div>
                             <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
                                 <span>DNI: {kit.dni || pt?.dni || '—'}</span>
@@ -3609,6 +3629,17 @@
                             </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
+                            {pendienteEnviarCalidad && (
+                                <button 
+                                    type="button" 
+                                    disabled={enviando}
+                                    onClick={() => handleEnviarACalidadDesdeBitacora(kit)} 
+                                    className="px-3 py-2 rounded-xl bg-green-600 text-white font-bold text-xs hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors btn-hover-effect flex items-center gap-1.5"
+                                    title="Si no enviaste a Calidad al terminar, hazlo ahora"
+                                >
+                                    {enviando ? 'Enviando...' : <><Icons.ArrowRight size={14}/> Enviar a Calidad</>}
+                                </button>
+                            )}
                             {puedeEditar && (
                                 <button 
                                     type="button" 
@@ -4185,11 +4216,20 @@
             const [bitacoraCarpetasSearch, setBitacoraCarpetasSearch] = useState('');
             const [bitacoraFechaAbierta, setBitacoraFechaAbierta] = useState(null);
             const [bitacoraModalSearch, setBitacoraModalSearch] = useState('');
+            const [enviandoALogisticaId, setEnviandoALogisticaId] = useState(null);
 
             const formatearFechaBitacora = (f) => {
                 if (!f) return '';
                 const d = new Date(f + 'T12:00:00');
                 return d.toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' });
+            };
+            const getDeleteFechaEntregaKit = () => {
+                try {
+                    if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue && typeof firebase.firestore.FieldValue.delete === 'function') {
+                        return firebase.firestore.FieldValue.delete();
+                    }
+                } catch (_) {}
+                return null;
             };
 
             useEffect(() => {
@@ -4288,8 +4328,11 @@
             const handleEnviarALogistica = async () => {
                 if (!trabajarKit || !onSaveKit) return;
                 const today = new Date().toISOString().split('T')[0];
-                const hasRefri = !!(trabajarKit.isRefrigerated || (trabajarKit.cantRefriGlobal && parseInt(String(trabajarKit.cantRefriGlobal), 10) > 0));
-                const payload = { fechaEntregaLogistica: today };
+                const medsRefri = (trabajarKit.medicamentos || []).filter(m => m && (m.refrigerado === true || m.refrigerado === 'true' || String(m.refrigerado || '').toLowerCase() === 'true'));
+                const hasRefri = medsRefri.length > 0 || !!(trabajarKit.isRefrigerated || (trabajarKit.cantRefriGlobal && parseInt(String(trabajarKit.cantRefriGlobal), 10) > 0));
+                // Solo actualizamos lo necesario. Se preservan digitador, fechaRecetaImpresa, fechaConfirmacionContactCenter, etc.
+                // fechaEntregaKit se ELIMINA para que el kit aparezca en Ventanilla/Ruta (lista de espera), no en bitácora.
+                const payload = { fechaEntregaLogistica: today, fechaEntregaKit: getDeleteFechaEntregaKit() ?? '' };
                 if (hasRefri) {
                     payload.enviadoADespachoRefrigerados = true;
                     payload.fechaEnvioDespachoRefrigerados = today;
@@ -4300,6 +4343,61 @@
                     setTimeout(cerrarTrabajar, 600);
                 } catch (err) {
                     alert('Error al enviar a logística: ' + (err?.message || err));
+                }
+            };
+            const handleEnviarALogisticaDesdeBitacora = async (kit) => {
+                if (!kit || !onSaveKit) return;
+                setEnviandoALogisticaId(kit.id);
+                const today = new Date().toISOString().split('T')[0];
+                const medsRefri = (kit.medicamentos || []).filter(m => m && (m.refrigerado === true || m.refrigerado === 'true' || String(m.refrigerado || '').toLowerCase() === 'true'));
+                const hasRefri = medsRefri.length > 0 || !!(kit.isRefrigerated || (kit.cantRefriGlobal && parseInt(String(kit.cantRefriGlobal), 10) > 0));
+                // Solo fechaEntregaLogística + eliminar fechaEntregaKit. Kit irá a lista Ventanilla/Ruta.
+                const payload = { fechaEntregaLogistica: today, fechaEntregaKit: getDeleteFechaEntregaKit() ?? '' };
+                if (hasRefri) { payload.enviadoADespachoRefrigerados = true; payload.fechaEnvioDespachoRefrigerados = today; }
+                try {
+                    await onSaveKit(kit.id, payload, kit.patientId, true);
+                    if (onRefreshKits) onRefreshKits();
+                } catch (err) { alert('Error al enviar a logística: ' + (err?.message || err)); }
+                finally { setEnviandoALogisticaId(null); }
+            };
+            const handleGuardarYEnviarALogistica = async (e) => {
+                e.preventDefault();
+                if (!trabajarKit || !trabajarKitLocal || !onSaveKit) return;
+                const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                const today = new Date().toISOString().split('T')[0];
+                const meds = trabajarKitLocal.medicamentos || [];
+                const medsRefri = (trabajarKitLocal.medicamentos || []).filter(m => m && (m.refrigerado === true || m.refrigerado === 'true' || String(m.refrigerado || '').toLowerCase() === 'true'));
+                const hasRefri = medsRefri.length > 0 || !!(trabajarKitLocal.isRefrigerated || (trabajarKitLocal.cantRefriGlobal && parseInt(String(trabajarKitLocal.cantRefriGlobal), 10) > 0));
+                // Solo campos de Calidad + envío a Logística. NO tocamos digitador, fechaRecetaImpresa, fechaConfirmacionContactCenter, etc.
+                // fechaEntregaKit se elimina para que el kit aparezca en Ventanilla/Ruta (lista de espera).
+                const payloadForDb = {
+                    revisadoCalidad: true,
+                    fechaRevisionCalidad: today,
+                    horaRevisionCalidad: now,
+                    usuarioCalidad: (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim() || '',
+                    observacionesCalidad: (trabajarData.observacionesCalidad || '').trim() || (trabajarKit.observacionesCalidad || ''),
+                    medicamentos: meds,
+                    btp: trabajarData.btp.trim() || null,
+                    btg: trabajarData.btg.trim() || null,
+                    tipoBolsaVerde: trabajarData.tipoBolsaVerde || 'GRANDE',
+                    incidenciasCalidad: (trabajarData.incidencias || []).length ? trabajarData.incidencias : null,
+                    fechaEntregaLogistica: today,
+                    fechaEntregaKit: getDeleteFechaEntregaKit() ?? ''
+                };
+                if (hasRefri) {
+                    payloadForDb.enviadoADespachoRefrigerados = true;
+                    payloadForDb.fechaEnvioDespachoRefrigerados = today;
+                }
+                const payloadForState = { ...payloadForDb, fechaEntregaKit: '' };
+                try {
+                    await onSaveKit(trabajarKit.id, payloadForDb, trabajarKit.patientId, true);
+                    setTrabajarKit(prev => prev ? { ...prev, ...payloadForState } : null);
+                    setTrabajarKitLocal(prev => prev ? { ...prev, ...payloadForState } : null);
+                    setTrabajarGuardado(true);
+                    setTrabajarEnviadoLogistica(true);
+                    setTimeout(cerrarTrabajar, 600);
+                } catch (err) {
+                    alert('Error al guardar y enviar: ' + (err?.message || err));
                 }
             };
 
@@ -4528,6 +4626,7 @@
             const renderRowBitacoraCalidad = (kit) => {
                 const pt = (patients || []).find(p => p.id === kit.patientId || (p.dni && kit.dni && String(p.dni).trim() === String(kit.dni).trim()));
                 const yaLogistica = !!(kit.fechaEntregaLogistica && String(kit.fechaEntregaLogistica).trim());
+                const enviando = enviandoALogisticaId === kit.id;
                 return (
                     <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4">
                         <div className="flex-1 min-w-0">
@@ -4544,6 +4643,11 @@
                             </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
+                            {!yaLogistica && (
+                                <button type="button" disabled={enviando} onClick={() => handleEnviarALogisticaDesdeBitacora(kit)} className="px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors btn-hover-effect flex items-center gap-1.5" title="Si no enviaste a logística al terminar, hazlo ahora">
+                                    {enviando ? 'Enviando...' : <><Icons.ArrowRight size={14}/> Enviar a logística</>}
+                                </button>
+                            )}
                             <button onClick={() => { setBitacoraFechaAbierta(null); setBitacoraModalSearch(''); abrirTrabajar(kit); }} className="px-4 py-2 rounded-xl bg-green-600 text-white font-bold text-sm hover:bg-green-700 transition-colors btn-hover-effect flex items-center gap-2">
                                 <Icons.Edit size={16}/> Modificar
                             </button>
@@ -4721,6 +4825,7 @@
                                 <div className="text-center py-8">
                                     <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4"><Icons.CheckCircle size={28} className="text-emerald-600"/></div>
                                     <p className="font-bold text-emerald-800 text-lg">Kit enviado a logística</p>
+                                    <p className="text-sm text-slate-600 mt-1">El kit aparece en la lista de trabajo de Logística. No está entregado: Logística marcará la entrega al paciente.</p>
                                     <div className="pt-4"><button type="button" onClick={cerrarTrabajar} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700">Cerrar</button></div>
                                 </div>
                             ) : trabajarGuardado ? (
@@ -4728,7 +4833,7 @@
                                     <div className="text-center py-4">
                                         <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3"><Icons.CheckCircle size={28} className="text-green-600"/></div>
                                         <p className="font-bold text-green-800 text-lg">{(trabajarKit?.fechaEntregaLogistica && String(trabajarKit.fechaEntregaLogistica).trim()) ? 'Revisión actualizada correctamente' : 'Revisión registrada correctamente'}</p>
-                                        <p className="text-sm text-slate-500 mt-1">{(trabajarKit?.fechaEntregaLogistica && String(trabajarKit.fechaEntregaLogistica).trim()) ? 'El kit ya fue enviado a logística. Los cambios se guardaron.' : 'El kit sale de tu lista de espera. Envía a logística para continuar.'}</p>
+                                        <p className="text-sm text-slate-500 mt-1">{(trabajarKit?.fechaEntregaLogistica && String(trabajarKit.fechaEntregaLogistica).trim()) ? 'El kit ya fue enviado a logística. Los cambios se guardaron.' : 'El kit sale de tu lista. Envía a logística para que aparezca en la lista de trabajo de Logística (no marca entregado).'}</p>
                                     </div>
                                     {(!trabajarKit?.fechaEntregaLogistica || !String(trabajarKit.fechaEntregaLogistica).trim()) ? (
                                         <button type="button" onClick={handleEnviarALogistica} className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 flex items-center justify-center gap-2">
@@ -4894,8 +4999,9 @@
                                                     <textarea className="w-full p-3 border border-green-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-green-300 outline-none" rows={2} value={trabajarData.observacionesCalidad||''} onChange={e=>setTrabajarData({...trabajarData, observacionesCalidad:e.target.value})} placeholder="Observaciones de la revisión..." />
                                                 </div>
                                                 <p className="text-xs text-slate-500">Hora de revisión automática. Al guardar se registra la revisión y el kit sale de tu lista. Luego puedes enviar a logística.</p>
-                                                <div className="flex gap-3 pt-2">
-                                                    <button type="submit" className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700">Guardar</button>
+                                                <div className="flex flex-wrap gap-3 pt-2">
+                                                    <button type="submit" className="flex-1 min-w-[140px] py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700">Guardar</button>
+                                                    <button type="button" onClick={handleGuardarYEnviarALogistica} className="flex-1 min-w-[200px] py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 flex items-center justify-center gap-2">✓ Guardar y enviar a logística</button>
                                                     <button type="button" onClick={cerrarTrabajar} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
                                                 </div>
                                             </>
@@ -5398,6 +5504,483 @@
                                 </div>
                                 <div className="flex justify-end pt-2">
                                     <button onClick={() => { setBitacoraFechaAbierta(null); setBitacoraModalSearch(''); }} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+                </div>
+            );
+        };
+
+        // --- BLOCK: LOGISTICA LISTA DE ESPERA ---
+        const LogisticaListaEsperaBlock = ({ kits, patients, onSaveKit, currentUser, users = [] }) => {
+            const [vistaPrincipal, setVistaPrincipal] = useState('logistica'); // 'despacho' | 'refrigerados' | 'operaciones' | 'calidad' | 'logistica'
+            const [listaEsperaTab, setListaEsperaTab] = useState('ruta'); // 'ventanilla' | 'ruta' | 'bitacora'
+            const [listaEsperaSearch, setListaEsperaSearch] = useState('');
+            const [showVerModal, setShowVerModal] = useState(false);
+            const [verKit, setVerKit] = useState(null);
+            const [showTrabajarForm, setShowTrabajarForm] = useState(false);
+            const [trabajarKit, setTrabajarKit] = useState(null);
+            const [trabajarGuardado, setTrabajarGuardado] = useState(false);
+            const [bitacoraCarpetasSearch, setBitacoraCarpetasSearch] = useState('');
+            const [bitacoraFechaAbierta, setBitacoraFechaAbierta] = useState(null);
+            const [bitacoraModalSearch, setBitacoraModalSearch] = useState('');
+
+            const formatearFechaBitacora = (f) => {
+                if (!f) return '';
+                const d = new Date(f + 'T12:00:00');
+                return d.toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' });
+            };
+
+            useEffect(() => {
+                setBitacoraFechaAbierta(null);
+                setBitacoraModalSearch('');
+                if (vistaPrincipal !== 'logistica') setListaEsperaTab('ventanilla');
+            }, [vistaPrincipal]);
+
+            const calcularMedCounter = (meds) => {
+                const m = meds || [];
+                const total = m.length;
+                const dispensados = m.filter(x => x.dispensar !== false).length;
+                const refrigerados = m.filter(x => x.refrigerado === true).length;
+                return { dispensados, total, refrigerados, str: total ? `${dispensados}/${total}` : '0/0', strRefri: refrigerados > 0 ? `${refrigerados} refrigerado(s)` : '' };
+            };
+
+            const abrirVer = (kit) => { setVerKit(kit); setShowVerModal(true); };
+            const cerrarVer = () => { setVerKit(null); setShowVerModal(false); };
+            const abrirTrabajar = (kit) => {
+                setTrabajarKit(kit);
+                setTrabajarGuardado(false);
+                setShowTrabajarForm(true);
+            };
+            const cerrarTrabajar = () => {
+                setTrabajarKit(null);
+                setTrabajarGuardado(false);
+                setShowTrabajarForm(false);
+            };
+
+            const handleMarcarEntregado = async () => {
+                if (!trabajarKit || !onSaveKit) return;
+                const today = new Date().toISOString().split('T')[0];
+                const payload = { 
+                    fechaEntregaKit: today,
+                    usuarioLogistica: (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim() || ''
+                };
+                try {
+                    await onSaveKit(trabajarKit.id, payload, trabajarKit.patientId, true);
+                    setTrabajarGuardado(true);
+                    setTimeout(cerrarTrabajar, 600);
+                } catch (err) {
+                    alert('Error al marcar como entregado: ' + (err?.message || err));
+                }
+            };
+
+            // Lista Despacho (solo lectura): kits con receta impresa, no enviados a Operaciones
+            const listaKitsDespacho = useMemo(() => {
+                return (kits || []).filter(k => {
+                    if (!k.recetaImpresa) return false;
+                    if (!!k.complemento) return !k.complementoEnviadoAOperaciones;
+                    return !k.enviadoAOperaciones;
+                }).sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0));
+            }, [kits]);
+            const listaDespachoVentanilla = useMemo(() => listaKitsDespacho.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsDespacho]);
+            const listaDespachoRuta = useMemo(() => listaKitsDespacho.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsDespacho]);
+
+            // Lista Refrigerados (solo lectura): kits con refrigerados pendientes de despachar
+            const listaKitsRefrigerados = useMemo(() => {
+                return (kits || []).filter(k => {
+                    if (!k.fechaEntregaLogistica || !String(k.fechaEntregaLogistica).trim()) return false;
+                    if (k.refrigeradosDespachados) return false;
+                    const hasRefri = !!(k.enviadoADespachoRefrigerados || (k.isRefrigerated && (parseInt(String(k.cantRefriGlobal || 0), 10) > 0)));
+                    if (!hasRefri) return false;
+                    const medsRefri = (k.medicamentos || []).filter(m => m.refrigerado === true);
+                    return medsRefri.length > 0;
+                }).sort((a, b) => new Date(b.fechaEnvioDespachoRefrigerados || b.fechaEntregaLogistica || 0) - new Date(a.fechaEnvioDespachoRefrigerados || a.fechaEntregaLogistica || 0));
+            }, [kits]);
+            const listaRefriVentanilla = useMemo(() => listaKitsRefrigerados.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsRefrigerados]);
+            const listaRefriRuta = useMemo(() => listaKitsRefrigerados.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsRefrigerados]);
+
+            // Lista Operaciones (solo lectura): kits enviados a Ops, pendientes de trabajar
+            const listaKitsOperaciones = useMemo(() => {
+                return (kits || []).filter(k => {
+                    const enviado = !!k.enviadoAOperaciones || !!k.complementoEnviadoAOperaciones;
+                    return enviado && !k.trabajadoOperaciones;
+                }).sort((a, b) => new Date(b.fechaEnvioOperaciones || b.fechaEnvioComplemento || 0) - new Date(a.fechaEnvioOperaciones || a.fechaEnvioComplemento || 0));
+            }, [kits]);
+            const listaOpsVentanilla = useMemo(() => listaKitsOperaciones.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsOperaciones]);
+            const listaOpsRuta = useMemo(() => listaKitsOperaciones.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsOperaciones]);
+
+            // Lista Calidad (solo lectura): kits pendientes de revisar en Calidad
+            const listaKitsCalidad = useMemo(() => {
+                return (kits || []).filter(k => {
+                    if (!k.trabajadoOperaciones) return false;
+                    return !k.revisadoCalidad;
+                }).sort((a, b) => new Date(b.fechaEntregaCalidad || 0) - new Date(a.fechaEntregaCalidad || 0));
+            }, [kits]);
+            const listaCalidadVentanilla = useMemo(() => listaKitsCalidad.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsCalidad]);
+            const listaCalidadRuta = useMemo(() => listaKitsCalidad.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsCalidad]);
+
+            // Mi lista Logística: kits con fechaEntregaLogistica y SIN fechaEntregaKit (pendientes de trabajar)
+            const listaKitsLogistica = useMemo(() => {
+                return (kits || []).filter(k => {
+                    const enLogistica = !!(k.fechaEntregaLogistica && String(k.fechaEntregaLogistica).trim());
+                    const feKit = (k.fechaEntregaKit || '').toString().trim();
+                    const noEntregado = !feKit || feKit === 'undefined' || feKit === 'null';
+                    return enLogistica && noEntregado;
+                }).sort((a, b) => new Date(b.fechaEntregaLogistica || 0) - new Date(a.fechaEntregaLogistica || 0));
+            }, [kits]);
+            const listaLogisticaVentanilla = useMemo(() => listaKitsLogistica.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla'), [listaKitsLogistica]);
+            const listaLogisticaRuta = useMemo(() => listaKitsLogistica.filter(k => (k.deliveryMode || '').toLowerCase() === 'ruta'), [listaKitsLogistica]);
+
+            // Bitácora Logística: kits entregados
+            const bitacoraLogistica = useMemo(() => {
+                const porFecha = {};
+                (kits || []).forEach(k => {
+                    const fechaEntrega = (k.fechaEntregaKit || '').toString().trim();
+                    if (!fechaEntrega || fechaEntrega === 'undefined' || fechaEntrega === 'null') return;
+                    porFecha[fechaEntrega] = porFecha[fechaEntrega] || [];
+                    porFecha[fechaEntrega].push(k);
+                });
+                return Object.entries(porFecha).map(([f, arr]) => ({ fecha: f, kits: arr, count: arr.length })).sort((a, b) => b.fecha.localeCompare(a.fecha));
+            }, [kits]);
+            const bitacoraLogisticaFiltrada = useMemo(() => {
+                const t = (bitacoraCarpetasSearch || '').trim().toLowerCase();
+                if (!t) return bitacoraLogistica;
+                return bitacoraLogistica.filter(({ fecha }) => formatearFechaBitacora(fecha).toLowerCase().includes(t) || (fecha || '').toLowerCase().includes(t));
+            }, [bitacoraLogistica, bitacoraCarpetasSearch]);
+            const kitsBitacoraLogisticaDia = bitacoraFechaAbierta ? (bitacoraLogistica.find(d => d.fecha === bitacoraFechaAbierta)?.kits || []) : [];
+            const kitsBitacoraLogisticaDiaFiltrados = useMemo(() => {
+                const t = (bitacoraModalSearch || '').trim().toLowerCase();
+                if (!t) return kitsBitacoraLogisticaDia;
+                return kitsBitacoraLogisticaDia.filter(k => {
+                    const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                    const n = (k.nombre || (pt?.nombre || '')).toLowerCase();
+                    const d = (k.dni || (pt?.dni || '')).toString().toLowerCase();
+                    return n.includes(t) || d.includes(t);
+                });
+            }, [kitsBitacoraLogisticaDia, patients, bitacoraModalSearch]);
+
+            const getListadoActual = () => {
+                if (vistaPrincipal === 'despacho') return listaEsperaTab === 'ventanilla' ? listaDespachoVentanilla : listaDespachoRuta;
+                if (vistaPrincipal === 'refrigerados') return listaEsperaTab === 'ventanilla' ? listaRefriVentanilla : listaRefriRuta;
+                if (vistaPrincipal === 'operaciones') return listaEsperaTab === 'ventanilla' ? listaOpsVentanilla : listaOpsRuta;
+                if (vistaPrincipal === 'calidad') return listaEsperaTab === 'ventanilla' ? listaCalidadVentanilla : listaCalidadRuta;
+                return listaEsperaTab === 'ventanilla' ? listaLogisticaVentanilla : listaLogisticaRuta;
+            };
+
+            const listadoFiltrado = useMemo(() => {
+                const listado = getListadoActual();
+                const t = (listaEsperaSearch || '').trim().toLowerCase();
+                if (!t) return listado;
+                return listado.filter(k => {
+                    const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                    const n = (k.nombre || pt?.nombre || '').toLowerCase();
+                    const d = (k.dni || pt?.dni || '').toString().toLowerCase();
+                    return n.includes(t) || d.includes(t);
+                });
+            }, [vistaPrincipal, listaEsperaTab, listaEsperaSearch, listaDespachoVentanilla, listaDespachoRuta, listaRefriVentanilla, listaRefriRuta, listaOpsVentanilla, listaOpsRuta, listaCalidadVentanilla, listaCalidadRuta, listaLogisticaVentanilla, listaLogisticaRuta, patients]);
+
+            const renderRowSoloVista = (kit, tipoVista) => {
+                const pt = (patients || []).find(p => p.id === kit.patientId || (p.dni && kit.dni && String(p.dni).trim() === String(kit.dni).trim()));
+                const medsRefri = (kit.medicamentos || []).filter(m => m.refrigerado === true);
+                return (
+                    <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4 border-b border-slate-100 last:border-b-0">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-slate-800">{kit.nombre || pt?.nombre || '—'}</span>
+                                {!!kit.complemento && <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold uppercase">Complemento</span>}
+                                {tipoVista === 'refrigerados' && medsRefri.length > 0 && <span className="px-2 py-0.5 rounded-lg bg-sky-100 text-sky-800 text-xs font-bold">❄ {medsRefri.length} refrigerado(s)</span>}
+                            </div>
+                            <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                <span>DNI: {kit.dni || pt?.dni || '—'}</span>
+                                <span className={kit.deliveryMode === 'ruta' ? 'text-emerald-600 font-semibold' : 'text-indigo-600 font-semibold'}>{kit.deliveryMode === 'ruta' ? 'Ruta' : kit.deliveryMode === 'ventanilla' ? 'Ventanilla' : '—'}</span>
+                                <span>{(kit.medicamentos || []).length} med(s)</span>
+                            </div>
+                        </div>
+                        <button onClick={() => abrirVer(kit)} className="px-4 py-2 rounded-xl bg-slate-500 text-white font-bold text-sm hover:bg-slate-600 transition-colors btn-hover-effect flex items-center gap-2">
+                            <Icons.Eye size={16}/> Visualizar
+                        </button>
+                    </div>
+                );
+            };
+
+            const renderRowLogistica = (kit) => {
+                const pt = (patients || []).find(p => p.id === kit.patientId || (p.dni && kit.dni && String(p.dni).trim() === String(kit.dni).trim()));
+                const medsRefri = (kit.medicamentos || []).filter(m => m.refrigerado === true);
+                return (
+                    <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4 border-b border-slate-100 last:border-b-0">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-slate-800">{kit.nombre || pt?.nombre || '—'}</span>
+                                {!!kit.complemento && <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold uppercase">Complemento</span>}
+                                {medsRefri.length > 0 && <span className="px-2 py-0.5 rounded-lg bg-sky-100 text-sky-800 text-xs font-bold">❄ {medsRefri.length} refri</span>}
+                            </div>
+                            <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                <span>DNI: {kit.dni || pt?.dni || '—'}</span>
+                                <span className="font-mono">En logística: {kit.fechaEntregaLogistica || '—'}</span>
+                                <span className={kit.deliveryMode === 'ruta' ? 'text-emerald-600 font-semibold' : 'text-indigo-600 font-semibold'}>{kit.deliveryMode === 'ruta' ? 'Ruta' : kit.deliveryMode === 'ventanilla' ? 'Ventanilla' : '—'}</span>
+                                <span>{(kit.medicamentos || []).length} med(s)</span>
+                            </div>
+                            {kit.direccionEntrega && <div className="text-xs text-slate-600 mt-1">📍 {kit.direccionEntrega}</div>}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button onClick={() => abrirTrabajar(kit)} className="px-4 py-2 rounded-xl bg-cyan-600 text-white font-bold text-sm hover:bg-cyan-700 transition-colors btn-hover-effect flex items-center gap-2">
+                                <Icons.Truck size={16}/> Trabajar
+                            </button>
+                            <button onClick={() => abrirVer(kit)} className="px-4 py-2 rounded-xl bg-slate-500 text-white font-bold text-sm hover:bg-slate-600 transition-colors btn-hover-effect flex items-center gap-2">
+                                <Icons.Eye size={16}/> Ver
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            const renderRowBitacora = (kit) => {
+                const pt = (patients || []).find(p => p.id === kit.patientId || (p.dni && kit.dni && String(p.dni).trim() === String(kit.dni).trim()));
+                return (
+                    <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4 border-b border-slate-100 last:border-b-0">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-slate-800">{kit.nombre || pt?.nombre || '—'}</span>
+                                <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-800 text-xs font-bold">✓ Entregado</span>
+                            </div>
+                            <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                <span>DNI: {kit.dni || pt?.dni || '—'}</span>
+                                <span className="font-mono">Entrega: {kit.fechaEntregaKit || '—'}</span>
+                                <span className={kit.deliveryMode === 'ruta' ? 'text-emerald-600 font-semibold' : 'text-indigo-600 font-semibold'}>{kit.deliveryMode === 'ruta' ? 'Ruta' : 'Ventanilla'}</span>
+                            </div>
+                        </div>
+                        <button onClick={() => abrirVer(kit)} className="px-4 py-2 rounded-xl bg-slate-500 text-white font-bold text-sm hover:bg-slate-600 transition-colors btn-hover-effect flex items-center gap-2">
+                            <Icons.Eye size={16}/> Ver
+                        </button>
+                    </div>
+                );
+            };
+
+            const getVistaTitulo = () => {
+                if (vistaPrincipal === 'despacho') return 'Despacho de medicamentos';
+                if (vistaPrincipal === 'refrigerados') return 'Refrigerados pendientes';
+                if (vistaPrincipal === 'operaciones') return 'Operaciones';
+                if (vistaPrincipal === 'calidad') return 'Calidad';
+                return 'Mi lista — Logística';
+            };
+
+            const getVistaConteo = () => {
+                if (vistaPrincipal === 'despacho') return listaKitsDespacho.length;
+                if (vistaPrincipal === 'refrigerados') return listaKitsRefrigerados.length;
+                if (vistaPrincipal === 'operaciones') return listaKitsOperaciones.length;
+                if (vistaPrincipal === 'calidad') return listaKitsCalidad.length;
+                return listaKitsLogistica.length;
+            };
+
+            return (
+                <div className="glass-panel-futuro rounded-3xl shadow-soft p-6 animate-in">
+                    <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-cyan-100 p-3 rounded-2xl text-cyan-600">
+                                <Icons.Truck size={28}/>
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-slate-800 brand-font">Logística</h2>
+                                <p className="text-sm text-slate-500">Asignación de rutas y seguimiento de envíos</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Pestañas de vistas principales */}
+                    <div className="flex flex-wrap gap-2 mb-6 p-1 bg-slate-100 rounded-2xl">
+                        {[
+                            { id: 'logistica', label: 'Mi lista', icon: Icons.Truck, count: listaKitsLogistica.length },
+                            { id: 'despacho', label: 'Despacho', icon: Icons.Box, count: listaKitsDespacho.length },
+                            { id: 'refrigerados', label: 'Refrigerados', icon: Icons.Box, count: listaKitsRefrigerados.length },
+                            { id: 'operaciones', label: 'Operaciones', icon: Icons.Box, count: listaKitsOperaciones.length },
+                            { id: 'calidad', label: 'Calidad', icon: Icons.CheckCircle, count: listaKitsCalidad.length },
+                        ].map(tab => (
+                            <button key={tab.id} onClick={() => setVistaPrincipal(tab.id)} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all ${vistaPrincipal === tab.id ? (tab.id === 'logistica' ? 'bg-cyan-600 text-white shadow-lg' : 'bg-white text-slate-700 shadow-lg') : 'text-slate-500 hover:bg-white/50'}`}>
+                                <tab.icon size={18}/>
+                                {tab.label}
+                                <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${vistaPrincipal === tab.id ? 'bg-white/20' : 'bg-slate-200'}`}>{tab.count}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Panel de contenido */}
+                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <h3 className="font-bold text-slate-800">{getVistaTitulo()}</h3>
+                                <span className="bg-slate-200 px-3 py-1 rounded-full text-sm font-bold text-slate-600">{getVistaConteo()} kit(s)</span>
+                                {vistaPrincipal !== 'logistica' && <span className="text-xs text-slate-400 italic">(Solo vista)</span>}
+                            </div>
+                            {vistaPrincipal === 'logistica' && listaEsperaTab !== 'bitacora' && (
+                                <div className="relative flex-1 max-w-xs">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                    <input type="text" placeholder="Buscar por nombre o DNI..." value={listaEsperaSearch} onChange={e => setListaEsperaSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-cyan-300 focus:ring-1 focus:ring-cyan-200" />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Tabs Ventanilla/Ruta/Bitácora */}
+                        {vistaPrincipal === 'logistica' && (
+                            <div className="flex gap-1 p-2 bg-slate-50 border-b border-slate-200">
+                                {['ruta', 'ventanilla', 'bitacora'].map(t => (
+                                    <button key={t} onClick={() => setListaEsperaTab(t)} className={`flex-1 px-4 py-2 rounded-lg text-sm font-bold transition-all ${listaEsperaTab === t ? 'bg-cyan-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                                        {t === 'ventanilla' ? `Ventanilla (${listaLogisticaVentanilla.length})` : t === 'ruta' ? `Ruta (${listaLogisticaRuta.length})` : `Bitácora (${bitacoraLogistica.length})`}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {vistaPrincipal !== 'logistica' && (
+                            <div className="flex gap-1 p-2 bg-slate-50 border-b border-slate-200">
+                                {['ventanilla', 'ruta'].map(t => {
+                                    const listado = vistaPrincipal === 'despacho' ? (t === 'ventanilla' ? listaDespachoVentanilla : listaDespachoRuta) :
+                                                    vistaPrincipal === 'refrigerados' ? (t === 'ventanilla' ? listaRefriVentanilla : listaRefriRuta) :
+                                                    vistaPrincipal === 'operaciones' ? (t === 'ventanilla' ? listaOpsVentanilla : listaOpsRuta) :
+                                                    (t === 'ventanilla' ? listaCalidadVentanilla : listaCalidadRuta);
+                                    return (
+                                        <button key={t} onClick={() => setListaEsperaTab(t)} className={`flex-1 px-4 py-2 rounded-lg text-sm font-bold transition-all ${listaEsperaTab === t ? 'bg-slate-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                                            {t === 'ventanilla' ? 'Ventanilla' : 'Ruta'} ({listado.length})
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Contenido de las listas */}
+                        <div className="divide-y divide-slate-100 max-h-[60vh] overflow-y-auto">
+                            {vistaPrincipal === 'logistica' && listaEsperaTab === 'bitacora' ? (
+                                <>
+                                    <div className="p-4 bg-slate-50 border-b border-slate-200">
+                                        <div className="relative max-w-xs">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                            <input type="text" placeholder="Buscar fecha..." value={bitacoraCarpetasSearch} onChange={e => setBitacoraCarpetasSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-cyan-300" />
+                                        </div>
+                                    </div>
+                                    {bitacoraLogisticaFiltrada.length === 0 ? (
+                                        <div className="p-10 text-center text-slate-400">No hay entregas registradas.</div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4">
+                                            {bitacoraLogisticaFiltrada.map(({ fecha, count }) => (
+                                                <button key={fecha} onClick={() => setBitacoraFechaAbierta(fecha)} className="p-4 bg-green-50 rounded-xl border border-green-200 hover:bg-green-100 transition-colors text-left">
+                                                    <div className="font-bold text-green-800">{formatearFechaBitacora(fecha)}</div>
+                                                    <div className="text-sm text-green-600">{count} kit(s) entregados</div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            ) : vistaPrincipal === 'logistica' ? (
+                                listadoFiltrado.length === 0 ? (
+                                    <div className="p-10 text-center text-slate-400">No hay kits pendientes en esta lista.</div>
+                                ) : (
+                                    listadoFiltrado.map(kit => renderRowLogistica(kit))
+                                )
+                            ) : (
+                                listadoFiltrado.length === 0 ? (
+                                    <div className="p-10 text-center text-slate-400">No hay kits en esta lista.</div>
+                                ) : (
+                                    listadoFiltrado.map(kit => renderRowSoloVista(kit, vistaPrincipal))
+                                )
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Modal Visualizar */}
+                    {showVerModal && verKit && (
+                        <Modal isOpen={true} onClose={cerrarVer} title="Detalle del Kit" maxWidth="max-w-3xl">
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl">
+                                    <div><span className="text-xs text-slate-500">DNI:</span><div className="font-bold">{verKit.dni || '—'}</div></div>
+                                    <div><span className="text-xs text-slate-500">Nombre:</span><div className="font-bold">{verKit.nombre || '—'}</div></div>
+                                    <div><span className="text-xs text-slate-500">Tipo:</span><div className="font-bold">{verKit.deliveryMode === 'ruta' ? 'Ruta' : 'Ventanilla'}</div></div>
+                                    <div><span className="text-xs text-slate-500">Fecha armado:</span><div className="font-bold">{verKit.fechaArmado || '—'}</div></div>
+                                    <div><span className="text-xs text-slate-500">En logística desde:</span><div className="font-bold">{verKit.fechaEntregaLogistica || '—'}</div></div>
+                                    <div><span className="text-xs text-slate-500">Medicamentos:</span><div className="font-bold">{calcularMedCounter(verKit.medicamentos).str}</div></div>
+                                </div>
+                                {verKit.direccionEntrega && (
+                                    <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                                        <span className="text-xs text-emerald-600 font-bold">Dirección de entrega:</span>
+                                        <div className="font-bold text-emerald-800">{verKit.direccionEntrega}</div>
+                                    </div>
+                                )}
+                                <div className="p-4 bg-slate-50 rounded-xl">
+                                    <span className="text-xs text-slate-500 font-bold block mb-2">Medicamentos:</span>
+                                    <div className="space-y-1">
+                                        {(verKit.medicamentos || []).map((m, i) => (
+                                            <div key={i} className={`p-2 rounded text-sm ${m.dispensar === false ? 'bg-red-50 text-red-700' : m.refrigerado ? 'bg-sky-50 text-sky-800' : 'bg-white'}`}>
+                                                {m.nombre} × {m.cantidad} {m.refrigerado && '❄'} {m.dispensar === false && '(No va)'}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex justify-end pt-4">
+                                    <button onClick={cerrarVer} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold hover:bg-slate-700">Cerrar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {/* Modal Trabajar Logística */}
+                    {showTrabajarForm && trabajarKit && (
+                        <Modal isOpen={true} onClose={cerrarTrabajar} title={trabajarGuardado ? "Kit marcado como entregado" : "Trabajar Kit — Logística"} maxWidth="max-w-3xl">
+                            {trabajarGuardado ? (
+                                <div className="text-center py-10">
+                                    <div className="text-6xl mb-4">✅</div>
+                                    <p className="font-bold text-green-800 text-lg">Kit marcado como entregado</p>
+                                    <p className="text-sm text-slate-500 mt-1">El kit ha salido de tu lista de espera.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl">
+                                        <div><span className="text-xs text-slate-500">DNI:</span><div className="font-bold">{trabajarKit.dni || '—'}</div></div>
+                                        <div><span className="text-xs text-slate-500">Nombre:</span><div className="font-bold">{trabajarKit.nombre || '—'}</div></div>
+                                        <div><span className="text-xs text-slate-500">Tipo:</span><div className="font-bold">{trabajarKit.deliveryMode === 'ruta' ? 'Ruta' : 'Ventanilla'}</div></div>
+                                        <div><span className="text-xs text-slate-500">En logística desde:</span><div className="font-bold">{trabajarKit.fechaEntregaLogistica || '—'}</div></div>
+                                    </div>
+                                    {trabajarKit.direccionEntrega && (
+                                        <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                                            <span className="text-xs text-emerald-600 font-bold">📍 Dirección de entrega:</span>
+                                            <div className="font-bold text-emerald-800 text-lg">{trabajarKit.direccionEntrega}</div>
+                                        </div>
+                                    )}
+                                    <div className="p-4 bg-slate-50 rounded-xl">
+                                        <span className="text-xs text-slate-500 font-bold block mb-2">Medicamentos ({calcularMedCounter(trabajarKit.medicamentos).str}):</span>
+                                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                                            {(trabajarKit.medicamentos || []).filter(m => m.dispensar !== false).map((m, i) => (
+                                                <div key={i} className={`p-2 rounded text-sm ${m.refrigerado ? 'bg-sky-50 text-sky-800' : 'bg-white'}`}>
+                                                    {m.nombre} × {m.cantidad} {m.refrigerado && '❄'}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3 pt-4 border-t border-slate-200">
+                                        <button onClick={handleMarcarEntregado} className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 flex items-center justify-center gap-2">
+                                            <Icons.CheckCircle size={20}/> Marcar como Entregado
+                                        </button>
+                                        <button onClick={cerrarTrabajar} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
+                                    </div>
+                                </div>
+                            )}
+                        </Modal>
+                    )}
+
+                    {/* Modal Bitácora día */}
+                    {bitacoraFechaAbierta && (
+                        <Modal isOpen={true} onClose={() => { setBitacoraFechaAbierta(null); setBitacoraModalSearch(''); }} title={`Entregas del ${formatearFechaBitacora(bitacoraFechaAbierta)}`} maxWidth="max-w-4xl">
+                            <div className="space-y-4">
+                                <div className="relative max-w-xs">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                    <input type="text" placeholder="Buscar..." value={bitacoraModalSearch} onChange={e => setBitacoraModalSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl border border-slate-200 text-sm" />
+                                </div>
+                                <div className="divide-y divide-slate-100 max-h-[50vh] overflow-y-auto rounded-xl border border-slate-200">
+                                    {kitsBitacoraLogisticaDiaFiltrados.length === 0 ? (
+                                        <div className="p-8 text-center text-slate-400">Sin resultados.</div>
+                                    ) : (
+                                        kitsBitacoraLogisticaDiaFiltrados.map(kit => renderRowBitacora(kit))
+                                    )}
+                                </div>
+                                <div className="flex justify-end pt-2">
+                                    <button onClick={() => { setBitacoraFechaAbierta(null); setBitacoraModalSearch(''); }} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold hover:bg-slate-700">Cerrar</button>
                                 </div>
                             </div>
                         </Modal>
@@ -6235,6 +6818,36 @@
                 const sorted = [...klist].sort((a, b) => new Date(b.fechaEntregaKit) - new Date(a.fechaEntregaKit));
                 const d = new Date(sorted[0].fechaEntregaKit);
                 return isNaN(d.getTime()) ? null : d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+            };
+
+            // Kits activos = no entregados (sin fechaEntregaKit). Para agente de Contact Center.
+            const getActiveKitsCount = (p) => kits.filter(k => k.patientId === p.id && !(k.fechaEntregaKit && String(k.fechaEntregaKit).trim())).length;
+            const getKitStageLabel = (k) => {
+                // Verificar entrega (solo si tiene valor real)
+                const fechaEntrega = k.fechaEntregaKit ? String(k.fechaEntregaKit).trim() : '';
+                if (fechaEntrega && fechaEntrega !== '' && fechaEntrega !== 'undefined' && fechaEntrega !== 'null') {
+                    return 'Entregado';
+                }
+                // Verificar logística
+                const fechaLog = k.fechaEntregaLogistica ? String(k.fechaEntregaLogistica).trim() : '';
+                if (fechaLog && fechaLog !== '' && fechaLog !== 'undefined' && fechaLog !== 'null') {
+                    return 'Logística';
+                }
+                // Operaciones
+                if (k.trabajadoOperaciones || k.enviadoAOperaciones || k.complementoEnviadoAOperaciones) return 'Operaciones';
+                // Despacho
+                if (k.recetaImpresa) return 'Despacho';
+                // Contact Center y Revisión
+                if (k.confirmadoPorContactCenter && k.devueltoPorContactCenter) return 'Revisión y asignación';
+                if (k.confirmadoPorContactCenter) return 'Revisión y asignación';
+                if (k.contactCenter && String(k.contactCenter).trim()) return 'Contact Center';
+                return 'Revisión y asignación';
+            };
+            const getPatientActiveKitsStatus = (p) => {
+                const active = kits.filter(k => k.patientId === p.id && !(k.fechaEntregaKit && String(k.fechaEntregaKit).trim()));
+                if (active.length === 0) return [];
+                const sorted = [...active].sort((a, b) => new Date(b.fechaArmado || b.fechaConfirmacionContactCenter || 0) - new Date(a.fechaArmado || a.fechaConfirmacionContactCenter || 0));
+                return sorted.map(k => getKitStageLabel(k));
             };
 
             const filteredPatients = useMemo(() => {
@@ -9536,6 +10149,15 @@ html +
                                                 <span className={`px-2 py-1 rounded text-xs font-bold border ${kit.deliveryMode==='ruta'?'bg-emerald-50 text-emerald-700 border-emerald-100':'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
                                                     {kit.deliveryMode === 'ruta' ? 'RUTA' : 'VENTANILLA'}
                                                 </span>
+                                                {isAgenteContactCenter && (() => {
+                                                    const isEntregado = !!(kit.fechaEntregaKit && String(kit.fechaEntregaKit).trim());
+                                                    const label = getKitStageLabel(kit);
+                                                    return (
+                                                        <span className={`px-2 py-1 rounded text-xs font-bold border ${isEntregado ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`} title={isEntregado ? 'Kit entregado al paciente' : 'Departamento actual del kit'}>
+                                                            📍 {label}
+                                                        </span>
+                                                    );
+                                                })()}
                                                 <span className="text-xs text-slate-400 font-mono">Hora Ops: {kit.horaOperaciones || '--:--'}</span>
                                                 {kit.isRefrigerated && (
                                                     <span className="text-xs text-blue-600 font-bold flex items-center gap-1">
@@ -10126,18 +10748,21 @@ html +
                                                             <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase w-14">Estado</th>
                                                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-600 uppercase">Paciente</th>
                                                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-600 uppercase">DNI</th>
-                                                            <th className="px-6 py-3 text-center text-xs font-bold text-slate-600 uppercase">Kits</th>
+                                                            <th className="px-6 py-3 text-center text-xs font-bold text-slate-600 uppercase">{isAgenteContactCenter ? 'Kits activos' : 'Kits'}</th>
+                                                            {isAgenteContactCenter && <th className="px-6 py-3 text-left text-xs font-bold text-slate-600 uppercase">Ubicación kit(s)</th>}
                                                             <th className="px-6 py-3 text-right text-xs font-bold text-slate-600 uppercase">Acción</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-50">
                                                         {filtered.length === 0 ? (
                                                             <tr>
-                                                                <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">{group.patients.length === 0 ? 'Sin pacientes asignados' : 'Sin resultados para búsqueda o filtro de semáforo'}</td>
+                                                                <td colSpan={isAgenteContactCenter ? 6 : 5} className="px-6 py-8 text-center text-sm text-slate-400">{group.patients.length === 0 ? 'Sin pacientes asignados' : 'Sin resultados para búsqueda o filtro de semáforo'}</td>
                                                             </tr>
                                                         ) : (
                                                             filtered.map(p => {
                                                                 const countKits = kits.filter(k => k.patientId === p.id).length;
+                                                                const activeCount = getActiveKitsCount(p);
+                                                                const statusLabels = getPatientActiveKitsStatus(p);
                                                                 const sem = getPatientSemaphore(p);
                                                                 const titleRev = sem === 'green' ? 'Sin pendientes' : sem === 'orange' ? 'Esperando devolución de Contact Center' : 'Devuelto por CC – falta marcar receta impresa';
                                                                 const titleCC = sem === 'red' ? 'Kit nuevo – confirmar información' : 'Todo trabajado';
@@ -10155,8 +10780,27 @@ html +
                                                                             <div className="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded w-fit">{p.dni}</div>
                                                                         </td>
                                                                         <td className="px-6 py-4 text-center">
-                                                                            <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-full text-xs font-bold">{countKits}</span>
+                                                                            {isAgenteContactCenter ? (
+                                                                                <span title={activeCount ? `${activeCount} kit(s) no entregado(s) de ${countKits} total` : `${countKits} kit(s) total`} className={`px-2 py-1 rounded-full text-xs font-bold ${activeCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-blue-50 text-blue-600'}`}>
+                                                                                    {activeCount > 0 ? `${activeCount} / ${countKits}` : countKits}
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-full text-xs font-bold">{countKits}</span>
+                                                                            )}
                                                                         </td>
+                                                                        {isAgenteContactCenter && (
+                                                                            <td className="px-6 py-4">
+                                                                                {statusLabels.length > 0 ? (
+                                                                                    <div className="flex flex-wrap gap-1" title={statusLabels.join(' · ')}>
+                                                                                        {[...new Set(statusLabels)].map((lb, i) => (
+                                                                                            <span key={i} className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">{lb}</span>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <span className="text-xs text-slate-400">—</span>
+                                                                                )}
+                                                                            </td>
+                                                                        )}
                                                                         <td className="px-6 py-4 text-right" onClick={(e)=>e.stopPropagation()}>
                                                                             {canCreatePatients && !folderSoloLectura ? (
                                                                                 <button onClick={(e) => openEditPatient(e, p)} className="text-slate-300 hover:text-orange-500 p-2 btn-hover-effect" title="Editar información del paciente (solo admin)">
@@ -10227,13 +10871,16 @@ html +
                                             <tr className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                                                 <th className="px-6 py-4 pl-8">Paciente</th>
                                                 <th className="px-6 py-4">Identificación</th>
-                                                <th className="px-6 py-4 text-center">N° Kits</th>
+                                                <th className="px-6 py-4 text-center">{isAgenteContactCenter ? 'Kits activos' : 'N° Kits'}</th>
+                                                {isAgenteContactCenter && <th className="px-6 py-4">Ubicación kit(s)</th>}
                                                 <th className="px-6 py-4 text-right pr-8">Acción</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
                                             {currentPatients.map(p => {
                                                 const countKits = kits.filter(k => k.patientId === p.id).length;
+                                                const activeCount = getActiveKitsCount(p);
+                                                const statusLabels = getPatientActiveKitsStatus(p);
                                                 return (
                                                     <tr key={p.id} onClick={() => handleSelectPatient(p)} className={`row-hover-effect cursor-pointer`}>
                                                         <td className="px-6 py-5 pl-8">
@@ -10247,8 +10894,27 @@ html +
                                                             <div className="text-xs text-slate-400">{p.tipoAfiliado}</div>
                                                         </td>
                                                         <td className="px-6 py-5 text-center">
-                                                            <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">{countKits}</span>
+                                                            {isAgenteContactCenter ? (
+                                                                <span title={activeCount ? `${activeCount} kit(s) no entregado(s) de ${countKits} total` : `${countKits} kit(s) total`} className={`px-3 py-1 rounded-full text-xs font-bold ${activeCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-blue-50 text-blue-600'}`}>
+                                                                    {activeCount > 0 ? `${activeCount} / ${countKits}` : countKits}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">{countKits}</span>
+                                                            )}
                                                         </td>
+                                                        {isAgenteContactCenter && (
+                                                            <td className="px-6 py-5">
+                                                                {statusLabels.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-1" title={statusLabels.join(' · ')}>
+                                                                        {[...new Set(statusLabels)].map((lb, i) => (
+                                                                            <span key={i} className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">{lb}</span>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-xs text-slate-400">—</span>
+                                                                )}
+                                                            </td>
+                                                        )}
                                                         <td className="px-6 py-5 text-right pr-8" onClick={(e)=>e.stopPropagation()}>
                                                             <div className="flex justify-end gap-2">
                                                                 {canCreatePatients ? (
@@ -13048,6 +13714,13 @@ Responde en formato JSON con esta estructura:
                 if (userData) {
                     sessionStorage.setItem('leq_userData', JSON.stringify(userData));
                 }
+                const dep = (userData?.departamento || '').toLowerCase().trim();
+                const roles = (userData?.rolesDepartamento || []).map(x => (x || '').toLowerCase().trim());
+                const isLogistica = dep === 'logistica' && (roles.includes('asignador de rutas despacho logistica') || roles.includes('supervisor'));
+                if (isLogistica) {
+                    window.location.href = 'logistica.html';
+                    return;
+                }
             };
 
             const handleLogout = () => { 
@@ -13094,6 +13767,19 @@ Responde en formato JSON con esta estructura:
                     }
                 }
             }, []);
+
+            // Redirigir usuarios de logística a logistica.html si ya tienen sesión activa
+            useEffect(() => {
+                const savedUserData = sessionStorage.getItem('leq_userData');
+                if (!role || !savedUserData) return;
+                try {
+                    const userData = JSON.parse(savedUserData);
+                    const dep = (userData?.departamento || '').toLowerCase().trim();
+                    const roles = (userData?.rolesDepartamento || []).map(x => (x || '').toLowerCase().trim());
+                    const isLogistica = dep === 'logistica' && (roles.includes('asignador de rutas despacho logistica') || roles.includes('supervisor'));
+                    if (isLogistica) window.location.href = 'logistica.html';
+                } catch (_) {}
+            }, [role]);
 
             const loadMedicines = async () => {
                 try {
@@ -13619,6 +14305,7 @@ Responde en formato JSON con esta estructura:
                 const onlyDespacho = showDespacho && !hasRevAsignacion;
                 const showOperaciones = dep === 'operaciones' && (roles.includes('operador de empaque') || roles.includes('supervisor'));
                 const showCalidad = dep === 'calidad' && (roles.includes('agente de calidad') || roles.includes('supervisor'));
+                const showLogistica = dep === 'logistica' && (roles.includes('asignador de rutas despacho logistica') || roles.includes('supervisor'));
                 const canViewPacientes = !onlyDespacho && (
                     ['admin', 'superadmin', 'digitador'].includes(sys) || hasRevAsignacion
                 );
@@ -13629,13 +14316,14 @@ Responde en formato JSON con esta estructura:
                     onlyDespacho,
                     showOperaciones,
                     showCalidad,
+                    showLogistica,
                     canViewReports: sys === 'admin' || sys === 'superadmin' || sys === 'supervisor',
                     canViewConfig: sys === 'admin' || sys === 'superadmin',
                     canViewPacientes,
                     showBitacoraTrabajo,
                 };
             }, [currentUserData, role]);
-            const { showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo } = permissions;
+            const { showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, showLogistica, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo } = permissions;
             const currentUserForBlocks = { name: userName, role: role, ...(currentUserData || {}) };
             const openTrabajarFromPacientes = (kit) => { if (kit?.id) { setPendingTrabajarKitId(kit.id); setView('operaciones'); } };
             const clearPendingTrabajarKit = () => setPendingTrabajarKitId(null);
@@ -13660,6 +14348,10 @@ Responde en formato JSON con esta estructura:
                     setView('dashboard');
                     return;
                 }
+                if (view === 'logistica') {
+                    setView('dashboard');
+                    return;
+                }
                 if ((view === 'config' || view === 'users') && !canViewConfig) {
                     setView('dashboard');
                     return;
@@ -13670,7 +14362,7 @@ Responde en formato JSON con esta estructura:
                 if (view === 'bitacora' && !showBitacoraTrabajo) {
                     setView('dashboard');
                 }
-            }, [view, role, showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo]);
+            }, [view, role, showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, showLogistica, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo]);
 
             // Mostrar pantalla de conexión si Firebase no está listo
             if (!isFirebaseReady && firebaseConnectionStatus !== 'connected') {
