@@ -277,7 +277,8 @@
             const [showTrabajarForm, setShowTrabajarForm] = useState(false);
             const [trabajarKit, setTrabajarKit] = useState(null);
             const [trabajarGuardado, setTrabajarGuardado] = useState(false);
-            const [trabajarData, setTrabajarData] = useState({ usuarioDelivery: '', tipoBolsaVerde: 'GRANDE' });
+            const toDateInputValue = (d) => { if (!d) return ''; const s = String(d).trim().slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : (d ? new Date(d).toISOString().split('T')[0] : ''); };
+            const [trabajarData, setTrabajarData] = useState({ usuarioDelivery: '', fechaEntregaAsignada: '' });
             const [bitacoraCarpetasSearch, setBitacoraCarpetasSearch] = useState('');
             const [bitacoraFechaAbierta, setBitacoraFechaAbierta] = useState(null);
             const [bitacoraModalSearch, setBitacoraModalSearch] = useState('');
@@ -305,9 +306,11 @@
                 const prevKits = (kits||[]).filter(k => k.patientId === kit.patientId && k.id !== kit.id && (k.usuarioDelivery || k.usuarioLogistica));
                 const lastKit = prevKits.sort((a,b) => new Date(b.fechaEntregaKit||b.fechaTrabajoLogistica||0) - new Date(a.fechaEntregaKit||a.fechaTrabajoLogistica||0))[0];
                 const defaultDelivery = (lastKit?.usuarioDelivery || lastKit?.usuarioLogistica || '').trim();
+                const pt = (patients||[]).find(p => p.id===kit.patientId || (p.dni&&kit.dni&&String(p.dni).trim()===String(kit.dni).trim()));
+                const fe = kit.fechaEntregaAsignada || kit.fechaConfirmacionContactCenter || pt?.fechaConfirmacionContactCenter || kit.fechaArmado || '';
                 setTrabajarKit(kit);
                 setTrabajarGuardado(false);
-                setTrabajarData({ usuarioDelivery: defaultDelivery, tipoBolsaVerde: kit.tipoBolsaVerde || 'GRANDE' });
+                setTrabajarData({ usuarioDelivery: defaultDelivery, fechaEntregaAsignada: toDateInputValue(fe) || '' });
                 setShowEnviarADespacho(null);
                 setShowTrabajarForm(true);
             };
@@ -315,16 +318,18 @@
 
             const [showEnviarADespacho, setShowEnviarADespacho] = useState(null);
             const deliveryUsers = useMemo(() => {
-                const dept = (u) => (u.departamento||'').toLowerCase();
-                const roles = (u) => (u.rolesDepartamento||[]).map(r=>(r||'').toLowerCase());
-                return (users||[]).filter(u => dept(u)==='delivery' || dept(u)==='logistica' || roles(u).includes('motorista') || roles(u).includes('repartidor') || roles(u).includes('delivery'))
+                const roles = (u) => (u.rolesDepartamento||[]).map(r=>(r||'').toString().trim().toLowerCase()).filter(Boolean);
+                return (users||[]).filter(u => roles(u).includes('motorista'))
                     .map(u => ({ id: u.id, nombre: (u.nombre||u.username||'').trim() })).filter(u => u.nombre);
             }, [users]);
 
             const handleGuardarTrabajo = async () => {
                 if (!trabajarKit || !onSaveKit) return;
+                const isRuta = (trabajarKit.deliveryMode||'').toLowerCase() === 'ruta';
                 const ud = (trabajarData.usuarioDelivery||'').trim();
-                if (!ud) { alert('Debe asignar un usuario de delivery.'); return; }
+                if (isRuta && !ud) { alert('Debe asignar un usuario de delivery (motorista) para envío por ruta.'); return; }
+                const feNueva = (trabajarData.fechaEntregaAsignada||'').toString().trim();
+                if (!feNueva) { alert('Debe asignar la fecha de entrega del kit.'); return; }
                 const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                 const today = new Date().toISOString().split('T')[0];
                 const payload = {
@@ -332,9 +337,15 @@
                     fechaTrabajoLogistica: today,
                     horaTrabajoLogistica: now,
                     usuarioLogistica: (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim() || '',
-                    usuarioDelivery: ud,
-                    tipoBolsaVerde: trabajarData.tipoBolsaVerde || 'GRANDE'
+                    usuarioDelivery: isRuta ? ud : '',
+                    fechaEntregaAsignada: feNueva
                 };
+                const feActual = (trabajarKit.fechaEntregaAsignada || trabajarKit.fechaConfirmacionContactCenter || '').toString().trim();
+                if (feNueva && feActual && feNueva !== feActual) {
+                    const hist = Array.isArray(trabajarKit.historialReprogramacionesFechaEntrega) ? [...trabajarKit.historialReprogramacionesFechaEntrega] : [];
+                    hist.push({ fechaAnterior: feActual, fechaNueva: feNueva, cuando: today, hora: now, usuario: (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim() });
+                    payload.historialReprogramacionesFechaEntrega = hist;
+                }
                 try {
                     await onSaveKit(trabajarKit.id, payload, trabajarKit.patientId, true);
                     setTrabajarGuardado(true);
@@ -791,41 +802,81 @@
                                     </div>
                                 </div>
                             ) : (
-                                <form onSubmit={(e)=>{e.preventDefault();handleGuardarTrabajo();}} className="space-y-4">
+                                <form onSubmit={(e)=>{e.preventDefault();handleGuardarTrabajo();}} className="space-y-5">
+                                    <p className="text-[10px] text-slate-400 italic leading-tight">Asigne el usuario de delivery y la fecha de entrega. Puede reprogramar la fecha si es necesario.</p>
                                     {(()=>{
                                         const pt = (patients||[]).find(p => p.id===trabajarKit.patientId || (p.dni&&trabajarKit.dni&&String(p.dni).trim()===String(trabajarKit.dni).trim()));
                                         const meds = trabajarKit.medicamentos||[];
                                         const mc = calcularMedCounter(meds);
-                                        const medsRefri = meds.filter(m=>!!m && (m.refrigerado===true||m.refrigerado==='true'||String(m.refrigerado||'').toLowerCase()==='true'));
                                         const agenteCC = (pt?.agenteContactCenter||trabajarKit.agenteContactCenter||trabajarKit.contactCenter||'').trim();
                                         const agenteName = agenteCC ? ((users||[]).find(u=>((u.nombre||u.username||'').trim().toLowerCase())===agenteCC.toLowerCase())?.nombre || agenteCC) : '—';
+                                        const hasRefri = !!(trabajarKit.isRefrigerated || (trabajarKit.cantRefriGlobal && parseInt(String(trabajarKit.cantRefriGlobal),10)>0) || meds.some(m=>esRefrigerado(m)));
+                                        const tipoDespachoOps = hasRefri ? (trabajarKit.tipoDespachoRefrigerado==='KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO') : 'SOLO KIT';
+                                        const histReprog = Array.isArray(trabajarKit.historialReprogramacionesFechaEntrega) ? trabajarKit.historialReprogramacionesFechaEntrega : [];
                                         return (
                                             <>
-                                                <div className="grid grid-cols-2 gap-3 p-4 bg-slate-50 rounded-xl text-sm">
-                                                    <div><span className="text-[10px] font-bold text-slate-400 block">DNI</span><span className="font-bold">{trabajarKit.dni||pt?.dni||'—'}</span></div>
-                                                    <div><span className="text-[10px] font-bold text-slate-400 block">Nombre</span><span className="font-bold">{trabajarKit.nombre||pt?.nombre||'—'}</span></div>
-                                                    <div><span className="text-[10px] font-bold text-slate-400 block">Usuario Rev. y Asignación</span><span>{trabajarKit.digitador||'—'}</span></div>
-                                                    <div><span className="text-[10px] font-bold text-slate-400 block">Agente Contact Center</span><span>{agenteName}</span></div>
-                                                    <div><span className="text-[10px] font-bold text-slate-400 block">Tipo envío</span><span className="font-bold">{trabajarKit.deliveryMode==='ruta' ? 'Ruta' : 'Ventanilla'}</span></div>
-                                                    <div><span className="text-[10px] font-bold text-slate-400 block">Fecha entrega asignada</span><span>{trabajarKit.fechaConfirmacionContactCenter||'—'}</span></div>
-                                                    <div className="col-span-2"><span className="text-[10px] font-bold text-slate-400 block">Dirección confirmada</span><span>{trabajarKit.direccionEntrega||trabajarKit.direccionAlternativa||'—'}</span></div>
-                                                    <div className="col-span-2"><span className="text-[10px] font-bold text-slate-400 block">Observaciones de entrega</span><span>{trabajarKit.observacionesEntrega||trabajarKit.observations||'—'}</span></div>
-                                                    <div className="col-span-2"><span className="text-[10px] font-bold text-slate-400 block">Hora y fecha Calidad → Logística</span><span>{trabajarKit.fechaEntregaLogistica||'—'} {trabajarKit.horaEntregaLogistica||''}</span></div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-xl border border-slate-100">
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI</label><input type="text" value={trabajarKit.dni||pt?.dni||'—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-700" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nombre</label><input type="text" value={trabajarKit.nombre||pt?.nombre||'—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-700" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Usuario Rev. y Asignación</label><input type="text" value={trabajarKit.digitador||'—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Agente Contact Center</label><input type="text" value={agenteName} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Tipo envío (Ventanilla/Ruta)</label><input type="text" value={trabajarKit.deliveryMode==='ruta' ? 'Ruta' : 'Ventanilla'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Tipo despacho (Operaciones)</label><div className="w-full p-2.5 border rounded-lg text-sm bg-slate-100 text-slate-700 border-slate-200">{tipoDespachoOps==='KIT + REFRIGERADO' ? <span className="font-bold">{tipoDespachoOps}</span> : <span>{tipoDespachoOps}</span>}</div></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Fecha de entrega *</label><input type="date" value={trabajarData.fechaEntregaAsignada || ''} onChange={e=>setTrabajarData({...trabajarData, fechaEntregaAsignada: e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white border-slate-200" required /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Tipo bolsa verde</label><div className="w-full p-2.5 border rounded-lg text-sm bg-slate-100 text-slate-700 border-slate-200">{trabajarKit.tipoBolsaVerde || 'GRANDE'}</div></div>
+                                                    <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Dirección confirmada</label><input type="text" value={trabajarKit.direccionEntrega||trabajarKit.direccionAlternativa||'—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
+                                                    <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Observaciones de entrega</label><input type="text" value={trabajarKit.observacionesEntrega||trabajarKit.observations||'—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Hora y fecha Calidad → Logística</label><input type="text" value={`${trabajarKit.fechaEntregaLogistica||'—'} ${trabajarKit.horaEntregaLogistica||''}`.trim()} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
                                                 </div>
-                                                <div className="p-4 bg-slate-50 rounded-xl">
-                                                    <h5 className="text-xs font-bold text-slate-500 mb-2">Resumen medicamentos — {mc.str} | {mc.strRefri || '0 refrigerados'}</h5>
-                                                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                                                        {meds.filter(m=>m.dispensar!==false).map((m,i)=><div key={i} className={`p-2 rounded text-sm ${esRefrigerado(m)?'bg-sky-50 text-sky-800 font-medium':'bg-white'}`}>{m.nombre} × {m.cantidad} {esRefrigerado(m)&&'❄'}</div>)}
-                                                        {meds.filter(m=>m.dispensar===false).length>0 && <div className="pt-2 border-t"><span className="text-xs text-slate-500">No van:</span>{meds.filter(m=>m.dispensar===false).map((m,i)=><div key={i} className="text-sm text-red-600">{m.nombre}</div>)}</div>}
+                                                {(trabajarKit.deliveryMode||'').toLowerCase()==='ruta' && (trabajarKit.direccionEntrega||trabajarKit.direccionAlternativa) && (
+                                                    <div className="p-4 bg-violet-50 rounded-xl border border-violet-200">
+                                                        <h5 className="text-xs font-bold text-violet-700 uppercase mb-2">Dirección confirmada (ruta)</h5>
+                                                        <input type="text" value={trabajarKit.direccionEntrega||trabajarKit.direccionAlternativa||'—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-white text-slate-700" />
+                                                    </div>
+                                                )}
+                                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                                        <h5 className="text-xs font-bold text-slate-500 uppercase">Resumen medicamentos</h5>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-lg font-bold text-turquoise-600 tabular-nums">{mc.str}</span>
+                                                            {mc.strRefri && <span className="text-sm font-bold text-sky-600 tabular-nums">❄ {mc.strRefri}</span>}
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                                                        {meds.filter(m=>m.dispensar!==false).map((m,i)=>{
+                                                            const parcial = !!m.dispensacionParcial;
+                                                            const estilo = parcial ? 'bg-amber-50 text-amber-800 font-medium border border-amber-200' : (esRefrigerado(m) ? 'bg-green-50 text-green-800 font-medium border border-green-200' : 'bg-green-50 text-green-800 border border-green-100');
+                                                            return <div key={i} className={`p-2 rounded text-sm ${estilo}`}>{m.nombre} × {m.cantidad} {esRefrigerado(m)&&'❄'} {parcial&&'(parcial)'}</div>;
+                                                        })}
+                                                        {meds.filter(m=>m.dispensar===false).length>0 && (
+                                                            <div className="pt-2 border-t border-red-200 mt-2">
+                                                                <span className="text-xs font-bold text-red-600">No van:</span>
+                                                                {meds.filter(m=>m.dispensar===false).map((m,i)=><div key={i} className="p-2 rounded text-sm bg-red-50 text-red-800 font-medium border border-red-200 mt-1">{m.nombre}</div>)}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-4 p-4 bg-cyan-50 rounded-xl border border-cyan-200">
-                                                    <div><label className="text-[10px] font-bold text-cyan-700 block mb-1">Usuario de delivery *</label><select value={trabajarData.usuarioDelivery} onChange={e=>setTrabajarData({...trabajarData, usuarioDelivery:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white" required><option value="">— Seleccionar —</option>{(deliveryUsers.length ? deliveryUsers : (users||[]).map(u=>({id:u.id, nombre:(u.nombre||u.username||'').trim()})).filter(u=>u.nombre)).map(u=><option key={u.id} value={u.nombre}>{u.nombre}</option>)}</select></div>
-                                                    <div><label className="text-[10px] font-bold text-cyan-700 block mb-1">Tipo bolsa verde</label><select value={trabajarData.tipoBolsaVerde} onChange={e=>setTrabajarData({...trabajarData, tipoBolsaVerde:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white"><option value="GRANDE">GRANDE</option><option value="PEQUEÑA">PEQUEÑA</option><option value="NINGUNA">NINGUNA</option></select></div>
+                                                {histReprog.length > 0 && (
+                                                    <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                                                        <h5 className="text-xs font-bold text-amber-800 uppercase mb-2">Historial de reprogramaciones de fecha</h5>
+                                                        <ul className="space-y-2 max-h-24 overflow-y-auto">
+                                                            {histReprog.map((h,i)=><li key={i} className="text-sm text-amber-900 flex items-center gap-2"><span className="font-mono text-xs">{h.fechaAnterior}</span><span>→</span><span className="font-mono font-bold">{h.fechaNueva}</span>{h.usuario && <span className="text-amber-700 text-xs">({h.usuario})</span>}</li>)}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Usuario de delivery (solo ruta) {((trabajarKit.deliveryMode||'').toLowerCase()==='ruta') && '*'}</label>
+                                                        <select value={(trabajarKit.deliveryMode||'').toLowerCase()==='ruta' ? trabajarData.usuarioDelivery : ''} onChange={e=>setTrabajarData({...trabajarData, usuarioDelivery:e.target.value})} disabled={(trabajarKit.deliveryMode||'').toLowerCase()!=='ruta'} className={`w-full p-2.5 border rounded-lg text-sm border-slate-200 ${(trabajarKit.deliveryMode||'').toLowerCase()==='ruta' ? 'bg-white' : 'bg-slate-100 text-slate-500 cursor-not-allowed'}`} required={(trabajarKit.deliveryMode||'').toLowerCase()==='ruta'}>
+                                                            <option value="">{(trabajarKit.deliveryMode||'').toLowerCase()==='ruta' ? '— Seleccionar motorista —' : 'Ventanilla: no aplica'}</option>
+                                                            {deliveryUsers.map(u=><option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+                                                        </select>
+                                                        {(trabajarKit.deliveryMode||'').toLowerCase()!=='ruta' && <p className="text-[10px] text-slate-500 mt-1">Solo se asigna motorista cuando el envío es por ruta.</p>}
+                                                    </div>
                                                 </div>
                                                 <p className="text-xs text-slate-500">Hora y fecha de trabajo se guardan automáticamente al guardar.</p>
-                                                <div className="flex gap-3 pt-4 border-t">
-                                                    <button type="submit" className="flex-1 py-3 bg-cyan-600 text-white font-bold rounded-xl hover:bg-cyan-700 flex items-center justify-center gap-2"><Icons.CheckCircle size={20}/> Guardar kit</button>
+                                                <div className="flex flex-wrap gap-3 pt-2">
+                                                    <button type="submit" className="flex-1 min-w-[140px] py-3 bg-cyan-600 text-white font-bold rounded-xl hover:bg-cyan-700 flex items-center justify-center gap-2"><Icons.CheckCircle size={20}/> Guardar kit</button>
                                                     <button type="button" onClick={cerrarTrabajar} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
                                                 </div>
                                             </>
@@ -982,6 +1033,7 @@
                 if (!role) return;
                 loadKits();
                 loadPatients();
+                loadUsers();
                 if (firebaseInitialized && db) {
                     const unsub = db.collection('prod_kits').onSnapshot(s => {
                         const data = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.fechaArmado||0) - new Date(a.fechaArmado||0));
