@@ -989,6 +989,15 @@
             .mobile-header-height { height: 56px; min-height: 56px; }
             .mobile-content-pt { padding-top: calc(56px + env(safe-area-inset-top, 0px)) !important; }
         }
+        /* Móvil vertical (portrait): mejorar legibilidad y scroll */
+        @media (max-width: 767px) and (orientation: portrait) {
+            html, body { min-height: 100vh; min-height: 100dvh; -webkit-overflow-scrolling: touch; overflow-x: hidden; }
+            .main-col { min-height: 0 !important; }
+            .mobile-content-area { overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0 !important; }
+            .modal-scroll-portrait { max-height: min(85vh, calc(100dvh - 80px)); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+            .grid-portrait-1 { grid-template-columns: 1fr !important; }
+            .min-tap-target { min-height: 44px; min-width: 44px; }
+        }
         /* Móvil horizontal: adaptar a viewport reducido en altura */
         @media (max-width: 767px) and (orientation: landscape) {
             html, body {
@@ -1580,6 +1589,7 @@
             Trash: (p) => <Icon {...p} path={<><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></>} />,
             Printer: (p) => <Icon {...p} path={<><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></>} />,
             ChevronsRight: (p) => <Icon {...p} path={<polyline points="13 17 18 12 13 7"></polyline>} />,
+            ChevronDown: (p) => <Icon {...p} path={<polyline points="6 9 12 15 18 9"></polyline>} />,
             UserCog: (p) => <Icon {...p} path={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></>} />,
             Menu: (p) => <Icon {...p} path={<><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line></>} />,
             X: (p) => <Icon {...p} path={<><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></>} />,
@@ -1653,7 +1663,7 @@
                             <h3 className="font-bold text-lg text-slate-800 brand-font">{title}</h3>
                             <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"><Icons.X size={20}/></button>
                         </div>
-                        <div className="p-6 overflow-y-auto">
+                        <div className="p-6 overflow-y-auto modal-scroll-portrait flex-1 min-h-0">
                             {children}
                         </div>
                     </div>
@@ -2416,6 +2426,8 @@
                 } catch { return {}; }
             });
             const [suggestionModal, setSuggestionModal] = useState(null);
+            const [expandedAdminUser, setExpandedAdminUser] = useState({});
+            const [adminDeptTab, setAdminDeptTab] = useState('rev');
 
             const fieldToCheck = isCC ? 'agenteContactCenter' : 'usuarioRevisionAsignacion';
             const currentUserName = (currentUser?.name || currentUser?.username || '').trim().toLowerCase();
@@ -2455,6 +2467,24 @@
                     if (sent && !latest.devueltoPorContactCenter) return 'orange';
                     if (latest.devueltoPorContactCenter && !latest.recetaImpresa) return 'red';
                     return latest.confirmadoPorContactCenter ? 'green' : 'red';
+                }
+                return 'green';
+            };
+
+            const getSemaphoreForPatientByRole = (p, klist, roleType) => {
+                const list = (klist || kits.filter(k => k.patientId === p.id && !k._suggestion)).filter(Boolean);
+                if (roleType === 'rev') {
+                    if (list.length === 0) return 'green';
+                    const sorted = [...list].sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0));
+                    const latest = sorted[0];
+                    const sent = !!(latest.contactCenter && String(latest.contactCenter).trim());
+                    if (sent && !latest.devueltoPorContactCenter) return 'orange';
+                    if (latest.devueltoPorContactCenter && !latest.recetaImpresa) return 'red';
+                    return 'green';
+                }
+                if (roleType === 'cc') {
+                    if (list.length === 0) return 'green';
+                    return list.some(k => !k.confirmadoPorContactCenter) ? 'red' : 'green';
                 }
                 return 'green';
             };
@@ -2574,6 +2604,81 @@
                 return list.filter(x => x.semaphore === semaphoreFilter);
             }, [dayDetailData, semaphoreFilter]);
 
+            const revUsers = useMemo(() => {
+                return (users || []).filter(u => {
+                    const dept = String(u.departamento || '').trim().toLowerCase();
+                    const roles = (u.rolesDepartamento || []).map(r => String(r || '').trim().toLowerCase());
+                    return dept === 'farmacia' && roles.includes('revision y asignacion') && (u.nombre || u.username || '').trim();
+                }).map(u => ({ key: (u.nombre || u.username || '').trim(), displayName: (u.nombre || u.username || u.id || '').trim() }));
+            }, [users]);
+
+            const ccUsers = useMemo(() => {
+                return (users || []).filter(u => {
+                    const dept = String(u.departamento || '').trim().toLowerCase();
+                    const roles = (u.rolesDepartamento || []).map(r => String(r || '').trim().toLowerCase());
+                    return dept === 'contact center' && roles.includes('agente contact center') && (u.nombre || u.username || '').trim();
+                }).map(u => ({ key: (u.nombre || u.username || '').trim(), displayName: (u.nombre || u.username || u.id || '').trim() }));
+            }, [users]);
+
+            const dayDetailDataByDeptAndUser = useMemo(() => {
+                if (!isAdmin || !selectedDay) return { rev: [], cc: [], suggestions: [] };
+                const dayKits = (kitsByDate[selectedDay] || []).filter(k => !k._suggestion);
+                const daySug = (suggestionsByDate[selectedDay] || []).filter(s => !omitted[s._key]);
+                const norm = (s) => String(s || '').trim().toLowerCase();
+                const revMap = {};
+                const ccMap = {};
+                const seenRev = new Set();
+                const seenCc = new Set();
+                dayKits.forEach(k => {
+                    const pt = patients.find(p => p.id === k.patientId);
+                    if (!pt) return;
+                    const revAssignee = norm(pt.usuarioRevisionAsignacion);
+                    const ccAssignee = norm(pt.agenteContactCenter);
+                    const patientKits = kits.filter(kk => kk.patientId === pt.id && !kk._suggestion);
+                    const dayKitsForPatient = dayKits.filter(kk => kk.patientId === pt.id);
+                    if (revAssignee) {
+                        const key = revAssignee;
+                        if (!revMap[key]) revMap[key] = { userName: key, displayName: (pt.usuarioRevisionAsignacion || '').trim() || key, items: [] };
+                        if (!seenRev.has(pt.id + '_rev')) {
+                            seenRev.add(pt.id + '_rev');
+                            const sem = getSemaphoreForPatientByRole(pt, patientKits, 'rev');
+                            revMap[key].items.push({ patient: pt, semaphore: sem, kits: dayKitsForPatient, suggestion: null });
+                        }
+                    }
+                    if (ccAssignee) {
+                        const key = ccAssignee;
+                        if (!ccMap[key]) ccMap[key] = { userName: key, displayName: (pt.agenteContactCenter || '').trim() || key, items: [] };
+                        if (!seenCc.has(pt.id + '_cc')) {
+                            seenCc.add(pt.id + '_cc');
+                            const sem = getSemaphoreForPatientByRole(pt, patientKits, 'cc');
+                            ccMap[key].items.push({ patient: pt, semaphore: sem, kits: dayKitsForPatient, suggestion: null });
+                        }
+                    }
+                });
+                const unassignedSug = [];
+                daySug.forEach(s => {
+                    const pt = s.patient;
+                    if (!pt) return;
+                    const ccAssignee = norm(pt.agenteContactCenter);
+                    const item = { patient: pt, semaphore: 'blue', kits: [], suggestion: s };
+                    if (ccAssignee) {
+                        if (!ccMap[ccAssignee]) ccMap[ccAssignee] = { userName: ccAssignee, displayName: (pt.agenteContactCenter || '').trim() || ccAssignee, items: [] };
+                        ccMap[ccAssignee].items.push(item);
+                    } else {
+                        unassignedSug.push(item);
+                    }
+                });
+                const revList = Object.values(revMap).map(v => ({
+                    ...v,
+                    displayName: v.displayName || (revUsers.find(u => norm(u.key) === v.userName) || {}).displayName || v.userName
+                }));
+                const ccList = Object.values(ccMap).map(v => ({
+                    ...v,
+                    displayName: v.displayName || (ccUsers.find(u => norm(u.key) === v.userName) || {}).displayName || v.userName
+                }));
+                return { rev: revList, cc: ccList, suggestions: unassignedSug };
+            }, [isAdmin, selectedDay, kitsByDate, suggestionsByDate, patients, kits, omitted, revUsers, ccUsers]);
+
             const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
             const days = [];
             for (let d = 1; d <= daysInMonth; d++) {
@@ -2630,6 +2735,13 @@
             const closeDayModal = () => {
                 setSelectedDay(null);
                 setSuggestionModal(null);
+                setExpandedAdminUser({});
+                setAdminDeptTab('rev');
+            };
+
+            const toggleAdminUser = (dept, userName) => {
+                const key = `${dept}_${userName}`;
+                setExpandedAdminUser(prev => ({ ...prev, [key]: !prev[key] }));
             };
 
             const { showCalidad, showBitacoraTrabajo, showOperaciones } = permissions || {};
@@ -2654,17 +2766,41 @@
                 setView('pacientes');
                 closeDayModal();
             };
+            const goToDispensarRecetas = (patient, pKits) => {
+                try {
+                    const list = (pKits || []).filter(Boolean);
+                    const kit = list.find(k => k.devueltoPorContactCenter) || list[0];
+                    if (!kit) { alert('No hay kit para dispensar para este paciente en este día.'); return; }
+                    sessionStorage.setItem('editKitFromReports', JSON.stringify({
+                        kitId: kit.id,
+                        patientId: patient.id,
+                        kitData: kit,
+                        patient: patient,
+                        viewOnly: false
+                    }));
+                    setView('pacientes');
+                } catch (_) {}
+                closeDayModal();
+            };
             const goToTrabajar = (patient, pKits, dateStr) => {
                 try {
-                    if (isCC && showBitacoraTrabajo) {
-                        sessionStorage.setItem('trabajarFromCalendar', JSON.stringify({ area: 'cc', date: dateStr, patientId: patient.id }));
-                        setView('bitacora');
+                    if (isCC) {
+                        const kit = (pKits && pKits[0]) || null;
+                        if (!kit) { alert('No hay kit para trabajar para este paciente en este día.'); return; }
+                        sessionStorage.setItem('editKitFromReports', JSON.stringify({
+                            kitId: kit.id,
+                            patientId: patient.id,
+                            kitData: kit,
+                            patient: patient,
+                            viewOnly: false
+                        }));
+                        setView('pacientes');
                     } else if (isRev && (showOperaciones || showCalidad)) {
                         const kit = (pKits && pKits[0]) || null;
                         if (!kit) { alert('No hay kit para trabajar para este paciente en este día.'); return; }
                         sessionStorage.setItem('trabajarFromCalendar', JSON.stringify({ area: 'rev', kitId: kit.id, patientId: patient.id }));
                         setView(showOperaciones ? 'operaciones' : 'calidad');
-                    } else {
+                    } else if (!isCC) {
                         alert('No tienes acceso al formulario de trabajo para tu área.');
                         return;
                     }
@@ -2722,11 +2858,39 @@
                                     <h4 className="font-bold text-xl text-slate-800">
                                         {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][selectedMonth - 1]} {selectedYear}
                                     </h4>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 relative">
                                         <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"/> Verde</span>
                                         <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"/> Naranja</span>
                                         <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"/> Rojo</span>
                                         <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"/> Sugerencia</span>
+                                        <details className="relative group">
+                                            <summary className="text-xs font-bold text-slate-500 cursor-pointer hover:text-turquoise-600 list-none flex items-center gap-1 [&::-webkit-details-marker]:hidden">
+                                                <span className="underline decoration-dotted">¿Qué significan?</span>
+                                            </summary>
+                                            <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs text-slate-600 space-y-1.5 min-w-[200px] max-w-[280px]">
+                                                {isCC ? (
+                                                    <>
+                                                        <p><span className="inline-block w-2 h-2 rounded-full bg-green-500 align-middle mr-2"/> <strong>Verde:</strong> Kit(s) confirmado(s) por Contact Center.</p>
+                                                        <p><span className="inline-block w-2 h-2 rounded-full bg-red-500 align-middle mr-2"/> <strong>Rojo:</strong> Pendiente de confirmar.</p>
+                                                        <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 align-middle mr-2"/> <strong>Azul:</strong> Sugerencia de kit para el próximo mes.</p>
+                                                    </>
+                                                ) : isRev ? (
+                                                    <>
+                                                        <p><span className="inline-block w-2 h-2 rounded-full bg-green-500 align-middle mr-2"/> <strong>Verde:</strong> Listo / Receta impresa.</p>
+                                                        <p><span className="inline-block w-2 h-2 rounded-full bg-amber-500 align-middle mr-2"/> <strong>Naranja:</strong> Enviado a Contact Center, esperando.</p>
+                                                        <p><span className="inline-block w-2 h-2 rounded-full bg-red-500 align-middle mr-2"/> <strong>Rojo:</strong> Devuelto por CC, pendiente receta.</p>
+                                                        <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 align-middle mr-2"/> <strong>Azul:</strong> Sugerencia de kit para el próximo mes.</p>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <p><span className="inline-block w-2 h-2 rounded-full bg-green-500 align-middle mr-2"/> <strong>Verde:</strong> Sin pendientes.</p>
+                                                        <p><span className="inline-block w-2 h-2 rounded-full bg-amber-500 align-middle mr-2"/> <strong>Naranja:</strong> En proceso (enviado a CC).</p>
+                                                        <p><span className="inline-block w-2 h-2 rounded-full bg-red-500 align-middle mr-2"/> <strong>Rojo:</strong> Requiere atención.</p>
+                                                        <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 align-middle mr-2"/> <strong>Azul:</strong> Sugerencia de kit próximo mes.</p>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </details>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-7 gap-1.5 md:gap-2 mb-2">
@@ -2760,47 +2924,229 @@
                     </div>
 
                     {selectedDay && (
-                        <Modal isOpen={!!selectedDay} onClose={closeDayModal} title={`${new Date(selectedDay + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`} maxWidth="max-w-2xl">
+                        <Modal isOpen={!!selectedDay} onClose={closeDayModal} title={`${new Date(selectedDay + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`} maxWidth={isAdmin ? 'max-w-4xl sm:max-w-5xl md:max-w-6xl lg:max-w-7xl xl:max-w-[1600px]' : 'max-w-2xl'}>
                             <div className="space-y-4">
-                                <div className="flex flex-wrap gap-2">
-                                    {['all','red','orange','green','blue'].map(s => (
-                                        <button key={s} onClick={() => setSemaphoreFilter(s)} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                                            semaphoreFilter === s ? (s === 'all' ? 'bg-slate-600 text-white' : s === 'red' ? 'bg-red-600 text-white' : s === 'orange' ? 'bg-amber-600 text-white' : s === 'green' ? 'bg-green-600 text-white' : 'bg-blue-600 text-white') :
-                                            s === 'all' ? 'bg-slate-200 text-slate-600' : s === 'red' ? 'bg-red-100 text-red-700' : s === 'orange' ? 'bg-amber-100 text-amber-700' : s === 'green' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                                        }`}>
-                                            {s === 'all' ? 'Todos' : s === 'red' ? 'Rojo' : s === 'orange' ? 'Naranja' : s === 'green' ? 'Verde' : 'Sugerencias'}
-                                        </button>
-                                    ))}
-                                </div>
-                                <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-                                    {filteredDayDetail.length === 0 ? (
-                                        <p className="text-sm text-slate-500 py-4 text-center">No hay registros para este día.</p>
-                                    ) : (
-                                        filteredDayDetail.map(({ patient, semaphore, kits: pKits, suggestion }) => (
-                                            <div key={suggestion ? suggestion._key : patient.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 ${
-                                                semaphore === 'red' ? 'bg-red-50 border-red-200' : semaphore === 'orange' ? 'bg-amber-50 border-amber-200' : semaphore === 'blue' ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
-                                            }`}>
-                                                <span className={`w-4 h-4 rounded-full flex-shrink-0 ${semaphore === 'red' ? 'bg-red-500' : semaphore === 'orange' ? 'bg-amber-500' : semaphore === 'blue' ? 'bg-blue-500' : 'bg-green-500'}`} />
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="font-semibold text-slate-800">{patient.nombre}</div>
-                                                    <div className="text-xs text-slate-500">{patient.dni}{suggestion ? ' · Sugerencia' : ''}</div>
+                                {isAdmin ? (
+                                    <>
+                                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                                            <span className="text-xs font-bold text-slate-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"/> Verde</span>
+                                            <span className="text-xs font-bold text-slate-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"/> Naranja</span>
+                                            <span className="text-xs font-bold text-slate-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"/> Rojo</span>
+                                            <span className="text-xs font-bold text-slate-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"/> Sugerencia</span>
+                                            <details className="relative">
+                                                <summary className="text-xs font-bold text-slate-500 cursor-pointer hover:text-turquoise-600 list-none [&::-webkit-details-marker]:hidden"><span className="underline decoration-dotted">¿Qué significan?</span></summary>
+                                                <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs text-slate-600 space-y-1.5 min-w-[220px] max-w-[300px]">
+                                                    <p><span className="inline-block w-2 h-2 rounded-full bg-green-500 align-middle mr-2"/> <strong>Verde:</strong> Sin pendientes.</p>
+                                                    <p><span className="inline-block w-2 h-2 rounded-full bg-amber-500 align-middle mr-2"/> <strong>Naranja:</strong> En proceso (enviado a CC).</p>
+                                                    <p><span className="inline-block w-2 h-2 rounded-full bg-red-500 align-middle mr-2"/> <strong>Rojo:</strong> Requiere atención.</p>
+                                                    <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 align-middle mr-2"/> <strong>Azul:</strong> Sugerencia de kit próximo mes.</p>
                                                 </div>
-                                                {suggestion ? (
-                                                    <div className="flex gap-2">
-                                                        <button onClick={() => setSuggestionModal({ ...suggestion, suggestionModalDate: suggestion.suggestedDate })} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700">Aceptar / Omitir</button>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex gap-2">
-                                                        <button onClick={() => goToPatientKit(patient, (pKits || [])[0], { openPatientOnly: true })} className="px-3 py-1.5 rounded-lg bg-turquoise-600 text-white text-xs font-bold hover:bg-turquoise-700">Ver</button>
-                                                        {((isCC && showBitacoraTrabajo) || (isRev && (showOperaciones || showCalidad))) && (
-                                                            <button onClick={() => goToTrabajar(patient, pKits || [], selectedDay)} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">Trabajar</button>
+                                            </details>
+                                            <div className="flex-1" />
+                                            <div className="flex rounded-lg border-2 border-slate-200 p-0.5 bg-slate-100">
+                                                <button type="button" onClick={() => setAdminDeptTab('rev')} className={`flex-1 min-w-0 px-3 py-2 rounded-md text-sm font-bold transition-all truncate ${adminDeptTab === 'rev' ? 'bg-amber-500 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}>Revisión y Asignación</button>
+                                                <button type="button" onClick={() => setAdminDeptTab('cc')} className={`flex-1 min-w-0 px-3 py-2 rounded-md text-sm font-bold transition-all truncate ${adminDeptTab === 'cc' ? 'bg-turquoise-500 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}>Contact Center</button>
+                                            </div>
+                                        </div>
+                                        <div className="rounded-xl border-2 border-slate-200 bg-slate-50/80 overflow-hidden flex flex-col min-h-0 max-h-[60vh] md:max-h-[65vh]">
+                                            {adminDeptTab === 'rev' ? (
+                                                <>
+                                                    <div className="px-4 py-2.5 bg-amber-100/80 border-b border-amber-200 font-bold text-amber-800 text-sm uppercase tracking-wider flex-shrink-0">Revisión y Asignación</div>
+                                                    <div className="overflow-y-auto flex-1 min-h-0">
+                                                        {(!dayDetailDataByDeptAndUser.rev || dayDetailDataByDeptAndUser.rev.length === 0) ? (
+                                                            <p className="px-4 py-3 text-sm text-slate-500">Sin pacientes asignados</p>
+                                                        ) : (
+                                                            dayDetailDataByDeptAndUser.rev.map(({ userName, displayName, items }) => {
+                                                                const key = 'rev_' + userName;
+                                                                const isExp = expandedAdminUser[key];
+                                                                const redCount = items.filter(i => i.semaphore === 'red').length;
+                                                                const orangeCount = items.filter(i => i.semaphore === 'orange').length;
+                                                                return (
+                                                                    <div key={key} className="border-b border-slate-200 last:border-b-0">
+                                                                        <button type="button" onClick={() => setExpandedAdminUser(prev => ({ ...prev, [key]: !prev[key] }))} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-amber-50/60 text-left transition-colors">
+                                                                            <Icons.ChevronDown size={18} className={`flex-shrink-0 transition-transform ${isExp ? '' : '-rotate-90'}`} />
+                                                                            <Icons.Folder size={20} className="flex-shrink-0 text-amber-600" />
+                                                                            <span className="font-semibold text-slate-800 flex-1 truncate">{displayName || userName}</span>
+                                                                            <span className="text-xs font-bold flex gap-1.5 flex-shrink-0">
+                                                                                {redCount > 0 && <span className="text-red-600">({redCount})</span>}
+                                                                                {orangeCount > 0 && <span className="text-amber-600">({orangeCount})</span>}
+                                                                                <span className="text-slate-500">{items.length}</span>
+                                                                            </span>
+                                                                        </button>
+                                                                        {isExp && (
+                                                                            <div className="bg-white border-t border-slate-100 space-y-1.5 p-3">
+                                                                                {items.map(({ patient, semaphore, kits: pKits, suggestion }) => (
+                                                                                    <div key={suggestion ? suggestion._key : patient.id} className={`flex items-center gap-3 p-2.5 rounded-lg border ${
+                                                                                        semaphore === 'red' ? 'bg-red-50 border-red-200' : semaphore === 'orange' ? 'bg-amber-50 border-amber-200' : semaphore === 'blue' ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
+                                                                                    }`}>
+                                                                                        <span className={`w-3 h-3 rounded-full flex-shrink-0 ${semaphore === 'red' ? 'bg-red-500' : semaphore === 'orange' ? 'bg-amber-500' : semaphore === 'blue' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                                                                        <div className="flex-1 min-w-0">
+                                                                                            <div className="font-medium text-slate-800 text-sm">{patient.nombre}</div>
+                                                                                            <div className="text-xs text-slate-500">{patient.dni}{suggestion ? ' · Sugerencia' : ''}</div>
+                                                                                        </div>
+                                                                                        {suggestion ? (
+                                                                                            <button onClick={() => setSuggestionModal({ ...suggestion, suggestionModalDate: suggestion.suggestedDate })} className="px-2 py-1 rounded bg-blue-600 text-white text-xs font-bold hover:bg-blue-700">Aceptar / Omitir</button>
+                                                                                        ) : (
+                                                                                            <button onClick={() => { goToPatientKit(patient, (pKits || [])[0], { openPatientOnly: true }); closeDayModal(); }} className="px-2 py-1 rounded bg-turquoise-600 text-white text-xs font-bold hover:bg-turquoise-700">Ver</button>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })
                                                         )}
                                                     </div>
-                                                )}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="px-4 py-2.5 bg-turquoise-100/80 border-b border-turquoise-200 font-bold text-turquoise-800 text-sm uppercase tracking-wider flex-shrink-0">Agentes de Contact Center</div>
+                                                    <div className="overflow-y-auto flex-1 min-h-0">
+                                                        {(!dayDetailDataByDeptAndUser.cc || dayDetailDataByDeptAndUser.cc.length === 0) ? (
+                                                            <p className="px-4 py-3 text-sm text-slate-500">Sin pacientes asignados</p>
+                                                        ) : (
+                                                            dayDetailDataByDeptAndUser.cc.map(({ userName, displayName, items }) => {
+                                                                const key = 'cc_' + userName;
+                                                                const isExp = expandedAdminUser[key];
+                                                                const redCount = items.filter(i => i.semaphore === 'red').length;
+                                                                const orangeCount = items.filter(i => i.semaphore === 'orange').length;
+                                                                return (
+                                                                    <div key={key} className="border-b border-slate-200 last:border-b-0">
+                                                                        <button type="button" onClick={() => setExpandedAdminUser(prev => ({ ...prev, [key]: !prev[key] }))} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-turquoise-50/60 text-left transition-colors">
+                                                                            <Icons.ChevronDown size={18} className={`flex-shrink-0 transition-transform ${isExp ? '' : '-rotate-90'}`} />
+                                                                            <Icons.Folder size={20} className="flex-shrink-0 text-turquoise-600" />
+                                                                            <span className="font-semibold text-slate-800 flex-1 truncate">{displayName || userName}</span>
+                                                                            <span className="text-xs font-bold flex gap-1.5 flex-shrink-0">
+                                                                                {redCount > 0 && <span className="text-red-600">({redCount})</span>}
+                                                                                {orangeCount > 0 && <span className="text-amber-600">({orangeCount})</span>}
+                                                                                <span className="text-slate-500">{items.length}</span>
+                                                                            </span>
+                                                                        </button>
+                                                                        {isExp && (
+                                                                            <div className="bg-white border-t border-slate-100 space-y-1.5 p-3">
+                                                                                {items.map(({ patient, semaphore, kits: pKits, suggestion }) => (
+                                                                                    <div key={suggestion ? suggestion._key : patient.id} className={`flex items-center gap-3 p-2.5 rounded-lg border ${
+                                                                                        semaphore === 'red' ? 'bg-red-50 border-red-200' : semaphore === 'orange' ? 'bg-amber-50 border-amber-200' : semaphore === 'blue' ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
+                                                                                    }`}>
+                                                                                        <span className={`w-3 h-3 rounded-full flex-shrink-0 ${semaphore === 'red' ? 'bg-red-500' : semaphore === 'orange' ? 'bg-amber-500' : semaphore === 'blue' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                                                                        <div className="flex-1 min-w-0">
+                                                                                            <div className="font-medium text-slate-800 text-sm">{patient.nombre}</div>
+                                                                                            <div className="text-xs text-slate-500">{patient.dni}{suggestion ? ' · Sugerencia' : ''}</div>
+                                                                                        </div>
+                                                                                        {suggestion ? (
+                                                                                            <button onClick={() => setSuggestionModal({ ...suggestion, suggestionModalDate: suggestion.suggestedDate })} className="px-2 py-1 rounded bg-blue-600 text-white text-xs font-bold hover:bg-blue-700">Aceptar / Omitir</button>
+                                                                                        ) : (
+                                                                                            <button onClick={() => { goToPatientKit(patient, (pKits || [])[0]); closeDayModal(); }} className="px-2 py-1 rounded bg-turquoise-600 text-white text-xs font-bold hover:bg-turquoise-700">Ver</button>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                        {dayDetailDataByDeptAndUser.suggestions && dayDetailDataByDeptAndUser.suggestions.length > 0 && (
+                                            <div className="rounded-xl border-2 border-blue-200 bg-blue-50/80 p-3 mt-4">
+                                                <div className="font-bold text-blue-800 text-sm uppercase tracking-wider mb-2">Sugerencias sin asignar</div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {dayDetailDataByDeptAndUser.suggestions.map(({ patient, suggestion }) => (
+                                                        <div key={suggestion?._key || patient.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-blue-200 bg-blue-50">
+                                                            <span className="w-3 h-3 rounded-full bg-blue-500 flex-shrink-0" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="font-medium text-slate-800 text-sm">{patient.nombre}</div>
+                                                                <div className="text-xs text-slate-500">{patient.dni} · Sugerencia</div>
+                                                            </div>
+                                                            <button onClick={() => setSuggestionModal({ ...suggestion, suggestionModalDate: suggestion?.suggestedDate })} className="px-2 py-1 rounded bg-blue-600 text-white text-xs font-bold hover:bg-blue-700">Aceptar / Omitir</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        ))
-                                    )}
-                                </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {['all','red','orange','green','blue'].map(s => (
+                                                <button key={s} onClick={() => setSemaphoreFilter(s)} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                                    semaphoreFilter === s ? (s === 'all' ? 'bg-slate-600 text-white' : s === 'red' ? 'bg-red-600 text-white' : s === 'orange' ? 'bg-amber-600 text-white' : s === 'green' ? 'bg-green-600 text-white' : 'bg-blue-600 text-white') :
+                                                    s === 'all' ? 'bg-slate-200 text-slate-600' : s === 'red' ? 'bg-red-100 text-red-700' : s === 'orange' ? 'bg-amber-100 text-amber-700' : s === 'green' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                                                }`}>
+                                                    {s === 'all' ? 'Todos' : s === 'red' ? 'Rojo' : s === 'orange' ? 'Naranja' : s === 'green' ? 'Verde' : 'Sugerencias'}
+                                                </button>
+                                            ))}
+                                            <details className="relative">
+                                                <summary className="text-xs font-bold text-slate-500 cursor-pointer hover:text-turquoise-600 list-none px-2 [&::-webkit-details-marker]:hidden"><span className="underline decoration-dotted">¿Qué significan?</span></summary>
+                                                <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs text-slate-600 space-y-1.5 min-w-[220px] max-w-[300px]">
+                                                    {isCC ? (
+                                                        <>
+                                                            <p><span className="inline-block w-2 h-2 rounded-full bg-green-500 align-middle mr-2"/> <strong>Verde:</strong> Kit(s) confirmado(s) por Contact Center.</p>
+                                                            <p><span className="inline-block w-2 h-2 rounded-full bg-red-500 align-middle mr-2"/> <strong>Rojo:</strong> Pendiente de confirmar.</p>
+                                                            <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 align-middle mr-2"/> <strong>Azul:</strong> Sugerencia de kit para el próximo mes.</p>
+                                                        </>
+                                                    ) : isRev ? (
+                                                        <>
+                                                            <p><span className="inline-block w-2 h-2 rounded-full bg-green-500 align-middle mr-2"/> <strong>Verde:</strong> Listo / Receta impresa.</p>
+                                                            <p><span className="inline-block w-2 h-2 rounded-full bg-amber-500 align-middle mr-2"/> <strong>Naranja:</strong> Enviado a Contact Center, esperando.</p>
+                                                            <p><span className="inline-block w-2 h-2 rounded-full bg-red-500 align-middle mr-2"/> <strong>Rojo:</strong> Devuelto por CC, pendiente receta.</p>
+                                                            <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 align-middle mr-2"/> <strong>Azul:</strong> Sugerencia de kit para el próximo mes.</p>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <p><span className="inline-block w-2 h-2 rounded-full bg-green-500 align-middle mr-2"/> <strong>Verde:</strong> Sin pendientes.</p>
+                                                            <p><span className="inline-block w-2 h-2 rounded-full bg-amber-500 align-middle mr-2"/> <strong>Naranja:</strong> En proceso.</p>
+                                                            <p><span className="inline-block w-2 h-2 rounded-full bg-red-500 align-middle mr-2"/> <strong>Rojo:</strong> Requiere atención.</p>
+                                                            <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 align-middle mr-2"/> <strong>Azul:</strong> Sugerencia de kit próximo mes.</p>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </details>
+                                        </div>
+                                        <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+                                            {filteredDayDetail.length === 0 ? (
+                                                <p className="text-sm text-slate-500 py-4 text-center">No hay registros para este día.</p>
+                                            ) : (
+                                                filteredDayDetail.map(({ patient, semaphore, kits: pKits, suggestion }) => (
+                                                    <div key={suggestion ? suggestion._key : patient.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 ${
+                                                        semaphore === 'red' ? 'bg-red-50 border-red-200' : semaphore === 'orange' ? 'bg-amber-50 border-amber-200' : semaphore === 'blue' ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
+                                                    }`}>
+                                                        <span className={`w-4 h-4 rounded-full flex-shrink-0 ${semaphore === 'red' ? 'bg-red-500' : semaphore === 'orange' ? 'bg-amber-500' : semaphore === 'blue' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="font-semibold text-slate-800">{patient.nombre}</div>
+                                                            <div className="text-xs text-slate-500">{patient.dni}{suggestion ? ' · Sugerencia' : ''}</div>
+                                                        </div>
+                                                        {suggestion ? (
+                                                            <div className="flex gap-2">
+                                                                <button onClick={() => setSuggestionModal({ ...suggestion, suggestionModalDate: suggestion.suggestedDate })} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700">Aceptar / Omitir</button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex gap-2">
+                                                                {isCC ? (
+                                                                    <button onClick={() => goToTrabajar(patient, pKits || [], selectedDay)} className="px-3 py-1.5 rounded-lg bg-turquoise-600 text-white text-xs font-bold hover:bg-turquoise-700">Trabajar</button>
+                                                                ) : (
+                                                                    <>
+                                                                        <button onClick={() => goToPatientKit(patient, (pKits || [])[0], { openPatientOnly: true })} className="px-3 py-1.5 rounded-lg bg-turquoise-600 text-white text-xs font-bold hover:bg-turquoise-700">Ver</button>
+                                                                        {isRev && semaphore === 'red' && (pKits || []).length > 0 && (
+                                                                            <button onClick={() => goToDispensarRecetas(patient, pKits)} className="px-3 py-1.5 rounded-lg bg-turquoise-50 text-turquoise-700 border border-turquoise-200 text-xs font-bold hover:bg-turquoise-100" title="Dispensar recetas">Dispensar recetas</button>
+                                                                        )}
+                                                                        {(isRev && (showOperaciones || showCalidad)) && (
+                                                                            <button onClick={() => goToTrabajar(patient, pKits || [], selectedDay)} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">Trabajar</button>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </>
+                                )}
                                 <div className="pt-2 flex justify-end">
                                     <button onClick={closeDayModal} className="px-5 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700">Cerrar</button>
                                 </div>
@@ -4128,6 +4474,8 @@
                                                                     <label className="text-[10px] font-bold text-green-700 uppercase block mb-1">Cantidad</label>
                                                                     <input 
                                                                         type="text" 
+                                                                        inputMode="numeric" 
+                                                                        pattern="[0-9]*"
                                                                         className="w-full p-2 border-2 border-green-300 rounded-lg text-sm bg-white text-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-green-400" 
                                                                         value={m.cantidad || ''} 
                                                                         onChange={e => {
@@ -4142,6 +4490,8 @@
                                                                     <label className="text-[10px] font-bold text-green-700 uppercase block mb-1">ID Receta (8 dígitos)</label>
                                                                     <input 
                                                                         type="text" 
+                                                                        inputMode="numeric" 
+                                                                        pattern="[0-9]*"
                                                                         className="w-full p-2 border-2 border-green-300 rounded-lg text-sm bg-white text-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-green-400" 
                                                                         value={m.idReceta || ''} 
                                                                         onChange={e => {
@@ -4921,7 +5271,7 @@
                                                                             </div>
                                                                             <div>
                                                                                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Cantidad registrada</label>
-                                                                                <input type="text" value={m.cantidad || ''} onChange={e=>{const nm=[...(k.medicamentos||[])]; nm[i]={...nm[i], cantidad:e.target.value}; setTrabajarKitLocal({...k, medicamentos:nm});}} className="w-20 p-2 border rounded-lg text-sm bg-white border-slate-200 font-mono" placeholder="—" />
+                                                                                <input type="text" inputMode="numeric" pattern="[0-9]*" value={m.cantidad || ''} onChange={e=>{const nm=[...(k.medicamentos||[])]; nm[i]={...nm[i], cantidad:e.target.value}; setTrabajarKitLocal({...k, medicamentos:nm});}} className="w-20 p-2 border rounded-lg text-sm bg-white border-slate-200 font-mono" placeholder="—" />
                                                                             </div>
                                                                         </div>
                                                                         {va && (
@@ -4941,8 +5291,8 @@
                                                     </div>
                                                 </div>
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                                    <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">BTP</label><input type="text" value={trabajarData.btp} onChange={e=>setTrabajarData({...trabajarData, btp:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white" placeholder="Cantidad" /></div>
-                                                    <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">BTG</label><input type="text" value={trabajarData.btg} onChange={e=>setTrabajarData({...trabajarData, btg:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white" placeholder="Cantidad" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">BTP</label><input type="text" inputMode="numeric" pattern="[0-9]*" value={trabajarData.btp} onChange={e=>setTrabajarData({...trabajarData, btp:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white" placeholder="Cantidad" /></div>
+                                                    <div><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">BTG</label><input type="text" inputMode="numeric" pattern="[0-9]*" value={trabajarData.btg} onChange={e=>setTrabajarData({...trabajarData, btg:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white" placeholder="Cantidad" /></div>
                                                     <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo bolsa verde</label><select value={trabajarData.tipoBolsaVerde} onChange={e=>setTrabajarData({...trabajarData, tipoBolsaVerde:e.target.value})} className="w-full p-2.5 border rounded-lg text-sm bg-white"><option value="GRANDE">GRANDE</option><option value="PEQUEÑA">PEQUEÑA</option><option value="NINGUNA">NINGUNA</option></select></div>
                                                     <div className="md:col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo despacho (Operaciones)</label><div className="w-full p-2.5 border rounded-lg text-sm bg-slate-100 text-slate-700 border-slate-200">{(()=>{ const hasRefri = !!(k.isRefrigerated || (k.cantRefriGlobal && parseInt(String(k.cantRefriGlobal), 10) > 0)); const tipo = hasRefri ? (k.tipoDespachoRefrigerado === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO') : 'SOLO KIT'; return tipo === 'KIT + REFRIGERADO' ? <span className="font-bold">{tipo}</span> : <span>{tipo}</span>; })()}</div></div>
                                                 </div>
@@ -7353,7 +7703,7 @@
             };
             
             const openNewKit = () => {
-                setKitData({ 
+                const baseData = { 
                     fechaArmado: new Date().toISOString().split('T')[0], 
                     fechaEntregaLogistica: '', 
                     fechaEntregaKit: '', 
@@ -7384,7 +7734,28 @@
                     observacionesEntrega: '', 
                     observacionesRegresoEnabled: false, 
                     observacionesRegresoFarmacia: ''
-                });
+                };
+                if (selectedPatient) {
+                    const prevKits = kits.filter(k => k.patientId === selectedPatient.id);
+                    if (prevKits.length > 0) {
+                        const lastKit = [...prevKits].sort((a, b) => {
+                            const da = a.fechaConfirmacionContactCenter || a.fechaArmado || a.fechaEntregaKit || '';
+                            const db = b.fechaConfirmacionContactCenter || b.fechaArmado || b.fechaEntregaKit || '';
+                            return new Date(db || 0) - new Date(da || 0);
+                        })[0];
+                        const pt = selectedPatientFullData || selectedPatient || patients.find(p => p.id === selectedPatient.id);
+                        const mainAddr = (pt?.direccion || '').trim();
+                        const kitAddr = (lastKit.direccionEntrega || '').trim();
+                        const esMain = lastKit.esUbicacionPrincipal !== false && (!kitAddr || kitAddr === mainAddr);
+                        baseData.esUbicacionPrincipal = esMain;
+                        baseData.direccionAlternativa = lastKit.direccionAlternativa || (esMain ? '' : kitAddr);
+                        baseData.observacionesEntregaEnabled = !!(lastKit.observacionesEntregaEnabled || lastKit.observationsEnabled);
+                        baseData.observacionesEntrega = lastKit.observacionesEntrega || lastKit.observations || '';
+                        baseData.gpsStatus = lastKit.gpsStatus || 'SIN GPS';
+                        baseData.gpsValue = lastKit.gpsValue || '';
+                    }
+                }
+                setKitData(baseData);
                 setIsViewMode(false);
                 setShowKitForm(true);
             };
@@ -9968,7 +10339,7 @@ html +
                                                     <span className="text-[10px] font-bold text-slate-500 uppercase">Refrigerado</span>
                                                 </label>
                                                 {kitData.isRefrigerated && (
-                                                    <input type="number" placeholder="Cant." className="w-16 p-1 border rounded text-center text-xs bg-blue-50 border-blue-200 text-blue-700 font-bold outline-none" value={safeNumber(kitData.cantRefriGlobal)} onChange={e=>setKitData({...kitData, cantRefriGlobal: e.target.value})} />
+                                                    <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="Cant." className="w-16 p-1 border rounded text-center text-xs bg-blue-50 border-blue-200 text-blue-700 font-bold outline-none" value={safeNumber(kitData.cantRefriGlobal)} onChange={e=>setKitData({...kitData, cantRefriGlobal: e.target.value})} />
                                                 )}
                                                 <div className="flex items-center gap-2">
                                                     <label className="text-xs font-bold text-slate-500">% Medicamentos:</label>
@@ -10384,6 +10755,8 @@ html +
                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">DNI <span className="text-red-500">*</span></label>
                                     <input 
                                         type="text" 
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
                                         required 
                                         className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" 
                                         value={patientForm.dni} 
@@ -10417,6 +10790,7 @@ html +
                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Teléfono</label>
                                 <input 
                                     type="text" 
+                                    inputMode="tel"
                                     className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" 
                                     value={patientForm.telefono} 
                                     onChange={e=>setPatientForm({...patientForm, telefono:toUpper(e.target.value)})} 
@@ -10438,7 +10812,7 @@ html +
                                     <input 
                                         type="text" 
                                         className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" 
-                                        value={patientForm.telefonoFamiliar} 
+                                        inputMode="tel" value={patientForm.telefonoFamiliar} 
                                         onChange={e=>setPatientForm({...patientForm, telefonoFamiliar:toUpper(e.target.value)})} 
                                     />
                                 </div>
@@ -11022,25 +11396,11 @@ html +
         };
 
         // --- BLOCK: CONFIGURACION ---
-        const ConfigBlock = ({ medicines, onAddList, contacts, onAddContact, onDeleteContact, rutaTemplateCurrent, importRutaTemplateFromExcel, importRutaTemplateFromWord, importRutaTemplateFromPDF, saveRutaTemplate, loadRutaTemplateCurrent, onMedicinesUpdated }) => {
+        const ConfigBlock = ({ medicines, onAddList, contacts, onAddContact, onDeleteContact, onMedicinesUpdated }) => {
             const [rawText, setRawText] = useState('');
             const [newMedCodigo, setNewMedCodigo] = useState('');
             const [newMedNombre, setNewMedNombre] = useState('');
             const [newMedTipo, setNewMedTipo] = useState('no cronico');
-            const [activeTab, setActiveTab] = useState('medicamentos');
-            const [localRutaTemplate, setLocalRutaTemplate] = useState(rutaTemplateCurrent);
-            
-            // Sincronizar con prop cuando cambie
-            useEffect(() => {
-                setLocalRutaTemplate(rutaTemplateCurrent);
-            }, [rutaTemplateCurrent]);
-            
-            // Cargar plantilla al montar
-            useEffect(() => {
-                if (loadRutaTemplateCurrent) {
-                    loadRutaTemplateCurrent();
-                }
-            }, []);
 
             const processText = async () => {
                 const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
@@ -11189,27 +11549,9 @@ html +
                         </div>
                     </div>
                     
-                    <div className="border-b border-slate-100 px-6">
-                        <div className="flex gap-4">
-                            <button 
-                                onClick={() => setActiveTab('medicamentos')} 
-                                className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'medicamentos' ? 'border-turquoise-500 text-turquoise-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-                            >
-                                <Icons.Box className="inline mr-2" size={16}/> Medicamentos
-                            </button>
-                            <button 
-                                onClick={() => setActiveTab('plantillas')} 
-                                className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'plantillas' ? 'border-turquoise-500 text-turquoise-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-                            >
-                                <Icons.Layout className="inline mr-2" size={16}/> Plantillas
-                            </button>
-                        </div>
-                    </div>
-                    
                     <div className="p-6 overflow-y-auto space-y-8">
-                        {activeTab === 'medicamentos' && (
-                            <div>
-                                <h4 className="font-bold text-slate-700 mb-4 text-xs uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                        <div>
+                            <h4 className="font-bold text-slate-700 mb-4 text-xs uppercase tracking-wider flex items-center gap-2 border-b pb-2">
                                     <Icons.Box size={16}/> Medicamentos
                                 </h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -11296,229 +11638,7 @@ html +
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'plantillas' && (
-                            <div>
-                                <div className="flex items-center justify-between mb-4 border-b pb-2">
-                                    <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center gap-2">
-                                        <Icons.Layout size={16}/> Plantilla RUTA
-                                    </h4>
-                                    <button
-                                        onClick={async () => {
-                                            if (loadRutaTemplateCurrent) {
-                                                try {
-                                                    await loadRutaTemplateCurrent();
-                                                    alert('✅ Plantilla recargada desde la base de datos');
-                                                } catch (error) {
-                                                    console.error('Error recargando plantilla:', error);
-                                                    alert('⚠️ Error al recargar plantilla: ' + error.message);
-                                                }
-                                            }
-                                        }}
-                                        className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold transition flex items-center gap-1"
-                                        title="Recargar plantilla desde la base de datos"
-                                    >
-                                        <Icons.RefreshCw size={12}/> Recargar
-                                    </button>
-                                </div>
-                                <div className="space-y-6">
-                                    {/* Estado de conexión */}
-                                    <div className={`p-3 rounded-xl border ${firebaseInitialized && db ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                                        <div className="flex items-center gap-2">
-                                            <div className={`w-2 h-2 rounded-full ${firebaseInitialized && db ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                            <span className={`text-xs font-bold ${firebaseInitialized && db ? 'text-green-700' : 'text-red-700'}`}>
-                                                {firebaseInitialized && db ? '✅ Conectado a la base de datos' : '⚠️ Sin conexión a la base de datos'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                        <h5 className="font-bold text-slate-700 mb-3 text-xs uppercase">Subir Plantilla desde Excel</h5>
-                                        <p className="text-xs text-slate-500 mb-4">
-                                            Diseña tu viñeta en Excel (.xlsx) con celdas combinadas, bordes y tokens como {'{'}{'{'}NOMBRE{'}'}{'}'}, {'{'}{'{'}DNI{'}'}{'}'}, {'{'}{'{'}DIRECCION_ENTREGA{'}'}{'}'}, etc.
-                                        </p>
-                                        <input 
-                                            type="file" 
-                                            accept=".xlsx,.xls" 
-                                            id="rutaTemplateUpload"
-                                            className="hidden"
-                                            onChange={async (e) => {
-                                                const file = e.target.files[0];
-                                                if (!file) return;
-                                                try {
-                                                    if (!firebaseInitialized || !db) {
-                                                        throw new Error('No hay conexión a la base de datos. Por favor, verifique su conexión.');
-                                                    }
-                                                    const templateData = await importRutaTemplateFromExcel(file);
-                                                    await saveRutaTemplate(templateData, true);
-                                                    // Recargar plantilla después de guardar
-                                                    if (loadRutaTemplateCurrent) {
-                                                        await loadRutaTemplateCurrent();
-                                                    }
-                                                    alert('✅ Plantilla RUTA importada y guardada correctamente en la base de datos.');
-                                                    e.target.value = '';
-                                                } catch (error) {
-                                                    console.error('Error importando plantilla:', error);
-                                                    alert('❌ Error al importar plantilla: ' + error.message);
-                                                    e.target.value = '';
-                                                }
-                                            }}
-                                        />
-                                        <button 
-                                            onClick={() => document.getElementById('rutaTemplateUpload').click()}
-                                            className="w-full bg-turquoise-600 text-white py-3 rounded-lg font-bold text-xs hover:bg-turquoise-700 transition flex items-center justify-center gap-2 shadow-sm"
-                                        >
-                                            <Icons.Upload size={16}/> Subir Excel (.xlsx)
-                                        </button>
-                                    </div>
-
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                        <h5 className="font-bold text-slate-700 mb-3 text-xs uppercase">Subir Plantilla desde Word</h5>
-                                        <p className="text-xs text-slate-500 mb-4">
-                                            Suba un archivo Word (.docx) con tokens como {'{'}{'{'}NOMBRE{'}'}{'}'}, {'{'}{'{'}DNI{'}'}{'}'}, {'{'}{'{'}DIRECCION_ENTREGA{'}'}{'}'}, etc.
-                                        </p>
-                                        <input 
-                                            type="file" 
-                                            accept=".docx" 
-                                            id="rutaTemplateUploadWord"
-                                            className="hidden"
-                                            onChange={async (e) => {
-                                                const file = e.target.files[0];
-                                                if (!file) return;
-                                                try {
-                                                    if (!firebaseInitialized || !db) {
-                                                        throw new Error('No hay conexión a la base de datos. Por favor, verifique su conexión.');
-                                                    }
-                                                    if (!importRutaTemplateFromWord) {
-                                                        throw new Error('Importación Word no disponible');
-                                                    }
-                                                    const templateData = await importRutaTemplateFromWord(file);
-                                                    await saveRutaTemplate(templateData, true);
-                                                    if (loadRutaTemplateCurrent) {
-                                                        await loadRutaTemplateCurrent();
-                                                    }
-                                                    alert('✅ Plantilla RUTA (Word) importada y guardada correctamente en la base de datos.');
-                                                    e.target.value = '';
-                                                } catch (error) {
-                                                    console.error('Error importando plantilla Word:', error);
-                                                    alert('❌ Error al importar plantilla Word: ' + error.message);
-                                                    e.target.value = '';
-                                                }
-                                            }}
-                                        />
-                                        <button 
-                                            onClick={() => document.getElementById('rutaTemplateUploadWord').click()}
-                                            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold text-xs hover:bg-indigo-700 transition flex items-center justify-center gap-2 shadow-sm"
-                                        >
-                                            <Icons.Upload size={16}/> Subir Word (.docx)
-                                        </button>
-                                    </div>
-
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                        <h5 className="font-bold text-slate-700 mb-3 text-xs uppercase">Subir Plantilla desde PDF (con Gemini AI)</h5>
-                                        <p className="text-xs text-slate-500 mb-4">
-                                            Suba un archivo PDF y Gemini 3.0 analizará automáticamente la estructura y tokens. El estilo original se preservará.
-                                        </p>
-                                        <input 
-                                            type="file" 
-                                            accept=".pdf" 
-                                            id="rutaTemplateUploadPDF"
-                                            className="hidden"
-                                            onChange={async (e) => {
-                                                const file = e.target.files[0];
-                                                if (!file) return;
-                                                try {
-                                                    if (!firebaseInitialized || !db) {
-                                                        throw new Error('No hay conexión a la base de datos. Por favor, verifique su conexión.');
-                                                    }
-                                                    if (!importRutaTemplateFromPDF) {
-                                                        throw new Error('Importación PDF no disponible');
-                                                    }
-                                                    
-                                                    // Mostrar loading
-                                                    alert('🔄 Analizando PDF... Esto puede tomar unos segundos.');
-                                                    
-                                                    const templateData = await importRutaTemplateFromPDF(file);
-                                                    await saveRutaTemplate(templateData, true);
-                                                    if (loadRutaTemplateCurrent) {
-                                                        await loadRutaTemplateCurrent();
-                                                    }
-                                                    
-                                                    const tokensFound = templateData.metadata?.tokensFound || [];
-                                                    const tokensList = tokensFound.length > 0 ? tokensFound.join(', ') : 'Ninguno detectado';
-                                                    
-                                                    // Mostrar mensaje según el método de análisis usado
-                                                    if (templateData.metadata?.analysisMethod === 'local') {
-                                                        alert(`📄 PDF importado en modo local.\n\nTokens detectados: ${tokensList}\n\n${templateData.metadata.aiError ? '⚠️ SDK de IA no disponible: ' + templateData.metadata.aiError : 'ℹ️ Se usó análisis local (sin IA).'}\n\nLa plantilla se guardó correctamente en la base de datos.`);
-                                                    } else {
-                                                        alert(`✅ Plantilla RUTA (PDF) importada y analizada con IA (Gemini).\n\nTokens detectados: ${tokensList}\n\nLa plantilla se guardó correctamente en la base de datos.`);
-                                                    }
-                                                    e.target.value = '';
-                                                } catch (error) {
-                                                    console.error('Error importando plantilla PDF:', error);
-                                                    alert('❌ Error al importar plantilla PDF: ' + error.message);
-                                                    e.target.value = '';
-                                                }
-                                            }}
-                                        />
-                                        <button 
-                                            onClick={() => document.getElementById('rutaTemplateUploadPDF').click()}
-                                            className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold text-xs hover:bg-purple-700 transition flex items-center justify-center gap-2 shadow-sm"
-                                        >
-                                            <Icons.Upload size={16}/> Subir PDF con Gemini AI (.pdf)
-                                        </button>
-                                    </div>
-                                    
-                                    {(localRutaTemplate || rutaTemplateCurrent) && (
-                                        <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <h5 className="font-bold text-green-700 text-xs uppercase">Plantilla Actual Activa</h5>
-                                                <span className="bg-green-500 text-white text-[10px] px-2 py-1 rounded-full font-bold">ACTIVA</span>
-                                            </div>
-                                            <p className="text-xs text-green-600 mb-2">
-                                                <strong>Archivo:</strong> {(localRutaTemplate || rutaTemplateCurrent)?.metadata?.sourceFile || 'N/A'}<br/>
-                                                <strong>Importada:</strong> {(localRutaTemplate || rutaTemplateCurrent)?.metadata?.importedAt ? new Date((localRutaTemplate || rutaTemplateCurrent).metadata.importedAt).toLocaleString('es-ES') : 'N/A'}<br/>
-                                                <strong>Elementos:</strong> {((localRutaTemplate || rutaTemplateCurrent)?.elements?.length || 0)} celdas configuradas
-                                            </p>
-                                        </div>
-                                    )}
-                                    
-                                    {!localRutaTemplate && !rutaTemplateCurrent && (
-                                        <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
-                                            <p className="text-xs text-yellow-700">
-                                                ⚠️ No hay plantilla RUTA configurada. Suba un archivo Excel para comenzar.
-                                            </p>
-                                        </div>
-                                    )}
-                                    
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                        <h5 className="font-bold text-slate-700 mb-3 text-xs uppercase">Tokens Disponibles</h5>
-                                        <div className="grid grid-cols-2 gap-2 text-xs">
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}NOMBRE{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}DNI{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}GPS_STATUS{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}TELEFONOS{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}TEL_PERSONAL{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}TEL_FAMILIAR{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}TEL_PERSONAL_BOX{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}TEL_FAMILIAR_BOX{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}MEDS_COUNT{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}DIRECCION_ENTREGA{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}INSTRUCCIONES_ENTREGA{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}CONTACT_CENTER{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}FECHA_ENTREGA{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}REFRIGERADO{'}'}{'}'}</code></div>
-                                            <div className="bg-white p-2 rounded border"><code className="text-turquoise-600 font-mono">{'{'}{'{'}QR_MAPS{'}'}{'}'}</code></div>
-                                        </div>
-                                        <p className="text-xs text-slate-500 mt-3">
-                                            Escribe estos tokens exactamente en las celdas de Excel donde quieras que aparezcan los datos.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        </div>
                     </div>
                 </div>
             );
@@ -11910,6 +12030,8 @@ html +
                                         </div>
                                         <input 
                                             type="tel" 
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
                                             className="flex-1 p-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-turquoise-500" 
                                             value={formData.telefono} 
                                             onChange={e=>{
@@ -13090,7 +13212,7 @@ qrScriptHtml +
                 setTimeout(doPrint, 800);
             };
             const _vCSSVertical = () => `@page{size:71mm 210mm;margin:0;}*{margin:0;padding:0;box-sizing:border-box;} html,body{width:71mm;height:210mm;font-family:'Segoe UI',Arial;text-transform:uppercase;} .sheet{width:71mm;height:210mm;padding:0.8mm;} .header{display:flex;flex-direction:column;align-items:center;margin-bottom:0.8mm;padding-bottom:0.4mm;border-bottom:0.4mm solid #1a1a1a;} .header-title{font-size:2.2mm;font-weight:700;text-align:center;} .banner{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:1.2mm 0;text-align:center;font-weight:700;font-size:4.5mm;margin:0.8mm 0;border-radius:1mm;} .section{border:0.6mm solid #2c3e50;border-radius:1.5mm;padding:1.2mm;margin:0.4mm 0;} .section-title{font-size:2.4mm;font-weight:700;margin-bottom:0.6mm;} .field-row{display:flex;flex-direction:column;gap:0.3mm;margin:0.4mm 0;} .field-label{font-size:2mm;font-weight:600;} .field-value{font-size:2.6mm;} .field-value-large{font-size:3.8mm;font-weight:700;} .field-value-extra-large{font-size:5mm;font-weight:800;} .refrigerado-box{border:0.6mm dashed #16a085;border-radius:1.5mm;padding:0.8mm 1.5mm;margin-top:0.6mm;font-size:2.4mm;background:#ecf8f6;} .footer{margin-top:auto;padding-top:0.6mm;font-size:1.5mm;text-align:center;} @media print{body*{visibility:hidden;} .sheet,.sheet *{visibility:visible;} .sheet{position:absolute;left:0;top:0;}}`;
-            const _vCSSRefri = () => `@page{size:71mm 180mm;margin:0;}*{margin:0;padding:0;} html,body{width:71mm;height:180mm;font-family:Arial;text-transform:uppercase;} .sheet{width:71mm;height:180mm;padding:1mm;} .header{text-align:center;border-bottom:0.5mm solid #1a1a1a;padding:0.6mm;} .header-title{font-size:2.5mm;font-weight:900;} .banner{background:#000;color:#fff;text-align:center;font-weight:900;font-size:5.5mm;padding:1.5mm 0;margin:1mm 0;} .info-box{border:0.8mm solid #000;border-radius:2.5mm;padding:1.5mm;margin:0.6mm 0;} .info-box-title{font-size:2.2mm;font-weight:900;} .info-box-content{font-size:5.5mm;font-weight:900;} .cantidad-box{border:1.5mm solid #000;border-radius:3.5mm;display:flex;align-items:center;justify-content:center;font-size:16mm;font-weight:900;} .footer{font-size:2mm;text-align:center;} @media print{body*{visibility:hidden;} .sheet,.sheet *{visibility:visible;} .sheet{position:absolute;left:0;top:0;}}`;
+            const _vCSSRefri = () => `@page{size:76mm 130mm;margin:0;}*{margin:0;padding:0;box-sizing:border-box;} html,body{width:76mm;height:130mm;font-family:Arial;text-transform:uppercase;} .sheet{width:76mm;height:130mm;padding:0.8mm;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;} .refri-header{text-align:center;border-bottom:0.5mm solid #1a1a1a;padding:0.5mm 0;margin-bottom:0.6mm;width:100%;} .refri-header-title{font-size:2.5mm;font-weight:900;text-align:center;} .refri-banner{display:flex;align-items:center;justify-content:center;gap:0.8mm;background:#000;color:#fff;padding:1.2mm 1.5mm;margin:0.6mm 0;border-radius:1.5mm;width:100%;} .refri-banner-icon{width:4.5mm;height:4.5mm;flex-shrink:0;} .refri-banner-logo{width:12mm;height:8mm;object-fit:contain;flex-shrink:0;} .refri-banner-text{font-size:5.2mm;font-weight:900;letter-spacing:0.2mm;} .refri-info-box{border:0.8mm solid #000;border-radius:2.5mm;padding:1.2mm 1.5mm;margin:0.5mm 0;width:100%;text-align:center;} .refri-info-content{font-size:5.5mm;font-weight:900;text-align:center;word-wrap:break-word;} .refri-info-fecha{font-size:5.7mm;font-weight:900;text-align:center;word-wrap:break-word;} .refri-info-phones{font-size:3.5mm;font-weight:700;text-align:center;margin-top:0.4mm;line-height:1.3;} .refri-cantidad-box{border:1.5mm solid #000;border-radius:3.5mm;display:flex;align-items:center;justify-content:center;font-size:14mm;font-weight:900;width:100%;min-height:20mm;margin-top:0.5mm;} @media print{body*{visibility:hidden;} .sheet,.sheet *{visibility:visible;} .sheet{position:absolute;left:0;top:0;}}`;
 
             const _vCSSVentanilla = () => `@page{size:71mm 165mm;margin:10mm 0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:71mm;min-height:145mm;height:145mm;margin:0;padding:0;font-family:'Segoe UI',Arial,Helvetica,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.sheet{width:71mm;min-height:145mm;height:145mm;padding:0.8mm 0.9mm;overflow:hidden;background:#fff;position:relative;display:flex;flex-direction:column;gap:1.1mm;}.v-logos-row{display:flex;align-items:center;justify-content:space-between;padding:0.8mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fff;}.v-logo{width:32mm;height:15mm;object-fit:contain;flex-shrink:0;}.v-title-full{font-size:2.9mm;font-weight:800;text-align:center;color:#000;line-height:1.25;letter-spacing:0.06mm;padding:0.9mm 0.8mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#f9f9f9;}.v-box{border:0.4mm solid #000;border-radius:2.5mm;padding:0.7mm 0.9mm;margin:0;}.v-name-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.08mm;word-wrap:break-word;text-align:center;background:#fafafa;}.v-dni-box{font-family:'Segoe UI',Arial Black,Arial,sans-serif;font-size:7.5mm;font-weight:900;color:#000;line-height:1.15;letter-spacing:0.06mm;word-wrap:break-word;text-align:center;background:#fafafa;display:flex;flex-direction:column;gap:0.3mm;}.v-dni-box .v-dni-head{display:flex;align-items:center;justify-content:center;gap:0.5mm;}.v-dni-box .v-dni-label{font-size:2mm;font-weight:800;}.v-fecha-box,.v-cc-box{display:flex;flex-direction:column;gap:0.25mm;}.v-fecha-box,.v-cc-box{align-items:center;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{justify-content:center;}.v-fecha-box .v-box-label,.v-cc-box .v-box-label{font-size:1.8mm;font-weight:800;color:#000;}.v-fecha-box .v-box-value{font-size:4.2mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-cc-box .v-box-value{font-size:3mm;font-weight:700;color:#000;word-wrap:break-word;line-height:1.15;text-align:center;}.v-fecha-box .v-box-head,.v-cc-box .v-box-head{display:flex;align-items:center;gap:0.5mm;}.v-meds{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.3mm;}.v-meds .v-meds-label{font-size:2.2mm;font-weight:800;color:#000;text-align:center;}.v-meds .v-meds-value{font-size:6.5mm;font-weight:900;color:#000;text-align:center;letter-spacing:0.1mm;}.v-refri{display:flex;align-items:center;justify-content:center;gap:0.7mm;padding:0.6mm 0.8mm;border:0.4mm solid #000;border-radius:2.5mm;margin:0;background:#fff3cd;font-size:2.8mm;font-weight:900;}.v-refri-icon{width:4mm;height:4mm;flex-shrink:0;stroke-width:1.75;color:#000;}.v-ventanilla{border:1.2mm solid #000;padding:2mm 1.4mm;text-align:center;font-size:7.5mm;font-weight:900;color:#000;margin:0;letter-spacing:0.2mm;background:linear-gradient(to bottom,#f5f5f5 0%,#e8e8e8 100%);display:flex;align-items:center;justify-content:center;gap:1.2mm;border-radius:2.5mm;flex-shrink:0;}.v-ventanilla.has-obs{padding:1.4mm 1.2mm;font-size:6mm;margin:0;}.v-ventanilla .v-icon{width:6mm;height:6mm;margin:0;}.v-ventanilla.has-obs .v-icon{width:5mm;height:5mm;}.v-obs{font-size:1.8mm;font-weight:700;color:#000;line-height:1.3;word-wrap:break-word;padding:0.7mm 0.9mm;margin:0;border:0.4mm solid #000;border-radius:2.5mm;background:#fafafa;text-align:center;}.v-footer{margin-top:auto;padding:1mm 1mm;font-size:2.8mm;text-align:center;color:#000;font-weight:700;border:0.4mm solid #000;border-radius:2.5mm;letter-spacing:0.05mm;line-height:1.35;}.v-icon{width:3.5mm;height:3.5mm;flex-shrink:0;stroke-width:1.75;color:#000;}@media print{body*{visibility:hidden;}.sheet,.sheet *{visibility:visible;}.sheet{position:absolute;left:0;top:0;}}`;
 
@@ -13210,8 +13332,16 @@ qrScriptHtml +
                 if (uk?.patientId && firebaseInitialized && db) { try { const d = await db.collection('prod_patients').doc(uk.patientId).get(); if (d.exists) up = { id: d.id, ...d.data() }; } catch(e) {} }
                 const dn = (uk?.nombre || up?.nombre || '').toUpperCase(), di = (uk?.dni || up?.dni || '').toUpperCase(), fe = uk?.fechaArmado || '';
                 const cr = uk?.isRefrigerated ? (uk?.cantRefriGlobal || 1) : 0;
-                const op = (currentUserForBlocks?.name || currentUserForBlocks?.nombre || '').toUpperCase(), tr = new Date().toLocaleString('es-ES',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).toUpperCase();
-                const html = '<div class="sheet"><div class="header"><div class="header-title">DISPENSACIÓN A DOMICILIO</div></div><div class="banner">❄ REFRIGERADO</div><div class="info-box"><div class="info-box-title">NOMBRE</div><div class="info-box-content">'+_vEsc(dn)+'</div></div><div class="info-box"><div class="info-box-title">DNI</div><div class="info-box-content">'+_vEsc(di)+'</div></div><div class="info-box"><div class="info-box-title">FECHA</div><div class="info-box-content">'+_vEsc(fe)+'</div></div><div class="cantidad-box">'+_vEsc(cr)+'</div><div class="footer">OP: '+_vEsc(op)+' | '+_vEsc(tr)+'</div></div>';
+                const tipoDespacho = uk?.tipoDespachoRefrigerado || 'SOLO REFRIGERADO';
+                const esSoloRefri = tipoDespacho === 'SOLO REFRIGERADO';
+                const tel1 = (up?.telefono || '').toString().trim().toUpperCase();
+                const tel2 = (up?.telefonoFamiliar || '').toString().trim().toUpperCase();
+                const phonesHtml = (esSoloRefri && (tel1 || tel2)) ? '<div class="refri-info-phones">'+_vEsc(tel1 ? (tel2 ? tel1 + ' | ' + tel2 : tel1) : tel2)+'</div>' : '';
+                const logo1 = (typeof LOGO1_URL !== 'undefined' && LOGO1_URL) ? LOGO1_URL : 'https://raw.githubusercontent.com/jose50440/bita/6a46e7144ce075c219a382364b611fa576fc5e4b/img/logo1.png';
+                const logo2 = (typeof LOGO2_URL !== 'undefined' && LOGO2_URL) ? LOGO2_URL : 'https://raw.githubusercontent.com/jose50440/bita/6a46e7144ce075c219a382364b611fa576fc5e4b/img/logo2.png';
+                const iconRefri = '<svg class="refri-banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+                const bannerHtml = '<div class="refri-banner">'+iconRefri+'<img src="'+_vEsc(logo1)+'" alt="" class="refri-banner-logo" onerror="this.style.display=\'none\'"/>'+iconRefri+'<span class="refri-banner-text">REFRIGERADO</span>'+iconRefri+'<img src="'+_vEsc(logo2)+'" alt="" class="refri-banner-logo" onerror="this.style.display=\'none\'"/>'+iconRefri+'</div>';
+                const html = '<div class="sheet"><div class="refri-header"><div class="refri-header-title"> FARMACIA DOMICILIARIA </div></div>'+bannerHtml+'<div class="refri-info-box"><div class="refri-info-content">'+_vEsc(dn)+'</div></div><div class="refri-info-box"><div class="refri-info-content">'+_vEsc(di)+'</div>'+phonesHtml+'</div><div class="refri-info-box"><div class="refri-info-fecha">'+_vEsc(fe)+'</div></div><div class="refri-cantidad-box">'+_vEsc(cr)+'</div></div>';
                 _vPw(html, _vCSSRefri(), 'Viñeta Refrigerado');
             };
             
@@ -14542,7 +14672,7 @@ Responde en formato JSON con esta estructura:
                             {view === 'calidad' && showCalidad && <CalidadListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserForBlocks} users={users} />}
                             {view === 'bitacora' && showBitacoraTrabajo && <BitacoraTrabajoBlock kits={kits} patients={patients} currentUser={currentUserForBlocks} />}
                             {view === 'pacientes' && canViewPacientes && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={currentUserForBlocks} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} users={users} onOpenTrabajarKit={showOperaciones ? openTrabajarFromPacientes : undefined} />}
-                            {view === 'config' && canViewConfig && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} rutaTemplateCurrent={rutaTemplateCurrent} importRutaTemplateFromExcel={importRutaTemplateFromExcel} importRutaTemplateFromWord={importRutaTemplateFromWord} importRutaTemplateFromPDF={importRutaTemplateFromPDF} saveRutaTemplate={saveRutaTemplate} loadRutaTemplateCurrent={loadRutaTemplateCurrent} />}
+                            {view === 'config' && canViewConfig && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} />}
                             {view === 'users' && canViewConfig && <UserManagementBlock users={users} onAddUser={addUser} onUpdateUser={updateUser} onDeleteUser={deleteUser} />}
                             {((view === 'reports' && !canViewReports) || (view === 'calendario' && !showCalendario) || (view === 'despacho' && !showDespacho) || (view === 'operaciones' && !showOperaciones) || (view === 'calidad' && !showCalidad) || (view === 'bitacora' && !showBitacoraTrabajo) || (view === 'pacientes' && !canViewPacientes) || ((view === 'config' || view === 'users') && !canViewConfig)) && (
                                 <div className="flex flex-col items-center justify-center min-h-[40vh] text-slate-500">
