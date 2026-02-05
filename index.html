@@ -5366,14 +5366,168 @@
         };
 
         // --- BLOCK: REPORTES ---
-        const ReportsBlock = ({ kits, patients, userRole, userName, setView, currentUser, users = [] }) => {
+        const ReportsBlock = ({ kits, patients, userRole, userName, setView, currentUser, users = [], db: dbReports }) => {
             const [selectedMonth, setSelectedMonth] = useState(null);
             const [selectedDay, setSelectedDay] = useState(null);
             const [selectedKit, setSelectedKit] = useState(null);
             const [showKitModal, setShowKitModal] = useState(false);
             const [kitToEdit, setKitToEdit] = useState(null);
+            const [excelBatches, setExcelBatches] = useState([]);
+            const [manualToday, setManualToday] = useState([]);
+            const [loadingPatientReports, setLoadingPatientReports] = useState(false);
+            const [selectedExcelBatch, setSelectedExcelBatch] = useState(null);
+            const [selectedReportDate, setSelectedReportDate] = useState(null);
+            const [showManualReportModal, setShowManualReportModal] = useState(false);
+            const [manualFilterDni, setManualFilterDni] = useState('');
+            const [manualFilterNombre, setManualFilterNombre] = useState('');
+            const [manualFilterMunicipio, setManualFilterMunicipio] = useState('');
+            const [manualFilterTipoAfiliado, setManualFilterTipoAfiliado] = useState('');
+            const [manualFilterEdad, setManualFilterEdad] = useState('');
+            const [reportFilterDni, setReportFilterDni] = useState('');
+            const [reportFilterNombre, setReportFilterNombre] = useState('');
+            const [reportFilterMunicipio, setReportFilterMunicipio] = useState('');
+            const [reportFilterTipoAfiliado, setReportFilterTipoAfiliado] = useState('');
+            const [reportFilterEdad, setReportFilterEdad] = useState('');
 
             const userDept = currentUser?.departamento || '';
+            const isAdminOrSuper = (userRole === 'admin' || userRole === 'superadmin');
+
+            useEffect(() => {
+                if (!isAdminOrSuper || !dbReports) return;
+                let cancelled = false;
+                setLoadingPatientReports(true);
+                (async () => {
+                    try {
+                        const snap = await dbReports.collection('prod_patient_reports').limit(300).get();
+                        if (cancelled) return;
+                        const toDoc = (d) => {
+                            const at = d.data().at;
+                            const atDate = at && (at.toDate ? at.toDate() : new Date(at));
+                            return { id: d.id, ...d.data(), at: atDate };
+                        };
+                        const all = snap.docs.map(toDoc);
+                        const batches = all.filter(r => r.type === 'excel_batch').sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 50);
+                        const manualAll = all.filter(r => r.type === 'manual').sort((a, b) => (b.at || 0) - (a.at || 0));
+                        setExcelBatches(batches);
+                        setManualToday(manualAll);
+                    } catch (e) {
+                        if (!cancelled) console.warn('Reportes pacientes:', e);
+                    } finally {
+                        if (!cancelled) setLoadingPatientReports(false);
+                    }
+                })();
+                return () => { cancelled = true; };
+            }, [isAdminOrSuper, dbReports]);
+
+            const downloadReportExcel = (rows, filenamePrefix, sheetName) => {
+                if (!rows || rows.length === 0) {
+                    alert('No hay datos para descargar');
+                    return;
+                }
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Reporte');
+                const fileName = `${filenamePrefix}_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+            };
+
+            const reportBatchRows = useMemo(() => {
+                if (!selectedExcelBatch || !selectedExcelBatch.added || !Array.isArray(selectedExcelBatch.added)) return [];
+                return selectedExcelBatch.added.map(p => ({
+                    dni: (p.dni || '').toString().trim(),
+                    nombre: (p.nombre || '').toString().trim(),
+                    municipio: (p.descripcionMunicipio || '').toString().trim(),
+                    tipoAfiliado: (p.tipoAfiliado || '').toString().trim(),
+                    edad: (p.edad != null && p.edad !== '') ? String(p.edad).trim() : ''
+                }));
+            }, [selectedExcelBatch]);
+
+            const filteredReportRows = useMemo(() => {
+                let out = reportBatchRows;
+                const d = reportFilterDni.trim().toLowerCase();
+                const n = reportFilterNombre.trim().toLowerCase();
+                const m = reportFilterMunicipio.trim().toLowerCase();
+                const t = reportFilterTipoAfiliado.trim().toLowerCase();
+                const e = reportFilterEdad.trim().toLowerCase();
+                if (d) out = out.filter(r => (r.dni || '').toLowerCase().includes(d));
+                if (n) out = out.filter(r => (r.nombre || '').toLowerCase().includes(n));
+                if (m) out = out.filter(r => (r.municipio || '').toLowerCase().includes(m));
+                if (t) out = out.filter(r => (r.tipoAfiliado || '').toLowerCase().includes(t));
+                if (e) out = out.filter(r => (r.edad || '').toLowerCase().includes(e));
+                return out;
+            }, [reportBatchRows, reportFilterDni, reportFilterNombre, reportFilterMunicipio, reportFilterTipoAfiliado, reportFilterEdad]);
+
+            const openBatchReport = (b) => {
+                setSelectedExcelBatch(b);
+                setReportFilterDni('');
+                setReportFilterNombre('');
+                setReportFilterMunicipio('');
+                setReportFilterTipoAfiliado('');
+                setReportFilterEdad('');
+            };
+
+            const reportsByDate = useMemo(() => {
+                const byDate = {};
+                const add = (dateStr, type, item) => {
+                    if (!dateStr) return;
+                    if (!byDate[dateStr]) byDate[dateStr] = { dateStr, manual: [], excelBatches: [] };
+                    if (type === 'manual') byDate[dateStr].manual.push(item);
+                    else if (type === 'excel_batch') byDate[dateStr].excelBatches.push(item);
+                };
+                manualToday.forEach(r => {
+                    const d = r.at ? new Date(r.at) : null;
+                    add(d ? d.toISOString().split('T')[0] : null, 'manual', r);
+                });
+                excelBatches.forEach(b => {
+                    const d = b.at ? new Date(b.at) : null;
+                    add(d ? d.toISOString().split('T')[0] : null, 'excel_batch', b);
+                });
+                const sorted = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+                return sorted.map(dateStr => ({ dateStr, ...byDate[dateStr] }));
+            }, [manualToday, excelBatches]);
+
+            const selectedDateReports = useMemo(() => {
+                if (!selectedReportDate) return null;
+                return reportsByDate.find(f => f.dateStr === selectedReportDate) || null;
+            }, [selectedReportDate, reportsByDate]);
+
+            const openManualReport = () => {
+                setShowManualReportModal(true);
+                setManualFilterDni('');
+                setManualFilterNombre('');
+                setManualFilterMunicipio('');
+                setManualFilterTipoAfiliado('');
+                setManualFilterEdad('');
+            };
+
+            const manualReportRows = useMemo(() => {
+                if (!selectedDateReports || !selectedDateReports.manual || !Array.isArray(selectedDateReports.manual)) return [];
+                return selectedDateReports.manual.map(p => ({
+                    dni: (p.dni || '').toString().trim(),
+                    nombre: (p.nombre || '').toString().trim(),
+                    municipio: (p.descripcionMunicipio || '').toString().trim(),
+                    tipoAfiliado: (p.tipoAfiliado || '').toString().trim(),
+                    edad: (p.edad != null && p.edad !== '') ? String(p.edad).trim() : '',
+                    by: p.by || '',
+                    at: p.at
+                }));
+            }, [selectedDateReports]);
+
+            const filteredManualReportRows = useMemo(() => {
+                let out = manualReportRows;
+                const d = manualFilterDni.trim().toLowerCase();
+                const n = manualFilterNombre.trim().toLowerCase();
+                const m = manualFilterMunicipio.trim().toLowerCase();
+                const t = manualFilterTipoAfiliado.trim().toLowerCase();
+                const e = manualFilterEdad.trim().toLowerCase();
+                if (d) out = out.filter(r => (r.dni || '').toLowerCase().includes(d));
+                if (n) out = out.filter(r => (r.nombre || '').toLowerCase().includes(n));
+                if (m) out = out.filter(r => (r.municipio || '').toLowerCase().includes(m));
+                if (t) out = out.filter(r => (r.tipoAfiliado || '').toLowerCase().includes(t));
+                if (e) out = out.filter(r => (r.edad || '').toLowerCase().includes(e));
+                return out;
+            }, [manualReportRows, manualFilterDni, manualFilterNombre, manualFilterMunicipio, manualFilterTipoAfiliado, manualFilterEdad]);
+
             const filteredKits = useMemo(() => {
                 if (userRole !== 'supervisor' || !userDept || !users.length) return kits;
                 const deptNames = users
@@ -5586,6 +5740,259 @@
                             </div>
                         ) : (
                             <div className="space-y-6">
+                                {isAdminOrSuper && (
+                                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                                        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                                            <div>
+                                                <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                                                    <Icons.Users size={20} className="text-turquoise-600"/> Reportes de Pacientes
+                                                </h4>
+                                                <p className="text-xs text-slate-500 mt-0.5">Carpetas por fecha: cargas Excel y creados manualmente</p>
+                                            </div>
+                                            {selectedReportDate && (
+                                                <button type="button" onClick={() => setSelectedReportDate(null)} className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-turquoise-600">
+                                                    <Icons.ArrowLeft size={16}/> Volver a carpetas
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="p-6">
+                                            {loadingPatientReports ? (
+                                                <p className="text-xs text-slate-400">Cargando reportes...</p>
+                                            ) : !selectedReportDate ? (
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                                    {reportsByDate.length === 0 ? (
+                                                        <p className="col-span-full text-xs text-slate-400">Aún no hay reportes. Las cargas Excel y los creados manualmente se guardan aquí por fecha.</p>
+                                                    ) : (
+                                                        reportsByDate.map((day) => {
+                                                            const dateLabel = day.dateStr ? new Date(day.dateStr + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+                                                            const isToday = day.dateStr === new Date().toISOString().split('T')[0];
+                                                            return (
+                                                                <button
+                                                                    key={day.dateStr}
+                                                                    type="button"
+                                                                    onClick={() => setSelectedReportDate(day.dateStr)}
+                                                                    className="text-left bg-white rounded-xl p-4 border border-slate-200 hover:border-turquoise-400 hover:shadow-md transition-all flex flex-col gap-2"
+                                                                >
+                                                                    <div className="bg-turquoise-100 p-2.5 rounded-lg text-turquoise-600 w-fit">
+                                                                        <Icons.Calendar size={22}/>
+                                                                    </div>
+                                                                    <div className="font-bold text-sm text-slate-800">{dateLabel}</div>
+                                                                    <p className="text-[10px] text-slate-500">
+                                                                        {day.manual.length} manual · {day.excelBatches.length} carga(s) Excel
+                                                                    </p>
+                                                                    {isToday && <span className="text-[10px] text-turquoise-600 font-medium">Hoy</span>}
+                                                                </button>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
+                                            ) : selectedDateReports ? (
+                                                <div className="space-y-6">
+                                                    <h5 className="font-bold text-slate-700">
+                                                        {new Date(selectedReportDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                                    </h5>
+                                                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                                                        <h6 className="font-bold text-sm text-slate-700 mb-3 flex items-center gap-2">
+                                                            <Icons.FileSpreadsheet size={14}/> Cargas desde Excel
+                                                        </h6>
+                                                        {selectedDateReports.excelBatches.length === 0 ? (
+                                                            <p className="text-xs text-slate-400">Ninguna carga este día.</p>
+                                                        ) : (
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                {selectedDateReports.excelBatches.map((b) => (
+                                                                    <button
+                                                                        key={b.id}
+                                                                        type="button"
+                                                                        onClick={() => openBatchReport(b)}
+                                                                        className="text-left bg-white rounded-xl px-4 py-3 border border-slate-200 hover:border-turquoise-400 hover:shadow-md transition-all flex flex-col gap-1.5"
+                                                                    >
+                                                                        <span className="text-xs font-bold text-slate-700">{b.at ? new Date(b.at).toLocaleTimeString('es-ES', { timeStyle: 'short' }) : '—'}</span>
+                                                                        <span className="text-[10px] text-slate-500">{b.by || '—'}</span>
+                                                                        <span className="text-[10px] text-turquoise-600 font-medium">{b.addedCount || 0} nuevos · {b.updatedCount || 0} actualizados</span>
+                                                                        <span className="text-[10px] text-slate-400">Clic para ver informe</span>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                                                        <h6 className="font-bold text-sm text-slate-700 mb-3 flex items-center gap-2">
+                                                            <Icons.Users size={14}/> Creados manualmente este día
+                                                        </h6>
+                                                        {selectedDateReports.manual.length === 0 ? (
+                                                            <p className="text-xs text-slate-400">Ningún paciente creado manualmente este día.</p>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={openManualReport}
+                                                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs"
+                                                            >
+                                                                <Icons.FileText size={16}/> Ver informe detallado ({selectedDateReports.manual.length})
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedExcelBatch && (
+                                    <Modal
+                                        isOpen={!!selectedExcelBatch}
+                                        onClose={() => { setSelectedExcelBatch(null); }}
+                                        title={`Informe de carga — ${selectedExcelBatch.at ? new Date(selectedExcelBatch.at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—'} · ${selectedExcelBatch.by || '—'}`}
+                                        maxWidth="max-w-4xl"
+                                    >
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Filtrar DNI</label>
+                                                    <input type="text" value={reportFilterDni} onChange={e => setReportFilterDni(e.target.value)} placeholder="DNI..." className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-turquoise-200 focus:border-turquoise-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Filtrar Nombre</label>
+                                                    <input type="text" value={reportFilterNombre} onChange={e => setReportFilterNombre(e.target.value)} placeholder="Nombre..." className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-turquoise-200 focus:border-turquoise-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Filtrar Municipio</label>
+                                                    <input type="text" value={reportFilterMunicipio} onChange={e => setReportFilterMunicipio(e.target.value)} placeholder="Municipio..." className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-turquoise-200 focus:border-turquoise-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Filtrar Tipo afiliado</label>
+                                                    <input type="text" value={reportFilterTipoAfiliado} onChange={e => setReportFilterTipoAfiliado(e.target.value)} placeholder="Tipo..." className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-turquoise-200 focus:border-turquoise-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Filtrar Edad</label>
+                                                    <input type="text" value={reportFilterEdad} onChange={e => setReportFilterEdad(e.target.value)} placeholder="Edad..." className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-turquoise-200 focus:border-turquoise-300" />
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-slate-500">Mostrando {filteredReportRows.length} de {reportBatchRows.length} registros</p>
+                                            <div className="border border-slate-200 rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                                                <table className="w-full text-xs">
+                                                    <thead className="bg-slate-100 sticky top-0">
+                                                        <tr>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">DNI</th>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">Nombre</th>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">Municipio</th>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">Tipo de afiliado</th>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">Edad</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {filteredReportRows.length === 0 ? (
+                                                            <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Sin registros o ningún resultado con los filtros aplicados</td></tr>
+                                                        ) : (
+                                                            filteredReportRows.map((r, i) => (
+                                                                <tr key={i} className="border-t border-slate-100 hover:bg-slate-50">
+                                                                    <td className="px-3 py-2 font-mono text-slate-700">{r.dni || '—'}</td>
+                                                                    <td className="px-3 py-2 text-slate-700">{r.nombre || '—'}</td>
+                                                                    <td className="px-3 py-2 text-slate-600">{r.municipio || '—'}</td>
+                                                                    <td className="px-3 py-2 text-slate-600">{r.tipoAfiliado || '—'}</td>
+                                                                    <td className="px-3 py-2 text-slate-600">{r.edad || '—'}</td>
+                                                                </tr>
+                                                            ))
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div className="flex justify-end gap-2 pt-2">
+                                                <button type="button" onClick={() => setSelectedExcelBatch(null)} className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">Cerrar</button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const rows = filteredReportRows.map(r => ({ 'DNI': r.dni, 'Nombre': r.nombre, 'Municipio': r.municipio, 'Tipo de afiliado': r.tipoAfiliado, 'Edad': r.edad }));
+                                                        downloadReportExcel(rows, `carga_excel_${selectedExcelBatch.id}`, 'Nuevos Pacientes');
+                                                    }}
+                                                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-bold text-sm"
+                                                >
+                                                    <Icons.Download size={16}/> Descargar Excel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </Modal>
+                                )}
+
+                                {showManualReportModal && selectedDateReports && (
+                                    <Modal
+                                        isOpen={showManualReportModal}
+                                        onClose={() => setShowManualReportModal(false)}
+                                        title={`Informe manual — ${selectedDateReports.dateStr ? new Date(selectedDateReports.dateStr + 'T12:00:00').toLocaleDateString('es-ES', { dateStyle: 'full' }) : '—'}`}
+                                        maxWidth="max-w-4xl"
+                                    >
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Filtrar DNI</label>
+                                                    <input type="text" value={manualFilterDni} onChange={e => setManualFilterDni(e.target.value)} placeholder="DNI..." className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-turquoise-200 focus:border-turquoise-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Filtrar Nombre</label>
+                                                    <input type="text" value={manualFilterNombre} onChange={e => setManualFilterNombre(e.target.value)} placeholder="Nombre..." className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-turquoise-200 focus:border-turquoise-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Filtrar Municipio</label>
+                                                    <input type="text" value={manualFilterMunicipio} onChange={e => setManualFilterMunicipio(e.target.value)} placeholder="Municipio..." className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-turquoise-200 focus:border-turquoise-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Filtrar Tipo afiliado</label>
+                                                    <input type="text" value={manualFilterTipoAfiliado} onChange={e => setManualFilterTipoAfiliado(e.target.value)} placeholder="Tipo..." className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-turquoise-200 focus:border-turquoise-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Filtrar Edad</label>
+                                                    <input type="text" value={manualFilterEdad} onChange={e => setManualFilterEdad(e.target.value)} placeholder="Edad..." className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-1 focus:ring-turquoise-200 focus:border-turquoise-300" />
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-slate-500">Mostrando {filteredManualReportRows.length} de {manualReportRows.length} registros</p>
+                                            <div className="border border-slate-200 rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                                                <table className="w-full text-xs">
+                                                    <thead className="bg-slate-100 sticky top-0">
+                                                        <tr>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">DNI</th>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">Nombre</th>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">Municipio</th>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">Tipo de afiliado</th>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">Edad</th>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">Creado por</th>
+                                                            <th className="text-left font-bold text-slate-600 px-3 py-2">Hora</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {filteredManualReportRows.length === 0 ? (
+                                                            <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-400">Sin registros o ningún resultado con los filtros aplicados</td></tr>
+                                                        ) : (
+                                                            filteredManualReportRows.map((r, i) => (
+                                                                <tr key={i} className="border-t border-slate-100 hover:bg-slate-50">
+                                                                    <td className="px-3 py-2 font-mono text-slate-700">{r.dni || '—'}</td>
+                                                                    <td className="px-3 py-2 text-slate-700">{r.nombre || '—'}</td>
+                                                                    <td className="px-3 py-2 text-slate-600">{r.municipio || '—'}</td>
+                                                                    <td className="px-3 py-2 text-slate-600">{r.tipoAfiliado || '—'}</td>
+                                                                    <td className="px-3 py-2 text-slate-600">{r.edad || '—'}</td>
+                                                                    <td className="px-3 py-2 text-slate-600">{r.by || '—'}</td>
+                                                                    <td className="px-3 py-2 text-slate-600">{r.at ? new Date(r.at).toLocaleTimeString('es-ES', { timeStyle: 'short' }) : '—'}</td>
+                                                                </tr>
+                                                            ))
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div className="flex justify-end gap-2 pt-2">
+                                                <button type="button" onClick={() => setShowManualReportModal(false)} className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">Cerrar</button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const rows = filteredManualReportRows.map(r => ({ 'DNI': r.dni, 'Nombre': r.nombre, 'Municipio': r.municipio, 'Tipo de afiliado': r.tipoAfiliado, 'Edad': r.edad, 'Creado por': r.by, 'Hora': r.at ? new Date(r.at).toLocaleTimeString('es-ES', { timeStyle: 'short' }) : '—' }));
+                                                        downloadReportExcel(rows, `manual_report_${selectedDateReports.dateStr}`, 'Creados manualmente');
+                                                    }}
+                                                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-bold text-sm"
+                                                >
+                                                    <Icons.Download size={16}/> Descargar Excel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </Modal>
+                                )}
+
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                                     {Object.entries(groupedByMonth).sort((a, b) => b[0].localeCompare(a[0])).map(([monthKey, monthData]) => (
                                         <div 
@@ -6340,7 +6747,7 @@
         };
 
         // --- BLOCK: PACIENTES ---
-        const PatientManagementBlock = ({ patients: patientsProp, kits: kitsProp, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, currentUser, userRole, contacts, printRutaVignette, printVentanillaVignette, printRefrigeradoVignette, users = [], onOpenTrabajarKit }) => {
+        const PatientManagementBlock = ({ patients: patientsProp, kits: kitsProp, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, onReportExcelUpload, currentUser, userRole, contacts, printRutaVignette, printVentanillaVignette, printRefrigeradoVignette, users = [], onOpenTrabajarKit }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
             const [selectedPatientFullData, setSelectedPatientFullData] = useState(null);
@@ -7260,6 +7667,7 @@
                     let added = 0;
                     let skipped = 0;
                     let updated = 0;
+                    const addedList = [];
 
                     for (const row of data) {
                         const dniValue = String(row['DNI'] || row['dni'] || '').trim();
@@ -7290,49 +7698,56 @@
                         if (existingPatient) {
                             let needsUpdate = false;
                             const updates = {};
-                            
-                            // Solo actualizar campos permitidos
+                            // Solo rellenar campos vacíos: no modificar datos existentes
                             const allowedFields = ['nombre', 'telefono', 'familiar', 'telefonoFamiliar', 'nAfiliacion', 'direccion', 'descripcionMunicipio', 'tipoAfiliado'];
                             const checkAndFill = (field) => {
-                                if (!allowedFields.includes(field)) return; // Solo campos permitidos
-                                
-                                const dbValue = existingPatient[field];
-                                const excelValue = pData[field];
-                                if ((!dbValue || dbValue.trim() === '') && (excelValue && excelValue.trim() !== '')) {
-                                    updates[field] = excelValue;
-                                    needsUpdate = true;
-                                } else if (excelValue && excelValue.trim() !== '' && dbValue !== excelValue) {
+                                if (!allowedFields.includes(field)) return;
+                                const dbValue = (existingPatient[field] || '').toString().trim();
+                                const excelValue = (pData[field] || '').toString().trim();
+                                if ((!dbValue) && excelValue) {
                                     updates[field] = excelValue;
                                     needsUpdate = true;
                                 }
                             };
-                            checkAndFill('nombre'); 
-                            checkAndFill('telefono'); 
-                            checkAndFill('familiar'); 
+                            checkAndFill('nombre');
+                            checkAndFill('telefono');
+                            checkAndFill('familiar');
                             checkAndFill('telefonoFamiliar');
                             checkAndFill('direccion');
                             checkAndFill('descripcionMunicipio');
                             checkAndFill('tipoAfiliado');
-                            
-                            // Actualizar afiliación siempre para asegurar que sea igual a DNI
-                            if (pData.nAfiliacion && pData.nAfiliacion !== existingPatient.nAfiliacion) {
-                                updates.nAfiliacion = pData.nAfiliacion;
+                            if (!(existingPatient.nAfiliacion || '').trim() && (pData.nAfiliacion || '').trim()) {
+                                updates.nAfiliacion = (pData.nAfiliacion || '').trim();
                                 needsUpdate = true;
                             }
 
-                            if (needsUpdate) { 
-                                await onUpdatePatient(existingPatient.id, updates); 
+                            if (needsUpdate) {
+                                await onUpdatePatient(existingPatient.id, updates);
                                 patientCache.clearPatientCache(existingPatient.id);
-                                updated++; 
+                                updated++;
                             } else { skipped++; }
                         } else {
-                            // Agregar nuevo paciente solo con campos permitidos
-                            const result = await onAddPatient(pData);
+                            const result = await onAddPatient({ ...pData, creationSource: 'excel_upload' });
                             patientCache.clearPatientCache();
                             added++;
+                            if (result && result.id) {
+                                addedList.push({
+                                    patientId: result.id,
+                                    dni: pData.dni || '',
+                                    nombre: pData.nombre || '',
+                                    telefono: pData.telefono || '',
+                                    direccion: pData.direccion || '',
+                                    descripcionMunicipio: pData.descripcionMunicipio || '',
+                                    tipoAfiliado: pData.tipoAfiliado || ''
+                                });
+                            }
                         }
                     }
-                    
+
+                    if (typeof onReportExcelUpload === 'function') {
+                        try { await onReportExcelUpload(addedList, updated); } catch (err) { console.warn('Reporte carga Excel:', err); }
+                    }
+
                     // Recargar SOLO la página actual (50) para ahorrar lecturas
                     await loadPatients(currentPage, true);
                     
@@ -14173,20 +14588,36 @@ Responde en formato JSON con esta estructura:
                     if (!firebaseInitialized || !db) {
                         throw new Error("Base de datos no disponible");
                     }
-                    
-                    // Filtrar solo campos permitidos antes de guardar
+                    const creationSource = (d && d.creationSource === 'excel_upload') ? 'excel_upload' : 'manual';
                     const cleanData = filterAllowedPatientFields(d);
-                    
+                    const byUser = (currentUserData && (currentUserData.nombre || currentUserData.email || currentUserData.username)) || 'sistema';
+
                     const result = await db.collection('prod_patients').add({
-                        ...cleanData, 
+                        ...cleanData,
+                        creationSource,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     console.log("✅ Paciente guardado con ID: ", result.id);
                     cacheManager.clearPatientCache();
+                    if (creationSource === 'manual') {
+                        try {
+                            await db.collection('prod_patient_reports').add({
+                                type: 'manual',
+                                patientId: result.id,
+                                dni: cleanData.dni || '',
+                                nombre: cleanData.nombre || '',
+                                telefono: cleanData.telefono || '',
+                                direccion: cleanData.direccion || '',
+                                descripcionMunicipio: cleanData.descripcionMunicipio || '',
+                                tipoAfiliado: cleanData.tipoAfiliado || '',
+                                at: firebase.firestore.FieldValue.serverTimestamp(),
+                                by: byUser
+                            });
+                        } catch (e) { console.warn('Reporte manual no guardado:', e); }
+                    }
                     return result;
                 } catch (error) {
                     console.error("❌ Error guardando paciente: ", error);
-                    // Manejar errores de permisos específicamente
                     if (error.code === 'permission-denied') {
                         throw new Error("Permisos insuficientes. Verifica las reglas de seguridad de Firestore.");
                     }
@@ -14231,13 +14662,27 @@ Responde en formato JSON con esta estructura:
                         throw new Error("Base de datos no disponible");
                     }
                     await db.collection('prod_patients').doc(id).delete();
-                    // NO limpiar todo el cache (10,000). Solo invalidar caches de páginas; la UI recarga la página actual.
                     cacheManager.clearPatientCache(id);
-                    // Nota: el cache de páginas se invalida por página en loadPatients(page, true)
                 } catch (error) {
                     console.error("Error deleting patient: ", error);
                     throw error;
                 }
+            };
+
+            const reportExcelUploadBatch = async (addedPatients, updatedCount) => {
+                try {
+                    if (!firebaseInitialized || !db) return;
+                    const added = Array.isArray(addedPatients) ? addedPatients : [];
+                    const byUser = (currentUserData && (currentUserData.nombre || currentUserData.email || currentUserData.username)) || 'sistema';
+                    await db.collection('prod_patient_reports').add({
+                        type: 'excel_batch',
+                        added: added,
+                        addedCount: added.length,
+                        updatedCount: updatedCount || 0,
+                        at: firebase.firestore.FieldValue.serverTimestamp(),
+                        by: byUser
+                    });
+                } catch (e) { console.warn('Reporte carga Excel no guardado:', e); }
             };
             
             const saveKit = async (id, data, pid, isUpdate) => {
@@ -14665,13 +15110,13 @@ Responde en formato JSON con esta estructura:
                         </header>
                         <div className="mobile-content-area flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} patients={patients} users={users} permissions={permissions} />}
-                            {view === 'reports' && canViewReports && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} currentUser={currentUserForBlocks} users={users} />}
+                            {view === 'reports' && canViewReports && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} currentUser={currentUserForBlocks} users={users} db={db} />}
                             {view === 'calendario' && showCalendario && <CalendarioBlock kits={kits} patients={patients} setView={setView} currentUser={currentUserForBlocks} users={users} role={role} onSaveKit={saveKit} permissions={permissions} />}
                             {view === 'despacho' && showDespacho && <DespachoListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} />}
                             {view === 'operaciones' && showOperaciones && <OperacionesListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} pendingTrabajarKitId={pendingTrabajarKitId} onClearPendingTrabajarKit={clearPendingTrabajarKit} />}
                             {view === 'calidad' && showCalidad && <CalidadListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserForBlocks} users={users} />}
                             {view === 'bitacora' && showBitacoraTrabajo && <BitacoraTrabajoBlock kits={kits} patients={patients} currentUser={currentUserForBlocks} />}
-                            {view === 'pacientes' && canViewPacientes && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} currentUser={currentUserForBlocks} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} users={users} onOpenTrabajarKit={showOperaciones ? openTrabajarFromPacientes : undefined} />}
+                            {view === 'pacientes' && canViewPacientes && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} onReportExcelUpload={reportExcelUploadBatch} currentUser={currentUserForBlocks} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} users={users} onOpenTrabajarKit={showOperaciones ? openTrabajarFromPacientes : undefined} />}
                             {view === 'config' && canViewConfig && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} />}
                             {view === 'users' && canViewConfig && <UserManagementBlock users={users} onAddUser={addUser} onUpdateUser={updateUser} onDeleteUser={deleteUser} />}
                             {((view === 'reports' && !canViewReports) || (view === 'calendario' && !showCalendario) || (view === 'despacho' && !showDespacho) || (view === 'operaciones' && !showOperaciones) || (view === 'calidad' && !showCalidad) || (view === 'bitacora' && !showBitacoraTrabajo) || (view === 'pacientes' && !canViewPacientes) || ((view === 'config' || view === 'users') && !canViewConfig)) && (
