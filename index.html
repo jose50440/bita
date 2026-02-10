@@ -957,11 +957,13 @@
         })();
     </script>
 
-    <!-- Firebase (Versión COMPAT - Compatible con API global firebase.*) -->
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-storage-compat.js"></script>
+    <!-- Supabase (reemplaza Firebase) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        window.SUPABASE_URL = 'https://nevnnxjicyhwkzrgtadu.supabase.co';
+        window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ldm5ueGppY3lod2t6cmd0YWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMjc4ODksImV4cCI6MjA4NDcwMzg4OX0._pewkeLOL68mlJ6uIq7yMjDDcISMSZMfdGFK0m3K6KI'; // Anon key Supabase. Admin emergencia: usuario admin, contraseña superadmin
+    </script>
+    <script src="supabase-db-adapter.js"></script>
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -1179,322 +1181,182 @@
     <div id="root" class="h-full"></div>
 
     <script type="text/babel" data-type="module" data-presets="env,react" data-targets="defaults">
-        // CONFIGURACIÓN DE FIREBASE - NUEVA BASE DE DATOS
-        const firebaseConfig = {
-            apiKey: "AIzaSyBJYFlJFJgrGNKuxshG79zvMifPn57m5X8",
-            authDomain: "dataoperativa-c0c3e.firebaseapp.com",
-            projectId: "dataoperativa-c0c3e",
-            storageBucket: "dataoperativa-c0c3e.firebasestorage.app",
-            messagingSenderId: "1041657828353",
-            appId: "1:1041657828353:web:99b67aaedd93e583f51c00"
+        // CONFIGURACIÓN SUPABASE (reemplaza Firebase)
+        const firebaseConfig = {}; // No se usa; se mantiene por compatibilidad de referencias
+        window.firebase = window.firebase || {
+            apps: [],
+            firestore: {
+                FieldValue: { 
+                    serverTimestamp: function () { return window.SUPABASE_SERVER_TS || { __supabaseServerTs: true }; },
+                    delete: function () { return { __supabaseDelete: true }; }
+                },
+                FieldPath: { documentId: function () { return window.SUPABASE_DOCUMENT_ID || '__documentId__'; } }
+            }
         };
 
-        // Inicializar Firebase - Versión robusta y funcional
         let app, auth, db, storage;
         let firebaseInitialized = false;
         let firebaseConnectionError = null;
         let firebaseConnectionStatus = 'initializing';
-        let firebaseInitPromise = null; // Singleton promise para evitar doble inicialización
-        
-        // Smoke test para verificar conexión real a Firestore
-        // Usa getDoc en lugar de limit(0) porque limit(0) no es válido en Firestore
+        let firebaseInitPromise = null;
+
         const smokeTestFirestore = async (firestoreDb) => {
             try {
-                // Test robusto: intentar leer un documento que probablemente no existe
-                // Si el doc no existe, NO es error: significa que Firestore respondió correctamente
-                const testDocRef = firestoreDb.collection('_health').doc('ping');
-                const testDoc = await testDocRef.get();
-                
-                // Si llegamos aquí, Firestore está conectado (exista o no el documento)
+                const snap = await firestoreDb.collection('prod_patients').limit(1).get();
                 return { success: true, error: null, isPermissionDenied: false, isNetworkError: false };
             } catch (error) {
-                // Clasificar el error según su código
-                if (error.code === 'permission-denied') {
-                    // Firebase está conectado pero las reglas bloquean
-                    console.warn("⚠️ Smoke test: Permisos restringidos (normal en modo prueba)");
-                    return { success: true, error: null, isPermissionDenied: true, isNetworkError: false };
-                }
-                
-                // Errores de red reales
-                if (error.code === 'unavailable' || error.code === 'network-request-failed' || error.code === 'deadline-exceeded') {
-                    console.error("❌ Smoke test: Error de red", error.code);
-                    return { success: false, error, isPermissionDenied: false, isNetworkError: true };
-                }
-                
-                // failed-precondition (offline persistence) - warning, no error fatal
-                if (error.code === 'failed-precondition') {
-                    console.warn("⚠️ Smoke test: Persistencia offline no disponible, pero Firebase está conectado");
-                    return { success: true, error: null, isPermissionDenied: false, isNetworkError: false };
-                }
-                
-                // Otros errores pueden ser de configuración, pero no necesariamente de conexión
-                console.warn("⚠️ Smoke test: Error inesperado", error.code, error.message);
+                const msg = (error && error.message) || '';
+                if (error.code === 'permission-denied' || msg.includes('permission') || msg.includes('denied')) return { success: true, error: null, isPermissionDenied: true, isNetworkError: false };
+                if (error.code === 'unavailable' || error.code === 'network-request-failed' || error.code === 'deadline-exceeded' || msg.includes('fetch') || msg.includes('network')) return { success: false, error, isPermissionDenied: false, isNetworkError: true };
                 return { success: false, error, isPermissionDenied: false, isNetworkError: false };
             }
         };
-        
-        // Función para inicializar Firebase cuando esté disponible (singleton)
+
         const initializeFirebase = async () => {
-            // Si ya hay una inicialización en curso, retornar esa promise
-            if (firebaseInitPromise) {
-                return firebaseInitPromise;
-            }
-            
-            // Si ya está inicializado, retornar inmediatamente
-            if (firebaseInitialized && app && db && auth && storage) {
-                return { app, auth, db, storage };
-            }
-            
-            // Crear nueva promise de inicialización
+            if (firebaseInitPromise) return firebaseInitPromise;
+            if (firebaseInitialized && db) return { app, auth, db, storage };
+
             firebaseInitPromise = (async () => {
-            try {
-                // Verificar que Firebase esté disponible
-                if (typeof firebase === 'undefined') {
-                    throw new Error("firebase object no está disponible. Verifica que los scripts se carguen correctamente.");
-                }
-                
-                // Verificar servicios necesarios
-                if (typeof firebase.initializeApp === 'undefined') {
-                    throw new Error("firebase.initializeApp no está disponible. Scripts incompletos.");
-                }
-                if (typeof firebase.firestore === 'undefined') {
-                    throw new Error("firebase.firestore no está disponible. Scripts incompletos.");
-                }
-                if (typeof firebase.auth === 'undefined') {
-                    throw new Error("firebase.auth no está disponible. Scripts incompletos.");
-                }
-                
-                // Verificar si ya existe una app inicializada (evitar doble inicialización)
-                let existingApp = null;
-                if (firebase.apps && Array.isArray(firebase.apps) && firebase.apps.length > 0) {
-                    existingApp = firebase.apps.find(a => a.name === '[DEFAULT]');
-                }
-                
-                // Inicializar o usar existente
-                if (existingApp) {
-                    app = existingApp;
-                    console.log("✅ Usando instancia existente de Firebase");
-                } else {
-                    app = firebase.initializeApp(firebaseConfig);
-                    console.log("🚀 Firebase app inicializada");
-                }
-                
-                // Obtener servicios
-                auth = firebase.auth();
-                db = firebase.firestore();
-                    storage = firebase.storage();
-                
-                if (!db) {
-                    throw new Error("Firestore no se pudo inicializar");
-                }
-                    if (!storage) {
-                        throw new Error("Storage no se pudo inicializar");
+                try {
+                    const url = window.SUPABASE_URL;
+                    const key = window.SUPABASE_ANON_KEY;
+                    if (!url || !key) {
+                        throw new Error("Falta SUPABASE_URL o SUPABASE_ANON_KEY. Configura en index.html y pega la anon key desde Supabase → Settings → API.");
                     }
-                    
-                    // CRÍTICO: Habilitar persistencia ANTES de cualquier uso de Firestore
-                    // Esto debe hacerse inmediatamente después de crear db, antes de cualquier query
-                    console.log("📦 Habilitando persistencia offline...");
-                    if (db && db.enablePersistence) {
-                        try {
-                            await db.enablePersistence();
-                            console.log("✅ Persistencia offline habilitada");
-                        } catch (persistenceError) {
-                            // Manejar errores de persistencia sin tumbar la inicialización
-                            if (persistenceError.code === 'failed-precondition') {
-                                // Múltiples tabs abiertos - solo uno puede tener persistencia
-                                console.warn("⚠️ Persistencia offline no disponible: múltiples pestañas abiertas (normal)");
-                            } else if (persistenceError.code === 'unimplemented') {
-                                // Navegador no soporta IndexedDB
-                                console.warn("⚠️ Persistencia offline no disponible: navegador no soporta IndexedDB");
-                            } else {
-                                // Otro error de persistencia
-                                console.warn("⚠️ Persistencia offline no disponible:", persistenceError.code || persistenceError.message);
-                            }
-                            // NO lanzar error - la app puede funcionar sin persistencia
-                        }
-                    } else {
-                        console.warn("⚠️ enablePersistence no está disponible en esta versión de Firestore");
+                    if (typeof window.supabase === 'undefined') {
+                        throw new Error("Script de Supabase no cargado. Incluye: <script src=\"https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2\"><\/script>");
                     }
-                    
-                    // AHORA SÍ: ejecutar smoke test DESPUÉS de habilitar persistencia
-                console.log("🔍 Ejecutando smoke test de Firestore...");
-                const smokeTest = await smokeTestFirestore(db);
-                
-                if (!smokeTest.success) {
-                        // Solo lanzar error si es un problema de red real
-                        if (smokeTest.isNetworkError) {
-                            throw new Error(`Error de red al conectar con Firestore: ${smokeTest.error?.code || 'network-error'}`);
-                        }
-                        
-                        // Si el error NO es de red ni de permisos, verificar si Firebase está realmente inicializado
-                        if (!smokeTest.isPermissionDenied) {
-                            // Verificar si realmente tenemos acceso a Firebase
-                            if (typeof firebase === 'undefined' || !firebase.apps || firebase.apps.length === 0) {
-                                throw new Error("Firebase no está completamente inicializado. Los scripts pueden no haberse cargado correctamente.");
-                            }
-                            // Si Firebase está inicializado pero el smoke test falló por otra razón,
-                            // considerar como éxito (puede ser un problema temporal o de configuración)
-                            console.warn("⚠️ Smoke test falló pero Firebase está inicializado. Continuando...");
-                        }
+                    const { createClient } = window.supabase;
+                    const supabase = createClient(url, key);
+                    if (typeof window.createSupabaseAdapter !== 'function') {
+                        throw new Error("createSupabaseAdapter no está definido. Asegúrate de cargar supabase-db-adapter.js antes.");
                     }
-                    
-                    // Si es permission-denied, mostrar advertencia pero continuar (éxito)
-                    if (smokeTest.isPermissionDenied) {
-                        console.warn("⚠️ Firestore conectado pero reglas de seguridad bloquean acceso. Esto es normal si las reglas están restringidas.");
+                    db = window.createSupabaseAdapter(supabase);
+                    app = {};
+                    auth = {};
+                    storage = {};
+
+                    const smokeTest = await smokeTestFirestore(db);
+                    if (!smokeTest.success && smokeTest.isNetworkError) {
+                        throw new Error("Error de red al conectar con Supabase: " + (smokeTest.error && smokeTest.error.message));
                     }
-                    
-                    // Si llegamos aquí, el smoke test pasó o fue no crítico
-                    console.log("✅ Smoke test completado exitosamente");
-                
-                // Si llegamos aquí, Firebase está completamente conectado
-                firebaseInitialized = true;
-                firebaseConnectionStatus = 'connected';
-                firebaseConnectionError = null;
-                console.log("✅ Firebase completamente inicializado y conectado");
-                console.log("✅ Auth:", !!auth);
-                console.log("✅ Firestore:", !!db);
-                    console.log("✅ Storage:", !!storage);
-                
-                // Disparar evento personalizado
-                window.dispatchEvent(new CustomEvent('firebaseInitialized', { 
-                        detail: { app, auth, db, storage } 
-                }));
-                
+
+                    firebaseInitialized = true;
+                    firebaseConnectionStatus = 'connected';
+                    firebaseConnectionError = null;
+                    console.log("✅ Supabase inicializado (db listo)");
+                    window.dispatchEvent(new CustomEvent('firebaseInitialized', { detail: { app, auth, db, storage } }));
                     return { app, auth, db, storage };
-                
-            } catch (error) {
-                console.error("❌ Error al inicializar Firebase:", error);
-                firebaseInitialized = false;
-                firebaseConnectionStatus = 'error';
-                firebaseConnectionError = {
-                    code: error.code || 'initialization-error',
-                    message: error.message || 'Error desconocido al inicializar Firebase',
-                    details: error.toString()
-                };
-                
-                window.dispatchEvent(new CustomEvent('firebaseError', { 
-                    detail: firebaseConnectionError 
-                }));
-                    
-                    // Limpiar promise para permitir reintento
+                } catch (error) {
+                    console.error("❌ Error al inicializar Supabase:", error);
+                    firebaseInitialized = false;
+                    firebaseConnectionStatus = 'error';
+                    firebaseConnectionError = { code: error.code || 'initialization-error', message: error.message || 'Error al conectar con Supabase', details: String(error) };
+                    window.dispatchEvent(new CustomEvent('firebaseError', { detail: firebaseConnectionError }));
                     firebaseInitPromise = null;
                     throw error;
                 }
             })();
-            
             return firebaseInitPromise;
         };
         
-        // Función de diagnóstico para detectar problemas de carga
+        // Función de diagnóstico para Supabase
         const runFirebaseDiagnostics = async () => {
             const diagnostics = {
                 online: navigator.onLine,
-                firebaseGlobal: typeof firebase !== 'undefined',
-                firebaseApps: typeof firebase !== 'undefined' && firebase.apps ? firebase.apps.length : 0,
+                supabaseLoaded: typeof window.supabase !== 'undefined',
+                supabaseUrl: !!(window.SUPABASE_URL || '').trim(),
+                supabaseKey: !!(window.SUPABASE_ANON_KEY || '').trim(),
+                adapterLoaded: typeof window.createSupabaseAdapter === 'function',
                 scriptsLoaded: [],
                 networkTest: null,
                 timestamp: new Date().toISOString()
             };
-            
-            // Verificar recursos de Firebase cargados
             try {
                 const resources = performance.getEntriesByType('resource');
-                const firebaseResources = resources.filter(r => 
-                    r.name.includes('firebasejs') || r.name.includes('gstatic.com/firebasejs')
+                const supabaseResources = resources.filter(r => 
+                    r.name.includes('supabase') || r.name.includes('supabase-db-adapter')
                 );
-                diagnostics.scriptsLoaded = firebaseResources.map(r => ({
+                diagnostics.scriptsLoaded = supabaseResources.map(r => ({
                     url: r.name,
                     duration: r.duration,
-                    status: r.responseStatus || 'unknown',
                     loaded: r.duration > 0
                 }));
             } catch (e) {
                 diagnostics.scriptsLoaded = [{ error: 'No se pudo verificar recursos' }];
             }
-            
-            // Test de red a los scripts reales de Firebase (no a la raíz que da 404)
-            // Verificar que los scripts específicos se cargaron correctamente
             try {
-                const testStart = performance.now();
-                // Test a uno de los scripts reales que se cargan (firebase-app-compat.js)
-                const scriptUrl = 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js';
-                const response = await fetch(scriptUrl, { 
-                    method: 'HEAD',
-                    mode: 'no-cors',
-                    cache: 'no-cache'
-                });
-                diagnostics.networkTest = {
-                    success: true,
-                    duration: performance.now() - testStart,
-                    testedUrl: scriptUrl
-                };
+                const url = (window.SUPABASE_URL || '').replace(/\/$/, '');
+                if (url) {
+                    const testStart = performance.now();
+                    await fetch(url + '/rest/v1/', { method: 'HEAD', mode: 'cors' }).catch(() => {});
+                    diagnostics.networkTest = {
+                        success: true,
+                        duration: performance.now() - testStart,
+                        testedUrl: url
+                    };
+                }
             } catch (e) {
-                diagnostics.networkTest = {
-                    success: false,
-                    error: e.message || 'Error de red',
-                    testedUrl: 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js'
-                };
+                diagnostics.networkTest = { success: false, error: (e && e.message) || 'Error de red' };
             }
-            
             return diagnostics;
         };
         
-        // Función mejorada para esperar Firebase con timeout robusto y reintento
         let waitAttempts = 0;
         let retryCount = 0;
-        const MAX_WAIT_ATTEMPTS = 120; // 12 segundos (120 * 100ms)
-        const MAX_RETRIES = 1; // 1 reintento adicional
+        const MAX_WAIT_ATTEMPTS = 60; // 6 segundos
+        const MAX_RETRIES = 2;
         
         const waitForFirebase = async (isRetry = false) => {
             waitAttempts++;
             
-            // Verificar que Firebase esté disponible (COMPAT API)
-            const isFirebaseReady = typeof firebase !== 'undefined' && 
-                typeof firebase.initializeApp !== 'undefined' && 
-                typeof firebase.firestore !== 'undefined' &&
-                typeof firebase.auth !== 'undefined' &&
-                firebase.apps !== undefined;
+            // Verificar que Supabase esté disponible
+            const isSupabaseReady = typeof window.supabase !== 'undefined' &&
+                typeof window.SUPABASE_URL === 'string' && window.SUPABASE_URL.trim().length > 0 &&
+                typeof window.SUPABASE_ANON_KEY === 'string' && window.SUPABASE_ANON_KEY.trim().length > 0 &&
+                typeof window.createSupabaseAdapter === 'function';
             
-            if (isFirebaseReady) {
-                // Verificar que firebase.apps esté disponible
-                if (firebase.apps && Array.isArray(firebase.apps)) {
-                    console.log("✅ Firebase scripts detectados correctamente");
-                // Firebase está listo, inicializar
+            if (isSupabaseReady) {
+                console.log("✅ Supabase y adaptador detectados, iniciando conexión...");
+                try {
                     await initializeFirebase();
+                    return;
+                } catch (err) {
+                    console.error("❌ Error al conectar Supabase:", err);
+                    firebaseConnectionStatus = 'error';
+                    firebaseConnectionError = {
+                        code: err.code || 'init-error',
+                        message: err.message || 'Error al conectar con Supabase',
+                        details: String(err)
+                    };
+                    window.dispatchEvent(new CustomEvent('firebaseError', { detail: firebaseConnectionError }));
                     return;
                 }
             }
             
             if (waitAttempts >= MAX_WAIT_ATTEMPTS) {
-                // Timeout alcanzado - intentar reintento si no es un reintento
                 if (!isRetry && retryCount < MAX_RETRIES) {
                     retryCount++;
                     waitAttempts = 0;
-                    console.log(`🔄 Reintentando carga de Firebase (intento ${retryCount + 1}/${MAX_RETRIES + 1})...`);
-                    setTimeout(() => waitForFirebase(true), 1000);
+                    console.log(`🔄 Reintentando carga de Supabase (intento ${retryCount + 1}/${MAX_RETRIES + 1})...`);
+                    setTimeout(() => waitForFirebase(true), 500);
                     return;
                 }
-                
-                // Timeout final - ejecutar diagnóstico
-                console.error("❌ Timeout esperando scripts de Firebase");
+                console.error("❌ Timeout esperando Supabase");
                 const diagnostics = await runFirebaseDiagnostics();
                 console.error("📊 Diagnóstico:", diagnostics);
-                
-                // Determinar causa del error
-                let errorMessage = 'Los scripts de Firebase no se cargaron en el tiempo esperado';
-                let errorDetails = 'Verifica tu conexión a internet y que los scripts se estén cargando correctamente desde gstatic.com';
-                
+                let errorMessage = 'Supabase no se cargó correctamente';
+                let errorDetails = 'Verifica que supabase-js y supabase-db-adapter.js se carguen antes de la app.';
                 if (!diagnostics.online) {
                     errorMessage = 'Sin conexión a internet';
-                    errorDetails = 'Tu dispositivo no está conectado a internet. Verifica tu conexión de red.';
-                } else if (diagnostics.networkTest && !diagnostics.networkTest.success) {
-                    errorMessage = 'Error de red al conectar con Firebase';
-                    errorDetails = `No se pudo conectar con los servidores de Firebase (gstatic.com). Posibles causas:\n- Bloqueador de anuncios activo\n- Firewall o proxy bloqueando\n- DNS no resuelve gstatic.com\n\nPrueba en ventana incógnito o desactiva bloqueadores de anuncios.`;
-                } else if (diagnostics.scriptsLoaded.length === 0) {
-                    errorMessage = 'Scripts de Firebase no se cargaron';
-                    errorDetails = 'Los scripts de Firebase no aparecen en los recursos cargados. Verifica la consola del navegador para errores de red.';
+                    errorDetails = 'Verifica tu conexión de red.';
+                } else if (!diagnostics.supabaseLoaded) {
+                    errorMessage = 'Script de Supabase no cargado';
+                    errorDetails = 'Asegúrate de incluir: <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>';
+                } else if (!diagnostics.adapterLoaded) {
+                    errorMessage = 'Adaptador supabase-db-adapter.js no cargado';
+                    errorDetails = 'Incluye supabase-db-adapter.js antes del script principal.';
                 }
-                
                 firebaseConnectionStatus = 'error';
                 firebaseConnectionError = {
                     code: 'scripts-timeout',
@@ -1502,11 +1364,8 @@
                     details: errorDetails,
                     diagnostics: diagnostics
                 };
-                window.dispatchEvent(new CustomEvent('firebaseError', { 
-                    detail: firebaseConnectionError 
-                }));
+                window.dispatchEvent(new CustomEvent('firebaseError', { detail: firebaseConnectionError }));
             } else {
-                // Reintentar
                 setTimeout(() => waitForFirebase(isRetry), 100);
             }
         };
@@ -1552,8 +1411,7 @@
             
             // Smoke test real: usar getDoc en lugar de limit(0) (limit(0) no es válido)
             try {
-                const testDocRef = db.collection('_health').doc('ping');
-                await testDocRef.get();
+                const snap = await db.collection('prod_patients').limit(1).get();
                 // Si llegamos aquí, Firestore está conectado (exista o no el documento)
                 return true;
             } catch (error) {
@@ -1575,7 +1433,7 @@
         const { useState, useEffect, useMemo, useRef } = React;
         
         // --- ICONS ---
-        const Icon = ({ path, className = "w-5 h-5", size = 20 }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={`icon-elegant ${className || "w-5 h-5"}`.trim()} style={{ flexShrink: 0 }}>{path}</svg>;
+        const Icon = ({ path, className = "w-5 h-5", size = 20 }) => { const s = Number(size) || 20; return <svg xmlns="http://www.w3.org/2000/svg" width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={`icon-elegant ${className || "w-5 h-5"}`.trim()} style={{ flexShrink: 0 }}>{path}</svg>; };
         const Icons = {
             Activity: (p) => <Icon {...p} path={<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>} />,
             AlertCircle: (p) => <Icon {...p} path={<><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></>} />,
@@ -2444,6 +2302,15 @@
                 return out;
             }, [users, currentUser, isRev, isCC, currentUserName]);
 
+            const toDateInputValue = (v) => {
+                if (!v) return '';
+                if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+                try {
+                    const d = new Date(v);
+                    return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+                } catch { return ''; }
+            };
+
             const getSemaphoreForPatient = (p, klist) => {
                 const list = (klist || kits.filter(k => k.patientId === p.id && !k._suggestion)).filter(Boolean);
                 if (isRev) {
@@ -3160,7 +3027,7 @@
                                 <p className="text-sm text-slate-600">Se sugiere crear un kit para <strong>{suggestionModal.patient?.nombre}</strong> el <strong>{suggestionModal.suggestionModalDate || suggestionModal.suggestedDate}</strong> con los mismos medicamentos del kit dispensado anteriormente.</p>
                                 <div className="p-3 bg-slate-50 rounded-xl">
                                     <label className="text-xs font-bold text-slate-500 block mb-1">Fecha sugerida</label>
-                                    <input type="date" value={suggestionModal.suggestionModalDate || suggestionModal.suggestedDate || ''} onChange={e => setSuggestionModal({ ...suggestionModal, suggestionModalDate: e.target.value })} className="w-full p-2 border rounded-lg text-sm" />
+                                    <input type="date" value={toDateInputValue(suggestionModal.suggestionModalDate || suggestionModal.suggestedDate)} onChange={e => setSuggestionModal({ ...suggestionModal, suggestionModalDate: e.target.value })} className="w-full p-2 border rounded-lg text-sm" />
                                 </div>
                                 {(suggestionModal.medicamentos || []).length > 0 && (
                                     <div className="p-3 bg-slate-50 rounded-xl">
@@ -3308,9 +3175,20 @@
                 setSelectedPatient(null);
                 setFormViewOnly(false);
             };
+            const todosRecetasVerificadas = useMemo(() => {
+                const meds = kitData.medicamentos || [];
+                const dispensados = meds.filter(x => x.dispensar !== false);
+                if (dispensados.length === 0) return true;
+                return dispensados.every(m => !!m.recetaFisicaVerificada);
+            }, [kitData.medicamentos]);
+
             const handleDespachoSubmit = async (e) => {
                 e.preventDefault();
                 if (!editingKitId || !selectedPatient || !onSaveKit) return;
+                if (!todosRecetasVerificadas) {
+                    alert('Debe marcar "Receta física verificada" en todos los medicamentos que van en el kit antes de actualizar.');
+                    return;
+                }
                 try {
                     const m = kitData.medicamentos || [];
                     const total = m.length;
@@ -3651,10 +3529,16 @@
                                                     {med.observaciones && <p className={`text-xs mt-1 ${va ? 'text-green-700' : 'text-red-700'}`}>Obs: {med.observaciones}</p>}
                                                 </div>
                                                 {va && (
-                                                    <label className={`flex items-center gap-2 shrink-0 ${formViewOnly ? 'cursor-default' : 'cursor-pointer'}`}>
-                                                        <input type="checkbox" checked={!!med.recetaFisicaVerificada} onChange={() => !formViewOnly && handleMedChange(idx, 'recetaFisicaVerificada', !med.recetaFisicaVerificada)} disabled={formViewOnly} className="rounded border-slate-300 text-turquoise-600 focus:ring-turquoise-500" />
-                                                        <span className="text-xs font-bold text-slate-600">Receta física verificada</span>
-                                                    </label>
+                                                    <div className="flex flex-wrap items-center gap-3 shrink-0">
+                                                        <div className="w-20">
+                                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Cantidad</label>
+                                                            <input type="text" inputMode="numeric" value={med.cantidad ?? ''} onChange={e => !formViewOnly && handleMedChange(idx, 'cantidad', e.target.value)} disabled={formViewOnly} className="w-full p-1.5 border rounded text-sm bg-white text-slate-700" placeholder="—" />
+                                                        </div>
+                                                        <label className={`flex items-center gap-2 ${formViewOnly ? 'cursor-default' : 'cursor-pointer'}`}>
+                                                            <input type="checkbox" checked={!!med.recetaFisicaVerificada} onChange={() => !formViewOnly && handleMedChange(idx, 'recetaFisicaVerificada', !med.recetaFisicaVerificada)} disabled={formViewOnly} className="rounded border-slate-300 text-turquoise-600 focus:ring-turquoise-500" />
+                                                            <span className="text-xs font-bold text-slate-600">Receta física verificada</span>
+                                                        </label>
+                                                    </div>
                                                 )}
                                             </div>
                                             );
@@ -3662,9 +3546,9 @@
                                     </div>
                                     {kitData.observacionesContactCenter && <p className="text-xs text-slate-500">Obs. Rev. y asignación: {kitData.observacionesContactCenter}</p>}
                                 </div>
-                                {!formViewOnly && <p className="text-xs text-slate-500 border-t border-slate-200 pt-4">Verifique que las recetas físicas coincidan con el sistema. Al actualizar se cierra esta ventana y se habilita «{kitData.complemento ? 'Enviar complemento' : 'Enviar a Operaciones'}» para este kit.</p>}
+                                {!formViewOnly && <p className="text-xs text-slate-500 border-t border-slate-200 pt-4">Verifique que las recetas físicas coincidan con el sistema. Marque «Receta física verificada» en todos los medicamentos e ingrese las cantidades. Al actualizar se cierra esta ventana y se habilita «{kitData.complemento ? 'Enviar complemento' : 'Enviar a Operaciones'}» para este kit.</p>}
                                 <div className="flex gap-3 pt-4 border-t border-slate-200">
-                                    {!formViewOnly && <button type="submit" className="flex-1 py-3 bg-turquoise-600 text-white font-bold rounded-xl shadow-lg hover:bg-turquoise-700 transition-colors btn-hover-effect">Actualizar kit</button>}
+                                    {!formViewOnly && <button type="submit" disabled={!todosRecetasVerificadas} title={!todosRecetasVerificadas ? 'Marque Receta física verificada en todos los medicamentos que van en el kit' : ''} className={`flex-1 py-3 font-bold rounded-xl shadow-lg transition-colors btn-hover-effect ${todosRecetasVerificadas ? 'bg-turquoise-600 text-white hover:bg-turquoise-700' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>Actualizar kit</button>}
                                     <button type="button" onClick={closeForm} className={formViewOnly ? 'flex-1 py-3 bg-slate-600 text-white font-bold rounded-xl shadow-lg hover:bg-slate-700 transition-colors btn-hover-effect' : 'px-6 py-3 bg-slate-600 text-white font-bold rounded-xl shadow-lg hover:bg-slate-700 transition-colors btn-hover-effect'}>Cerrar</button>
                                 </div>
                             </form>
@@ -3691,8 +3575,14 @@
                 horaOperaciones: '',
                 isRefrigerated: false,
                 cantRefriGlobal: '',
-                tipoDespachoRefrigerado: ''
+                tipoDespachoRefrigerado: '',
+                incidenciasActivo: false,
+                incidencias: []
             });
+            const [incidenciaMedIdx, setIncidenciaMedIdx] = useState(null);
+            const [incidenciaTipoSel, setIncidenciaTipoSel] = useState('error_cantidad');
+            const [incidenciaOtraTexto, setIncidenciaOtraTexto] = useState('');
+            const [incidenciaObservacion, setIncidenciaObservacion] = useState('');
             const [trabajarGuardado, setTrabajarGuardado] = useState(false);
             const [trabajarKitActualizado, setTrabajarKitActualizado] = useState(null);
             const [viñetasImpresas, setViñetasImpresas] = useState(false);
@@ -3707,8 +3597,13 @@
 
             const toDateInputValue = (v) => {
                 if (!v) return '';
-                const s = typeof v === 'string' ? v : new Date(v).toISOString();
-                return s.slice(0, 10);
+                if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+                try {
+                    const d = new Date(v);
+                    if (isNaN(d.getTime())) return '';
+                    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${day}`;
+                } catch { return ''; }
             };
 
             const toUpper = (v) => (v != null && v !== '' ? String(v).toUpperCase() : v);
@@ -3818,7 +3713,8 @@
                 const nRefri = hasRefri ? (parseInt(String(kit.cantRefriGlobal), 10) || 0) : 0;
                 const medicamentosWithRefri = (kit.medicamentos || []).map((m, i) => ({
                     ...m,
-                    incluirRefrigerado: (m.refrigerado !== undefined && m.refrigerado !== null) ? !!m.refrigerado : (hasRefri && (i < nRefri))
+                    incluirRefrigerado: (m.refrigerado !== undefined && m.refrigerado !== null) ? !!m.refrigerado : (hasRefri && (i < nRefri)),
+                    cantidadVerificada: !!m.cantidadVerificada
                 }));
                 setTrabajarKit({ ...kit, medicamentos: medicamentosWithRefri });
                 setTrabajarData({
@@ -3826,7 +3722,9 @@
                     horaOperaciones: desdeBitacora ? ho : now,
                     isRefrigerated: !!kit.isRefrigerated,
                     cantRefriGlobal: kit.cantRefriGlobal != null ? String(kit.cantRefriGlobal) : '',
-                    tipoDespachoRefrigerado: tipoRefri
+                    tipoDespachoRefrigerado: tipoRefri,
+                    incidenciasActivo: false,
+                    incidencias: Array.isArray(kit.incidenciasOperaciones) ? [...kit.incidenciasOperaciones] : []
                 });
                 setShowTrabajarForm(true);
             };
@@ -3836,7 +3734,11 @@
                 setTrabajarGuardado(false);
                 setViñetasImpresas(false);
                 setEditandoDesdeBitacora(false);
-                setTrabajarData({ fechaArmado: '', horaOperaciones: '', isRefrigerated: false, cantRefriGlobal: '', tipoDespachoRefrigerado: '' });
+                setTrabajarData({ fechaArmado: '', horaOperaciones: '', isRefrigerated: false, cantRefriGlobal: '', tipoDespachoRefrigerado: '', incidenciasActivo: false, incidencias: [] });
+                setIncidenciaMedIdx(null);
+                setIncidenciaTipoSel('error_cantidad');
+                setIncidenciaOtraTexto('');
+                setIncidenciaObservacion('');
                 setShowTrabajarForm(false);
             };
             const handleEnviarACalidadDesdeBitacora = async (kit) => {
@@ -3872,9 +3774,20 @@
                     onClearPendingTrabajarKit();
                 }
             }, [pendingTrabajarKitId, kits]);
+            const todosCantidadVerificada = useMemo(() => {
+                const meds = trabajarKit?.medicamentos || [];
+                const dispensados = meds.filter(m => m.dispensar !== false);
+                if (dispensados.length === 0) return true;
+                return dispensados.every(m => !!m.cantidadVerificada);
+            }, [trabajarKit?.medicamentos]);
+
             const handleTrabajarSubmit = async (e) => {
                 e.preventDefault();
                 if (!trabajarKit || !onSaveKit) return;
+                if (!todosCantidadVerificada) {
+                    alert('Debe marcar "Cantidad verificada" en todos los medicamentos que van en el kit antes de guardar.');
+                    return;
+                }
                 const today = new Date().toISOString().split('T')[0];
                 const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                 const cantRefriFromCheckboxes = (trabajarKit.medicamentos || []).filter(m => m.incluirRefrigerado === true).length;
@@ -3888,7 +3801,8 @@
                     cantRefriGlobal: trabajarData.isRefrigerated ? cantRefriFromCheckboxes : '',
                     tipoDespachoRefrigerado: trabajarData.isRefrigerated ? ((trabajarData.tipoDespachoRefrigerado === 'KIT + REFRIGERADO' ? 'KIT + REFRIGERADO' : 'SOLO REFRIGERADO')) : null,
                     usuarioOperaciones: (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim() || '',
-                    medicamentos: (trabajarKit.medicamentos || []).map(m => { const { incluirRefrigerado, ...rest } = m; return { ...rest, refrigerado: !!incluirRefrigerado }; })
+                    medicamentos: (trabajarKit.medicamentos || []).map(m => { const { incluirRefrigerado, ...rest } = m; return { ...rest, refrigerado: !!incluirRefrigerado }; }),
+                    incidenciasOperaciones: (trabajarData.incidencias || []).length ? trabajarData.incidencias : null
                 };
                 try {
                     await onSaveKit(trabajarKit.id, payload, trabajarKit.patientId, true);
@@ -4469,22 +4383,34 @@
                                                             <span className={`text-xs font-bold ${va ? 'text-green-600' : 'text-red-600'}`}>{va ? '✓ Sí va' : '✗ No va'}</span>
                                                         </div>
                                                         {va && (
-                                                            <div className="grid grid-cols-2 gap-3 mt-2 pt-2 border-t border-green-300">
-                                                                <div>
-                                                                    <label className="text-[10px] font-bold text-green-700 uppercase block mb-1">Cantidad</label>
-                                                                    <input 
-                                                                        type="text" 
-                                                                        inputMode="numeric" 
-                                                                        pattern="[0-9]*"
-                                                                        className="w-full p-2 border-2 border-green-300 rounded-lg text-sm bg-white text-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-green-400" 
-                                                                        value={m.cantidad || ''} 
-                                                                        onChange={e => {
-                                                                            const newMeds = [...(trabajarKit.medicamentos || [])];
-                                                                            newMeds[i] = { ...newMeds[i], cantidad: e.target.value };
-                                                                            setTrabajarKit({ ...trabajarKit, medicamentos: newMeds });
-                                                                        }}
-                                                                        placeholder="Ej: 6"
-                                                                    />
+                                                            <div className="space-y-3 mt-2 pt-2 border-t border-green-300">
+                                                                <div className="flex flex-wrap items-center gap-4">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-[10px] font-bold text-green-700 uppercase">Cantidad:</span>
+                                                                        {(() => {
+                                                                            const incidenciasOps = trabajarData.incidencias || [];
+                                                                            const tieneIncidenciaCantidad = incidenciasOps.some(inc => inc.tipo === 'medicamento' && inc.medIdx === i && inc.incidenciaTipo === 'error_cantidad');
+                                                                            if (tieneIncidenciaCantidad) {
+                                                                                return (
+                                                                                    <input type="text" inputMode="numeric" value={m.cantidad ?? ''} onChange={e => { const newMeds = [...(trabajarKit.medicamentos || [])]; newMeds[i] = { ...newMeds[i], cantidad: e.target.value }; setTrabajarKit({ ...trabajarKit, medicamentos: newMeds }); }} className="w-20 p-1.5 border-2 border-amber-400 rounded text-sm font-bold bg-amber-50 text-slate-800" placeholder="—" />
+                                                                                );
+                                                                            }
+                                                                            return <span className="font-mono font-bold text-slate-800 bg-green-50 px-2 py-0.5 rounded">{m.cantidad || '—'}</span>;
+                                                                        })()}
+                                                                    </div>
+                                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={!!m.cantidadVerificada}
+                                                                            onChange={e => {
+                                                                                const newMeds = [...(trabajarKit.medicamentos || [])];
+                                                                                newMeds[i] = { ...newMeds[i], cantidadVerificada: e.target.checked };
+                                                                                setTrabajarKit({ ...trabajarKit, medicamentos: newMeds });
+                                                                            }}
+                                                                            className="w-4 h-4 rounded border-green-400 text-green-600 focus:ring-green-400"
+                                                                        />
+                                                                        <span className="text-xs font-bold text-green-800">Cantidad verificada</span>
+                                                                    </label>
                                                                 </div>
                                                                 <div>
                                                                     <label className="text-[10px] font-bold text-green-700 uppercase block mb-1">ID Receta (8 dígitos)</label>
@@ -4492,7 +4418,7 @@
                                                                         type="text" 
                                                                         inputMode="numeric" 
                                                                         pattern="[0-9]*"
-                                                                        className="w-full p-2 border-2 border-green-300 rounded-lg text-sm bg-white text-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-green-400" 
+                                                                        className="w-full max-w-xs p-2 border-2 border-green-300 rounded-lg text-sm bg-white text-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-green-400" 
                                                                         value={m.idReceta || ''} 
                                                                         onChange={e => {
                                                                             const value = e.target.value.replace(/\D/g, '').slice(0, 8);
@@ -4512,6 +4438,60 @@
                                             {(trabajarKit.medicamentos || []).length === 0 && <p className="text-slate-400 text-sm">Sin medicamentos</p>}
                                         </div>
                                     </div>
+                                    <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h5 className="text-xs font-bold text-amber-800 uppercase">Incidencias</h5>
+                                            <button type="button" onClick={() => { setTrabajarData({ ...trabajarData, incidenciasActivo: !trabajarData.incidenciasActivo }); setIncidenciaMedIdx(null); setIncidenciaObservacion(''); }} className={`px-4 py-2 rounded-xl text-sm font-bold ${trabajarData.incidenciasActivo ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-800'}`}>{trabajarData.incidenciasActivo ? 'Activado' : 'Activar'}</button>
+                                        </div>
+                                        {trabajarData.incidenciasActivo && (
+                                            <div className="space-y-3">
+                                                <div className="flex flex-wrap gap-2">
+                                                    {(trabajarKit.medicamentos || []).filter(m => m.dispensar !== false).map((m, idx) => (
+                                                        <button key={idx} type="button" onClick={() => { setIncidenciaMedIdx(idx); setIncidenciaTipoSel('error_cantidad'); setIncidenciaOtraTexto(''); setIncidenciaObservacion(''); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${incidenciaMedIdx === idx ? 'bg-amber-200 border-amber-500 ring-2 ring-amber-400' : 'bg-white border-amber-300 text-amber-800'}`}>+ {m.nombre || 'Med ' + (idx + 1)}</button>
+                                                    ))}
+                                                    <button type="button" onClick={() => { const t = prompt('Descripción incidencia (otra):'); if (t && t.trim()) setTrabajarData({ ...trabajarData, incidencias: [...(trabajarData.incidencias || []), { tipo: 'otra', texto: t.trim() }] }); }} className="px-3 py-1.5 rounded-lg bg-amber-200 text-amber-900 text-xs font-bold">+ Otra</button>
+                                                </div>
+                                                {incidenciaMedIdx !== null && (trabajarKit.medicamentos || []).filter(m => m.dispensar !== false)[incidenciaMedIdx] && (() => {
+                                                    const medsDisp = (trabajarKit.medicamentos || []).filter(m => m.dispensar !== false);
+                                                    const med = medsDisp[incidenciaMedIdx];
+                                                    const realIdx = (trabajarKit.medicamentos || []).findIndex(m => m === med);
+                                                    return (
+                                                        <div className="p-3 rounded-xl bg-white border-2 border-amber-300 space-y-2">
+                                                            <p className="text-xs font-bold text-amber-800">Qué incidencia pasó en <span className="font-bold text-base uppercase">{(med.tipo || 'no cronico')}</span> — {med.nombre || 'Med ' + (incidenciaMedIdx + 1)}</p>
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <select value={incidenciaTipoSel} onChange={e => setIncidenciaTipoSel(e.target.value)} className="p-2 rounded-lg border border-amber-300 text-sm font-medium bg-white">
+                                                                    <option value="error_cantidad">Error de cantidad de medicamentos</option>
+                                                                    <option value="falta_stock">Falta de stock</option>
+                                                                    <option value="daniado">Dañado</option>
+                                                                    <option value="otro">Otro</option>
+                                                                </select>
+                                                                {incidenciaTipoSel === 'otro' && <input type="text" value={incidenciaOtraTexto} onChange={e => setIncidenciaOtraTexto(e.target.value)} placeholder="Describe..." className="p-2 rounded-lg border border-amber-300 text-sm flex-1 min-w-[120px]" />}
+                                                                <input type="text" value={incidenciaObservacion} onChange={e => setIncidenciaObservacion(e.target.value)} placeholder="Observación (opcional)" className="p-2 rounded-lg border border-amber-300 text-sm flex-1 min-w-[140px]" />
+                                                                <button type="button" disabled={incidenciaTipoSel === 'otro' && !incidenciaOtraTexto.trim()} onClick={() => { const inc = { tipo: 'medicamento', medIdx: realIdx, medicamento: med.nombre, tipoMed: med.tipo || 'no cronico', incidenciaTipo: incidenciaTipoSel, incidenciaTexto: incidenciaTipoSel === 'otro' ? incidenciaOtraTexto.trim() : null, observacion: (incidenciaObservacion || '').trim() || null }; setTrabajarData({ ...trabajarData, incidencias: [...((trabajarData.incidencias || []).filter(x => !(x.tipo === 'medicamento' && x.medIdx === realIdx))), inc] }); setIncidenciaMedIdx(null); setIncidenciaOtraTexto(''); setIncidenciaObservacion(''); }} className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">Añadir</button>
+                                                                <button type="button" onClick={() => { setIncidenciaMedIdx(null); setIncidenciaOtraTexto(''); setIncidenciaObservacion(''); }} className="px-3 py-2 rounded-lg bg-slate-200 text-slate-700 text-sm font-bold">Cancelar</button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                                {(trabajarData.incidencias || []).length > 0 && (
+                                                    <ul className="text-sm text-slate-700 space-y-2">
+                                                        {(trabajarData.incidencias || []).map((inc, j) => (
+                                                            <li key={j} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white/80 border border-amber-200">
+                                                                <span className="flex-1 min-w-0">
+                                                                    {inc.tipo === 'medicamento' ? (
+                                                                        <><span className="font-bold text-base text-slate-800">{(inc.tipoMed || 'no cronico').toUpperCase()}</span> — {inc.medicamento}{inc.incidenciaTipo ? <span className="text-amber-700 font-medium"> · {inc.incidenciaTipo === 'error_cantidad' ? 'Error de cantidad' : inc.incidenciaTipo === 'falta_stock' ? 'Falta de stock' : inc.incidenciaTipo === 'daniado' ? 'Dañado' : inc.incidenciaTexto || 'Otro'}</span> : null}{inc.observacion ? <span className="text-slate-600 text-xs block mt-1">Obs: {inc.observacion}</span> : null}</>
+                                                                    ) : (
+                                                                        <span>{inc.texto}</span>
+                                                                    )}
+                                                                </span>
+                                                                <button type="button" onClick={() => setTrabajarData({ ...trabajarData, incidencias: (trabajarData.incidencias || []).filter((_, i) => i !== j) })} className="text-red-600 hover:underline text-xs font-bold shrink-0">Quitar</button>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
                                         <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 border-b border-slate-200 pb-1">Operaciones</h5>
                                         <p className="text-[10px] text-slate-400 italic mt-1 leading-tight mb-3">Arme el kit físico con los medicamentos. Marque cuáles van refrigerados. Al guardar, el kit pasa a Calidad.</p>
@@ -4526,9 +4506,9 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <p className="text-xs text-slate-500">Al guardar se registran automáticamente la fecha y hora de salida de Operaciones y entrega a Calidad.</p>
+                                    <p className="text-xs text-slate-500">Verifique la cantidad con el checkbox e ingrese el ID de receta. Al guardar se registran fecha y hora de salida a Calidad.</p>
                                     <div className="flex gap-3 pt-2">
-                                        <button type="submit" className="flex-1 py-3 bg-amber-600 text-white font-bold rounded-xl hover:bg-amber-700">Guardar</button>
+                                        <button type="submit" disabled={!todosCantidadVerificada} title={!todosCantidadVerificada ? 'Marque Cantidad verificada en todos los medicamentos' : ''} className={`flex-1 py-3 font-bold rounded-xl ${todosCantidadVerificada ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>Guardar</button>
                                         <button type="button" onClick={cerrarTrabajar} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
                                     </div>
                                 </form>
@@ -4563,6 +4543,7 @@
             const [incidenciaMedIdx, setIncidenciaMedIdx] = useState(null);
             const [incidenciaTipoSel, setIncidenciaTipoSel] = useState('error_cantidad');
             const [incidenciaOtraTexto, setIncidenciaOtraTexto] = useState('');
+            const [incidenciaObservacion, setIncidenciaObservacion] = useState('');
             const [bitacoraCarpetasSearch, setBitacoraCarpetasSearch] = useState('');
             const [bitacoraFechaAbierta, setBitacoraFechaAbierta] = useState(null);
             const [bitacoraModalSearch, setBitacoraModalSearch] = useState('');
@@ -4619,7 +4600,8 @@
                         dispensacionParcial: !!m.dispensacionParcial,
                         tipo: m.tipo || 'no cronico',
                         cantidadReceta: m.cantidadReceta ?? m.cantidad,
-                        refrigerado
+                        refrigerado,
+                        pasoCalidad: !!m.pasoCalidad
                     };
                 });
                 const k = { ...kit, medicamentos: meds };
@@ -4646,11 +4628,23 @@
                 setIncidenciaMedIdx(null);
                 setIncidenciaTipoSel('error_cantidad');
                 setIncidenciaOtraTexto('');
+                setIncidenciaObservacion('');
                 setShowTrabajarForm(false);
             };
+            const todosPasoCalidad = useMemo(() => {
+                const meds = trabajarKitLocal?.medicamentos || trabajarKit?.medicamentos || [];
+                const dispensados = meds.filter(m => m.dispensar !== false);
+                if (dispensados.length === 0) return true;
+                return dispensados.every(m => !!m.pasoCalidad);
+            }, [trabajarKitLocal?.medicamentos, trabajarKit?.medicamentos]);
+
             const handleTrabajarSubmit = async (e) => {
                 e.preventDefault();
                 if (!trabajarKit || !trabajarKitLocal || !onSaveKit) return;
+                if (!todosPasoCalidad) {
+                    alert('Debe marcar "Pasó calidad" en todos los medicamentos que van en el kit antes de guardar.');
+                    return;
+                }
                 const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                 const today = new Date().toISOString().split('T')[0];
                 const meds = trabajarKitLocal.medicamentos || [];
@@ -4713,6 +4707,10 @@
             const handleGuardarYEnviarALogistica = async (e) => {
                 e.preventDefault();
                 if (!trabajarKit || !trabajarKitLocal || !onSaveKit) return;
+                if (!todosPasoCalidad) {
+                    alert('Debe marcar "Pasó calidad" en todos los medicamentos que van en el kit antes de enviar a logística.');
+                    return;
+                }
                 const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                 const today = new Date().toISOString().split('T')[0];
                 const meds = trabajarKitLocal.medicamentos || [];
@@ -5271,8 +5269,21 @@
                                                                             </div>
                                                                             <div>
                                                                                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Cantidad registrada</label>
-                                                                                <input type="text" inputMode="numeric" pattern="[0-9]*" value={m.cantidad || ''} onChange={e=>{const nm=[...(k.medicamentos||[])]; nm[i]={...nm[i], cantidad:e.target.value}; setTrabajarKitLocal({...k, medicamentos:nm});}} className="w-20 p-2 border rounded-lg text-sm bg-white border-slate-200 font-mono" placeholder="—" />
+                                                                                {(() => {
+                                                                                    const incidenciasCal = trabajarData.incidencias || [];
+                                                                                    const tieneIncidenciaCantidad = incidenciasCal.some(inc => inc.tipo === 'medicamento' && inc.medIdx === i && inc.incidenciaTipo === 'error_cantidad');
+                                                                                    if (tieneIncidenciaCantidad) {
+                                                                                        return <input type="text" inputMode="numeric" pattern="[0-9]*" value={m.cantidad || ''} onChange={e=>{const nm=[...(k.medicamentos||[])]; nm[i]={...nm[i], cantidad:e.target.value}; setTrabajarKitLocal({...k, medicamentos:nm});}} className="w-20 p-2 border-2 border-amber-400 rounded-lg text-sm bg-amber-50 font-mono" placeholder="—" />;
+                                                                                    }
+                                                                                    return <span className="font-mono text-sm text-slate-800 bg-slate-50 px-2 py-1 rounded border border-slate-200">{m.cantidad || '—'}</span>;
+                                                                                })()}
                                                                             </div>
+                                                                            {va && (
+                                                                                <label className="flex items-center gap-2 cursor-pointer shrink-0">
+                                                                                    <input type="checkbox" checked={!!m.pasoCalidad} onChange={e=>{const nm=[...(k.medicamentos||[])]; nm[i]={...nm[i], pasoCalidad:e.target.checked}; setTrabajarKitLocal({...k, medicamentos:nm});}} className="w-4 h-4 rounded border-green-400 text-green-600 focus:ring-green-400" />
+                                                                                    <span className="text-xs font-bold text-green-800">Pasó calidad</span>
+                                                                                </label>
+                                                                            )}
                                                                         </div>
                                                                         {va && (
                                                                             <div className="flex flex-wrap items-center gap-3">
@@ -5299,13 +5310,13 @@
                                                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
                                                     <div className="flex items-center justify-between mb-2">
                                                         <h5 className="text-xs font-bold text-amber-800 uppercase">Incidencias</h5>
-                                                        <button type="button" onClick={()=>{ setTrabajarData({...trabajarData, incidenciasActivo:!trabajarData.incidenciasActivo}); setIncidenciaMedIdx(null); }} className={`px-4 py-2 rounded-xl text-sm font-bold ${trabajarData.incidenciasActivo?'bg-amber-600 text-white':'bg-amber-100 text-amber-800'}`}>{trabajarData.incidenciasActivo ? 'Activado' : 'Activar'}</button>
+                                                        <button type="button" onClick={()=>{ setTrabajarData({...trabajarData, incidenciasActivo:!trabajarData.incidenciasActivo}); setIncidenciaMedIdx(null); setIncidenciaObservacion(''); }} className={`px-4 py-2 rounded-xl text-sm font-bold ${trabajarData.incidenciasActivo?'bg-amber-600 text-white':'bg-amber-100 text-amber-800'}`}>{trabajarData.incidenciasActivo ? 'Activado' : 'Activar'}</button>
                                                     </div>
                                                     {trabajarData.incidenciasActivo && (
                                                         <div className="space-y-3">
                                                             <div className="flex flex-wrap gap-2">
                                                                 {meds.map((m, idx)=>(
-                                                                    <button key={idx} type="button" onClick={()=>{ setIncidenciaMedIdx(idx); setIncidenciaTipoSel('error_cantidad'); setIncidenciaOtraTexto(''); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${incidenciaMedIdx===idx?'bg-amber-200 border-amber-500 ring-2 ring-amber-400':'bg-white border-amber-300 text-amber-800'}`}>+ {m.nombre||'Med '+(idx+1)}</button>
+                                                                    <button key={idx} type="button" onClick={()=>{ setIncidenciaMedIdx(idx); setIncidenciaTipoSel('error_cantidad'); setIncidenciaOtraTexto(''); setIncidenciaObservacion(''); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${incidenciaMedIdx===idx?'bg-amber-200 border-amber-500 ring-2 ring-amber-400':'bg-white border-amber-300 text-amber-800'}`}>+ {m.nombre||'Med '+(idx+1)}</button>
                                                                 ))}
                                                                 <button type="button" onClick={()=>{const t=prompt('Descripción incidencia (otra):'); if(t&&t.trim()) setTrabajarData({...trabajarData, incidencias:[...(trabajarData.incidencias||[]), {tipo:'otra', texto:t.trim()}]});}} className="px-3 py-1.5 rounded-lg bg-amber-200 text-amber-900 text-xs font-bold">+ Otra</button>
                                                             </div>
@@ -5320,8 +5331,9 @@
                                                                             <option value="otro">Otro</option>
                                                                         </select>
                                                                         {incidenciaTipoSel === 'otro' && <input type="text" value={incidenciaOtraTexto} onChange={e=>setIncidenciaOtraTexto(e.target.value)} placeholder="Describe..." className="p-2 rounded-lg border border-amber-300 text-sm flex-1 min-w-[120px]" />}
-                                                                        <button type="button" disabled={incidenciaTipoSel==='otro'&&!incidenciaOtraTexto.trim()} onClick={()=>{const med=meds[incidenciaMedIdx]; const inc={tipo:'medicamento', medIdx:incidenciaMedIdx, medicamento:med.nombre, tipoMed:med.tipo||'no cronico', incidenciaTipo:incidenciaTipoSel, incidenciaTexto:incidenciaTipoSel==='otro'?incidenciaOtraTexto.trim():null}; setTrabajarData({...trabajarData, incidencias:[...((trabajarData.incidencias||[]).filter(x=>!(x.tipo==='medicamento'&&x.medIdx===incidenciaMedIdx))), inc]}); setIncidenciaMedIdx(null); setIncidenciaOtraTexto(''); }} className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">Añadir</button>
-                                                                        <button type="button" onClick={()=>{ setIncidenciaMedIdx(null); setIncidenciaOtraTexto(''); }} className="px-3 py-2 rounded-lg bg-slate-200 text-slate-700 text-sm font-bold">Cancelar</button>
+                                                                        <input type="text" value={incidenciaObservacion} onChange={e=>setIncidenciaObservacion(e.target.value)} placeholder="Observación (opcional)" className="p-2 rounded-lg border border-amber-300 text-sm flex-1 min-w-[140px]" />
+                                                                        <button type="button" disabled={incidenciaTipoSel==='otro'&&!incidenciaOtraTexto.trim()} onClick={()=>{const med=meds[incidenciaMedIdx]; const inc={tipo:'medicamento', medIdx:incidenciaMedIdx, medicamento:med.nombre, tipoMed:med.tipo||'no cronico', incidenciaTipo:incidenciaTipoSel, incidenciaTexto:incidenciaTipoSel==='otro'?incidenciaOtraTexto.trim():null, observacion:(incidenciaObservacion||'').trim()||null}; setTrabajarData({...trabajarData, incidencias:[...((trabajarData.incidencias||[]).filter(x=>!(x.tipo==='medicamento'&&x.medIdx===incidenciaMedIdx))), inc]}); setIncidenciaMedIdx(null); setIncidenciaOtraTexto(''); setIncidenciaObservacion(''); }} className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">Añadir</button>
+                                                                        <button type="button" onClick={()=>{ setIncidenciaMedIdx(null); setIncidenciaOtraTexto(''); setIncidenciaObservacion(''); }} className="px-3 py-2 rounded-lg bg-slate-200 text-slate-700 text-sm font-bold">Cancelar</button>
                                                                     </div>
                                                                 </div>
                                                             )}
@@ -5331,7 +5343,7 @@
                                                                         <li key={j} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white/80 border border-amber-200">
                                                                             <span className="flex-1 min-w-0">
                                                                                 {inc.tipo==='medicamento' ? (
-                                                                                    <><span className="font-bold text-base text-slate-800">{(inc.tipoMed||'no cronico').toUpperCase()}</span> — {inc.medicamento}{inc.incidenciaTipo ? <span className="text-amber-700 font-medium"> · {inc.incidenciaTipo==='error_cantidad'?'Error de cantidad':inc.incidenciaTipo==='falta_stock'?'Falta de stock':inc.incidenciaTipo==='daniado'?'Dañado':inc.incidenciaTexto||'Otro'}</span> : null}</>
+                                                                                    <><span className="font-bold text-base text-slate-800">{(inc.tipoMed||'no cronico').toUpperCase()}</span> — {inc.medicamento}{inc.incidenciaTipo ? <span className="text-amber-700 font-medium"> · {inc.incidenciaTipo==='error_cantidad'?'Error de cantidad':inc.incidenciaTipo==='falta_stock'?'Falta de stock':inc.incidenciaTipo==='daniado'?'Dañado':inc.incidenciaTexto||'Otro'}</span> : null}{inc.observacion ? <span className="text-slate-600 text-xs block mt-1">Obs: {inc.observacion}</span> : null}</>
                                                                                 ) : (
                                                                                     <span>{inc.texto}</span>
                                                                                 )}
@@ -5348,10 +5360,10 @@
                                                     <label className="text-[10px] font-bold text-green-800 uppercase block mb-2">Observaciones calidad</label>
                                                     <textarea className="w-full p-3 border border-green-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-green-300 outline-none" rows={2} value={trabajarData.observacionesCalidad||''} onChange={e=>setTrabajarData({...trabajarData, observacionesCalidad:e.target.value})} placeholder="Observaciones de la revisión..." />
                                                 </div>
-                                                <p className="text-xs text-slate-500">Hora de revisión automática. Al guardar se registra la revisión y el kit sale de tu lista. Luego puedes enviar a logística.</p>
+                                                <p className="text-xs text-slate-500">Marque «Pasó calidad» en todos los medicamentos. La cantidad solo se puede modificar si hay incidencia de error de cantidad.</p>
                                                 <div className="flex flex-wrap gap-3 pt-2">
-                                                    <button type="submit" className="flex-1 min-w-[140px] py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700">Guardar</button>
-                                                    <button type="button" onClick={handleGuardarYEnviarALogistica} className="flex-1 min-w-[200px] py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 flex items-center justify-center gap-2">✓ Guardar y enviar a logística</button>
+                                                    <button type="submit" disabled={!todosPasoCalidad} title={!todosPasoCalidad ? 'Marque Pasó calidad en todos los medicamentos' : ''} className={`flex-1 min-w-[140px] py-3 font-bold rounded-xl ${todosPasoCalidad ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>Guardar</button>
+                                                    <button type="button" onClick={handleGuardarYEnviarALogistica} disabled={!todosPasoCalidad} title={!todosPasoCalidad ? 'Marque Pasó calidad en todos los medicamentos' : ''} className={`flex-1 min-w-[200px] py-3 font-bold rounded-xl flex items-center justify-center gap-2 ${todosPasoCalidad ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>✓ Guardar y enviar a logística</button>
                                                     <button type="button" onClick={cerrarTrabajar} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
                                                 </div>
                                             </>
@@ -6660,6 +6672,12 @@
                                         <div className="font-bold text-emerald-800">{verKit.direccionEntrega}</div>
                                     </div>
                                 )}
+                                {(verKit.observacionesLogisticaEnabled && verKit.observacionesLogistica) && (
+                                    <div className="p-4 bg-cyan-50 rounded-xl border border-cyan-200">
+                                        <span className="text-xs text-cyan-600 font-bold">Observaciones para logística (Contact Center):</span>
+                                        <div className="font-bold text-cyan-800 mt-1">{verKit.observacionesLogistica}</div>
+                                    </div>
+                                )}
                                 <div className="p-4 bg-slate-50 rounded-xl">
                                     <span className="text-xs text-slate-500 font-bold block mb-2">Medicamentos:</span>
                                     <div className="space-y-1">
@@ -6698,6 +6716,12 @@
                                         <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
                                             <span className="text-xs text-emerald-600 font-bold">📍 Dirección de entrega:</span>
                                             <div className="font-bold text-emerald-800 text-lg">{trabajarKit.direccionEntrega}</div>
+                                        </div>
+                                    )}
+                                    {(trabajarKit.observacionesLogisticaEnabled && trabajarKit.observacionesLogistica) && (
+                                        <div className="p-4 bg-cyan-50 rounded-xl border border-cyan-200">
+                                            <span className="text-xs text-cyan-600 font-bold">Observaciones para logística (Contact Center):</span>
+                                            <div className="font-bold text-cyan-800 text-lg mt-1">{trabajarKit.observacionesLogistica}</div>
                                         </div>
                                     )}
                                     <div className="p-4 bg-slate-50 rounded-xl">
@@ -6821,7 +6845,7 @@
                     ['deliveryMode', 'contactCenter', 'digitador', 'recetaImpresa'].forEach(f => fields.add(f));
                 }
                 if (canEditSection(KIT_SECTIONS.CONTACT_CENTER)) {
-                    ['confirmadoPorContactCenter', 'devueltoPorContactCenter', 'fechaConfirmacionContactCenter', 'deliveryMode', 'fechaEntregaKit', 'tipoTelefonoCC', 'phoneHighlight', 'esUbicacionPrincipal', 'direccionAlternativa', 'direccionEntrega', 'observacionesEntregaEnabled', 'observacionesEntrega', 'gpsStatus', 'gpsValue', 'observacionesRegresoEnabled', 'observacionesRegresoFarmacia'].forEach(f => fields.add(f));
+                    ['confirmadoPorContactCenter', 'devueltoPorContactCenter', 'fechaConfirmacionContactCenter', 'deliveryMode', 'fechaEntregaKit', 'tipoTelefonoCC', 'phoneHighlight', 'esUbicacionPrincipal', 'direccionAlternativa', 'direccionEntrega', 'observacionesEntregaEnabled', 'observacionesEntrega', 'observacionesLogisticaEnabled', 'observacionesLogistica', 'gpsStatus', 'gpsValue', 'observacionesRegresoEnabled', 'observacionesRegresoFarmacia'].forEach(f => fields.add(f));
                 }
                 if (canEditSection(KIT_SECTIONS.DESPACHO)) {
                     ['medicamentos', 'isRefrigerated', 'cantRefriGlobal', 'triggerMeds'].forEach(f => fields.add(f));
@@ -6833,7 +6857,7 @@
                     ['observacionesCalidad'].forEach(f => fields.add(f));
                 }
                 if (canEditSection(KIT_SECTIONS.LOGISTICA)) {
-                    ['fechaEntregaLogistica', 'direccionEntrega', 'phoneHighlight', 'gpsStatus', 'gpsValue', 'observationsEnabled', 'observations'].forEach(f => fields.add(f));
+                    ['fechaEntregaLogistica', 'direccionEntrega', 'phoneHighlight', 'gpsStatus', 'gpsValue', 'observationsEnabled', 'observations', 'observacionesLogisticaEnabled', 'observacionesLogistica'].forEach(f => fields.add(f));
                 }
                 if (canEditSection(KIT_SECTIONS.DELIVERY)) {
                     ['fechaEntregaKit', 'observacionesDelivery'].forEach(f => fields.add(f));
@@ -6891,6 +6915,8 @@
                 direccionAlternativa: '', 
                 observacionesEntregaEnabled: false, 
                 observacionesEntrega: '', 
+                observacionesLogisticaEnabled: false, 
+                observacionesLogistica: '', 
                 observacionesRegresoEnabled: false, 
                 observacionesRegresoFarmacia: ''
             });
@@ -7941,7 +7967,7 @@
                             finalData.confirmadoPorContactCenter = true;
                             finalData.fechaConfirmacionContactCenter = new Date().toISOString().split('T')[0];
                         }
-                        const ccFieldsEdit = ['deliveryMode','fechaEntregaKit','tipoTelefonoCC','phoneHighlight','esUbicacionPrincipal','direccionAlternativa','direccionEntrega','observacionesEntregaEnabled','observacionesEntrega','observationsEnabled','observations','gpsStatus','gpsValue','observacionesRegresoEnabled','observacionesRegresoFarmacia'];
+                        const ccFieldsEdit = ['deliveryMode','fechaEntregaKit','tipoTelefonoCC','phoneHighlight','esUbicacionPrincipal','direccionAlternativa','direccionEntrega','observacionesEntregaEnabled','observacionesEntrega','observacionesLogisticaEnabled','observacionesLogistica','observationsEnabled','observations','gpsStatus','gpsValue','observacionesRegresoEnabled','observacionesRegresoFarmacia'];
                         const ccFieldsFirstConfirm = [...ccFieldsEdit, 'confirmadoPorContactCenter', 'fechaConfirmacionContactCenter'];
                         const ccFields = yaConfirmado ? ccFieldsEdit : ccFieldsFirstConfirm;
                         const filtered = {};
@@ -8061,7 +8087,7 @@
                         observationsEnabled: obsEn,
                         observations: obs
                     };
-                    const ccFields = ['devueltoPorContactCenter','deliveryMode','fechaEntregaKit','tipoTelefonoCC','phoneHighlight','esUbicacionPrincipal','direccionAlternativa','direccionEntrega','observacionesEntregaEnabled','observacionesEntrega','observationsEnabled','observations','gpsStatus','gpsValue','observacionesRegresoEnabled','observacionesRegresoFarmacia','confirmadoPorContactCenter','fechaConfirmacionContactCenter'];
+                    const ccFields = ['devueltoPorContactCenter','deliveryMode','fechaEntregaKit','tipoTelefonoCC','phoneHighlight','esUbicacionPrincipal','direccionAlternativa','direccionEntrega','observacionesEntregaEnabled','observacionesEntrega','observacionesLogisticaEnabled','observacionesLogistica','observationsEnabled','observations','gpsStatus','gpsValue','observacionesRegresoEnabled','observacionesRegresoFarmacia','confirmadoPorContactCenter','fechaConfirmacionContactCenter'];
                     const filtered = {};
                     ccFields.forEach(f => { if (payload[f] !== undefined) filtered[f] = payload[f]; });
                     const finalData = { ...filtered, digitador: currentUser.name, dni: selectedPatient.dni, nombre: selectedPatient.nombre, patientId: selectedPatient.id, medicamentos: sortMedicamentosParaGuardar(kitData.medicamentos) };
@@ -8104,6 +8130,8 @@
                     direccionAlternativa: '', 
                     observacionesEntregaEnabled: false, 
                     observacionesEntrega: '', 
+                    observacionesLogisticaEnabled: false, 
+                    observacionesLogistica: '', 
                     observacionesRegresoEnabled: false, 
                     observacionesRegresoFarmacia: ''
                 }); 
@@ -8147,6 +8175,8 @@
                     direccionAlternativa: '', 
                     observacionesEntregaEnabled: false, 
                     observacionesEntrega: '', 
+                    observacionesLogisticaEnabled: false, 
+                    observacionesLogistica: '', 
                     observacionesRegresoEnabled: false, 
                     observacionesRegresoFarmacia: ''
                 };
@@ -8166,6 +8196,8 @@
                         baseData.direccionAlternativa = lastKit.direccionAlternativa || (esMain ? '' : kitAddr);
                         baseData.observacionesEntregaEnabled = !!(lastKit.observacionesEntregaEnabled || lastKit.observationsEnabled);
                         baseData.observacionesEntrega = lastKit.observacionesEntrega || lastKit.observations || '';
+                        baseData.observacionesLogisticaEnabled = !!lastKit.observacionesLogisticaEnabled;
+                        baseData.observacionesLogistica = lastKit.observacionesLogistica || '';
                         baseData.gpsStatus = lastKit.gpsStatus || 'SIN GPS';
                         baseData.gpsValue = lastKit.gpsValue || '';
                     }
@@ -8204,6 +8236,8 @@
                     direccionAlternativa: k.direccionAlternativa || (esMain ? '' : kitAddr),
                     observacionesEntregaEnabled: !!k.observacionesEntregaEnabled || !!k.observationsEnabled,
                     observacionesEntrega: k.observacionesEntrega || k.observations || '',
+                    observacionesLogisticaEnabled: !!k.observacionesLogisticaEnabled,
+                    observacionesLogistica: k.observacionesLogistica || '',
                     observacionesRegresoEnabled: !!k.observacionesRegresoEnabled,
                     observacionesRegresoFarmacia: k.observacionesRegresoFarmacia || ''
                 }); 
@@ -8630,14 +8664,13 @@ html +
             // Helpers para inputs
             const toDateInputValue = (dateValue) => {
                 if (!dateValue) return '';
-                if (typeof dateValue === 'string' && dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) return dateValue;
+                if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return dateValue;
                 try {
                     const d = new Date(dateValue);
                     if (isNaN(d.getTime())) return '';
-                    return d.toISOString().split('T')[0];
-                } catch {
-                    return '';
-                }
+                    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${day}`;
+                } catch { return ''; }
             };
             const safeNumber = (value) => {
                 if (value === null || value === undefined || value === '') return '';
@@ -10384,6 +10417,18 @@ html +
                                                 <textarea className="w-full p-2.5 border rounded-lg text-sm bg-amber-50/50 border-amber-200" rows="2" value={kitData.observacionesEntrega||''} onChange={e=>setKitData({...kitData, observacionesEntrega: toUpper(e.target.value)})} placeholder={kitData.deliveryMode === 'ruta' && kitData.tipoTelefonoCC === 'otro' ? 'Especifique teléfono u otro dato...' : 'Instrucciones de entrega...'} />
                                             )}
                                         </div>
+                                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">Observaciones para logística</label>
+                                            <p className="text-[10px] text-slate-500 mb-2">Solo visible para Logística</p>
+                                            <div className="relative inline-flex items-center bg-slate-100 rounded-full p-1 shadow-inner w-full max-w-xs mb-2">
+                                                <div className="absolute inset-y-1 w-12 bg-white rounded-full shadow-sm transition-all duration-300" style={{ left: kitData.observacionesLogisticaEnabled ? 'calc(100% - 3.25rem)' : '0.25rem' }} />
+                                                <button type="button" onClick={()=>setKitData({...kitData, observacionesLogisticaEnabled: false, observacionesLogistica: ''})} className={`relative z-10 flex-1 px-4 py-2 text-sm font-bold rounded-full ${!kitData.observacionesLogisticaEnabled ? 'text-slate-700' : 'text-slate-500'}`}>No</button>
+                                                <button type="button" onClick={()=>setKitData({...kitData, observacionesLogisticaEnabled: true})} className={`relative z-10 flex-1 px-4 py-2 text-sm font-bold rounded-full ${kitData.observacionesLogisticaEnabled ? 'text-cyan-700' : 'text-slate-500'}`}>Sí</button>
+                                            </div>
+                                            {kitData.observacionesLogisticaEnabled && (
+                                                <textarea className="w-full p-2.5 border rounded-lg text-sm bg-cyan-50/50 border-cyan-200" rows="2" value={kitData.observacionesLogistica||''} onChange={e=>setKitData({...kitData, observacionesLogistica: toUpper(e.target.value)})} placeholder="Instrucciones solo para logística..." />
+                                            )}
+                                        </div>
                                         <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                                             <div className="flex items-center justify-between mb-3">
                                                 <h5 className="text-xs font-bold text-slate-500 uppercase">Medicamentos asignados</h5>
@@ -11278,11 +11323,11 @@ html +
                                             <select 
                                                 className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white outline-none focus:border-turquoise-500" 
                                                 value={patientForm.agenteContactCenter} 
-                                                onChange={e=>setPatientForm({...patientForm, agenteContactCenter:toUpper(e.target.value)})}
+                                                onChange={e=>setPatientForm({...patientForm, agenteContactCenter:e.target.value})}
                                             >
                                                 <option value="">Seleccione un agente</option>
                                                 {users
-                                                    .filter(u => u.departamento === 'contact center' && u.rolesDepartamento?.includes('agente contact center'))
+                                                    .filter(u => (u.departamento || '').toLowerCase() === 'contact center' && (u.rolesDepartamento || []).some(r => String(r || '').toLowerCase() === 'agente contact center'))
                                                     .map(u => (
                                                         <option key={u.id} value={u.nombre || u.username}>
                                                             {u.nombre || u.username}
@@ -11296,11 +11341,11 @@ html +
                                             <select 
                                                 className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white outline-none focus:border-turquoise-500" 
                                                 value={patientForm.usuarioRevisionAsignacion} 
-                                                onChange={e=>setPatientForm({...patientForm, usuarioRevisionAsignacion:toUpper(e.target.value)})}
+                                                onChange={e=>setPatientForm({...patientForm, usuarioRevisionAsignacion:e.target.value})}
                                             >
                                                 <option value="">Seleccione un usuario</option>
                                                 {users
-                                                    .filter(u => u.departamento === 'farmacia' && u.rolesDepartamento?.includes('revision y asignacion'))
+                                                    .filter(u => (u.departamento || '').toLowerCase() === 'farmacia' && (u.rolesDepartamento || []).some(r => String(r || '').toLowerCase() === 'revision y asignacion'))
                                                     .map(u => (
                                                         <option key={u.id} value={u.nombre || u.username}>
                                                             {u.nombre || u.username}
@@ -11811,11 +11856,12 @@ html +
         };
 
         // --- BLOCK: CONFIGURACION ---
-        const ConfigBlock = ({ medicines, onAddList, contacts, onAddContact, onDeleteContact, onMedicinesUpdated }) => {
+        const ConfigBlock = ({ medicines, onAddList, onDeleteMedicines, contacts, onAddContact, onDeleteContact }) => {
             const [rawText, setRawText] = useState('');
             const [newMedCodigo, setNewMedCodigo] = useState('');
             const [newMedNombre, setNewMedNombre] = useState('');
             const [newMedTipo, setNewMedTipo] = useState('no cronico');
+            const [selectedMedIds, setSelectedMedIds] = useState(new Set());
 
             const processText = async () => {
                 const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
@@ -12033,23 +12079,39 @@ html +
                                         </div>
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-700 mb-2 text-xs uppercase tracking-wider">Catálogo Actual ({medicines.length})</h4>
+                                        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                                            <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Catálogo Actual ({medicines.length})</h4>
+                                            <div className="flex items-center gap-2">
+                                                <button type="button" onClick={() => setSelectedMedIds(medicines.length ? new Set(medicines.map(m => m.id).filter(Boolean)) : new Set())} className="text-[10px] font-bold text-turquoise-600 hover:text-turquoise-700">Seleccionar todos</button>
+                                                <span className="text-slate-300">|</span>
+                                                <button type="button" onClick={() => setSelectedMedIds(new Set())} className="text-[10px] font-bold text-slate-500 hover:text-slate-700">Desmarcar</button>
+                                                {selectedMedIds.size > 0 && onDeleteMedicines && (
+                                                    <button type="button" onClick={async () => { if (confirm(`¿Eliminar ${selectedMedIds.size} medicamento(s) seleccionado(s)?`)) { await onDeleteMedicines([...selectedMedIds]); setSelectedMedIds(new Set()); } }} className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold">Eliminar ({selectedMedIds.size})</button>
+                                                )}
+                                            </div>
+                                        </div>
                                         <div className="h-full max-h-[400px] overflow-y-auto border rounded-xl bg-white p-2 space-y-1">
-                                            {medicines.map((m, i) => (
-                                                <div key={i} className="text-xs p-2 hover:bg-slate-50 border-b border-slate-50 last:border-0">
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <div className="flex-1 min-w-0">
-                                                            {m.codigo && (
-                                                                <span className="text-slate-500 font-mono text-[10px] block mb-1">Código: {m.codigo}</span>
-                                                            )}
-                                                            <span className="font-bold text-slate-800 uppercase block">{m.name || m.nombre || '—'}</span>
-                                                            <span className="text-slate-500 text-[10px] mt-1 block">
-                                                                Tipo: <span className="font-semibold capitalize">{m.tipo || 'no cronico'}</span>
-                                                            </span>
-                                                        </div>
+                                            {(medicines || []).map((m, i) => {
+                                                const medId = m.id;
+                                                const isSelected = medId && selectedMedIds.has(medId);
+                                                return (
+                                                <div key={medId || i} className={`text-xs p-2 rounded-lg border-b border-slate-50 last:border-0 flex items-start gap-2 ${isSelected ? 'bg-red-50 border-red-100' : 'hover:bg-slate-50'}`}>
+                                                    {onDeleteMedicines && medId && (
+                                                        <label className="flex items-center shrink-0 cursor-pointer mt-0.5">
+                                                            <input type="checkbox" checked={!!isSelected} onChange={() => { setSelectedMedIds(prev => { const next = new Set(prev); if (next.has(medId)) next.delete(medId); else next.add(medId); return next; }); }} className="rounded border-slate-300 text-red-600 focus:ring-red-500" />
+                                                        </label>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        {m.codigo && (
+                                                            <span className="text-slate-500 font-mono text-[10px] block mb-1">Código: {m.codigo}</span>
+                                                        )}
+                                                        <span className="font-bold text-slate-800 uppercase block">{m.name || m.nombre || '—'}</span>
+                                                        <span className="text-slate-500 text-[10px] mt-1 block">
+                                                            Tipo: <span className="font-semibold capitalize">{m.tipo || 'no cronico'}</span>
+                                                        </span>
                                                     </div>
                                                 </div>
-                                            ))}
+                                            );})}
                                         </div>
                                     </div>
                                 </div>
@@ -12100,6 +12162,23 @@ html +
                 'calidad': ['agente de calidad', 'supervisor'],
                 'logistica': ['asignador de rutas despacho logistica', 'supervisor'],
                 'delivery': ['supervisor', 'motorista']
+            };
+
+            const toTimeInputValue = (v) => {
+                if (!v) return '';
+                const s = String(v).trim();
+                const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(am|pm))?$/i);
+                if (m) {
+                    let h = parseInt(m[1], 10);
+                    const min = Math.min(59, Math.max(0, parseInt(m[2], 10) || 0));
+                    if ((m[4] || '').toLowerCase() === 'pm' && h < 12) h += 12;
+                    if ((m[4] || '').toLowerCase() === 'am' && h === 12) h = 0;
+                    h = Math.min(23, Math.max(0, h));
+                    return String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+                }
+                if (/^\d{2}:\d{2}$/.test(s)) return s;
+                if (/^\d{2}:\d{2}:\d{2}/.test(s)) return s.slice(0, 5);
+                return '';
             };
 
             const departamentos = Object.keys(rolesPorDepartamento);
@@ -12160,8 +12239,8 @@ html +
                         sabado: false,
                         domingo: false
                     },
-                    horaInicio: u.horaInicio || '08:00',
-                    horaFin: u.horaFin || '18:00',
+                    horaInicio: toTimeInputValue(u.horaInicio) || '08:00',
+                    horaFin: toTimeInputValue(u.horaFin) || '18:00',
                     telefono: u.telefono || ''
                 }); 
                 setShowModal(true); 
@@ -12300,11 +12379,11 @@ html +
                         nombre: formData.nombre,
                         departamento: formData.departamento,
                         rolesDepartamento: formData.rolesDepartamento || [],
-                        role: systemRole, // Rol del sistema calculado desde roles del departamento
-                        restriccionHorario: formData.restriccionHorario || false,
-                        diasPermitidos: formData.restriccionHorario ? formData.diasPermitidos : {},
-                        horaInicio: formData.restriccionHorario ? formData.horaInicio : '',
-                        horaFin: formData.restriccionHorario ? formData.horaFin : '',
+                        role: systemRole,
+                        restriccionHorario: !!formData.restriccionHorario,
+                        diasPermitidos: formData.restriccionHorario ? (formData.diasPermitidos || {}) : {},
+                        horaInicio: formData.restriccionHorario ? (formData.horaInicio || null) : null,
+                        horaFin: formData.restriccionHorario ? (formData.horaFin || null) : null,
                         telefono: formData.telefono || ''
                     };
                     
@@ -12523,7 +12602,7 @@ html +
                                             <input 
                                                 type="time" 
                                                 className="w-full p-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-turquoise-500" 
-                                                value={formData.horaInicio} 
+                                                value={toTimeInputValue(formData.horaInicio) || '08:00'} 
                                                 onChange={e=>setFormData({...formData, horaInicio:e.target.value})} 
                                                 required
                                             />
@@ -12533,7 +12612,7 @@ html +
                                             <input 
                                                 type="time" 
                                                 className="w-full p-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-turquoise-500" 
-                                                value={formData.horaFin} 
+                                                value={toTimeInputValue(formData.horaFin) || '18:00'} 
                                                 onChange={e=>setFormData({...formData, horaFin:e.target.value})} 
                                                 required
                                             />
@@ -12826,8 +12905,7 @@ html +
                 ? `Ingresando al ${formatDepartamento(data?.departamento)}`
                 : 'Cerrando sesión';
             const subMsg = data?.nombre || '';
-            const cx = 44; const cy = 44; const r = 40;
-            const circumference = 2 * Math.PI * r;
+            const circumference = 2 * Math.PI * 40;
             return (
                 <div className={`fixed inset-0 z-[200] flex flex-col items-center justify-center transition-fade-in overflow-hidden ${isEntering ? 'bg-gradient-to-br from-turquoise-900 via-teal-900 to-emerald-900' : 'bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800'}`} style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
                     {/* Fondo decorativo */}
@@ -12847,8 +12925,8 @@ html +
                         {isEntering ? (
                             <div className="relative mb-8">
                                 <svg className="w-24 h-24 -rotate-90" viewBox="0 0 88 88">
-                                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="4" />
-                                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={0} className="transition-progress-ring" style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.5))' }} />
+                                    <circle cx="44" cy="44" r="40" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="4" />
+                                    <circle cx="44" cy="44" r="40" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={0} className="transition-progress-ring" style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.5))' }} />
                                 </svg>
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <svg className="w-8 h-8 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -13139,7 +13217,7 @@ html +
                     qrContainerHtml = '<div class="cell" id="qr-container" style="' + qrStyle + '"></div>';
                     const qrUrl = JSON.stringify(resolvedData.QR_MAPS);
                     // Usar QRCode local (ya cargado, sin CDN)
-                    const qrScriptCode = '<script>(function(){try{if(typeof QRCode !== "undefined" && typeof QRCode.toDataURL === "function"){var qrContainer = document.getElementById("qr-container");if(qrContainer){QRCode.toDataURL(' + qrUrl + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img = document.createElement("img");img.src = url;img.style.maxWidth = "100%";img.style.height = "auto";qrContainer.appendChild(img);}else{console.error("Error generando QR:", err);}});}}else{console.error("QRCode no disponible");}}catch(e){console.error("Error en script QR:", e);}})();<\/script>';
+                    const qrScriptCode = '<script>(function(){try{if(typeof QRCode !== "undefined" && typeof QRCode.toDataURL === "function"){var qrContainer = document.getElementById("qr-container");if(qrContainer){QRCode.toDataURL(' + qrUrl + ', {width: 150, margin: 1}, function(err, url){if(!err && url){var img = document.createElement("img");img.src = url;img.style.maxWidth = "100%";img.style.height = "auto";qrContainer.appendChild(img);}else{console.error("Error generando QR:", err);}});}}else{console.error("QRCode no disponible");}}catch(e){console.error("Error en script QR:", e);}})();<' + '/script>';
                     qrScriptHtml = qrScriptCode;
                 }
                 const printHtml = '<!DOCTYPE html>' +
@@ -14467,10 +14545,20 @@ Responde en formato JSON con esta estructura:
                     const querySnapshot = await db.collection('prod_patients').get();
                     const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                     setPatients(data);
-                    console.log('🔥 Pacientes cargados desde Firebase');
+                    console.log('🔥 Pacientes cargados');
                 } catch (error) {
                     console.error('Error cargando pacientes:', error);
                 }
+            };
+
+            const refetchPatients = async () => {
+                try {
+                    if (!firebaseInitialized || !db) return;
+                    cacheManager.clearPatientCache();
+                    const querySnapshot = await db.collection('prod_patients').get();
+                    const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    setPatients(data);
+                } catch (e) { console.warn('Error refetch pacientes:', e); }
             };
 
             useEffect(() => {
@@ -14598,6 +14686,7 @@ Responde en formato JSON con esta estructura:
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     console.log("✅ Paciente guardado con ID: ", result.id);
+                    refetchPatients();
                     cacheManager.clearPatientCache();
                     if (creationSource === 'manual') {
                         try {
@@ -14640,6 +14729,7 @@ Responde en formato JSON con esta estructura:
                         const updateData = { ...cleanData };
                         updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
                         await docRef.update(updateData);
+                        refetchPatients();
                     } else {
                         // Si no existe, crear con solo campos permitidos
                         await docRef.set({
@@ -14647,6 +14737,7 @@ Responde en formato JSON con esta estructura:
                             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
+                        refetchPatients();
                     }
                     
                     cacheManager.clearPatientCache(id);
@@ -14663,6 +14754,7 @@ Responde en formato JSON con esta estructura:
                     }
                     await db.collection('prod_patients').doc(id).delete();
                     cacheManager.clearPatientCache(id);
+                    refetchPatients();
                 } catch (error) {
                     console.error("Error deleting patient: ", error);
                     throw error;
@@ -14698,11 +14790,12 @@ Responde en formato JSON con esta estructura:
                     } else {
                         const result = await db.collection('prod_kits').add({
                             ...data, 
-                            patientId: pid, 
+                            patientId: pid || data.patientId, 
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                         resultId = result.id;
                         console.log("✅ Kit guardado con ID: ", resultId);
+                        try { await refetchKits(); } catch (e) { console.warn('Refetch kits post-add:', e); }
                     }
                     cacheManager.clearCache(cacheManager.KITS_CACHE_KEY);
                     return resultId;
@@ -14722,6 +14815,7 @@ Responde en formato JSON con esta estructura:
                     }
                     await db.collection('prod_kits').doc(id).delete();
                     cacheManager.clearCache(cacheManager.KITS_CACHE_KEY);
+                    try { await refetchKits(); } catch (e) { console.warn('Refetch kits post-delete:', e); }
                 } catch (error) {
                     console.error("Error deleting kit: ", error);
                     throw error;
@@ -14783,6 +14877,21 @@ Responde en formato JSON con esta estructura:
                     }
                 } catch (error) {
                     console.error("Error adding/updating medicines: ", error);
+                    throw error;
+                }
+            };
+            
+            const deleteMedicines = async (ids) => {
+                try {
+                    if (!firebaseInitialized || !db) throw new Error("Base de datos no disponible");
+                    const arr = Array.isArray(ids) ? ids : [ids];
+                    for (const id of arr) {
+                        if (id) await db.collection('prod_medicines').doc(id).delete();
+                    }
+                    cacheManager.clearCache(cacheManager.MEDICINES_CACHE_KEY);
+                    await loadMedicines();
+                } catch (error) {
+                    console.error("Error eliminando medicamentos:", error);
                     throw error;
                 }
             };
@@ -15117,7 +15226,7 @@ Responde en formato JSON con esta estructura:
                             {view === 'calidad' && showCalidad && <CalidadListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserForBlocks} users={users} />}
                             {view === 'bitacora' && showBitacoraTrabajo && <BitacoraTrabajoBlock kits={kits} patients={patients} currentUser={currentUserForBlocks} />}
                             {view === 'pacientes' && canViewPacientes && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} onReportExcelUpload={reportExcelUploadBatch} currentUser={currentUserForBlocks} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} users={users} onOpenTrabajarKit={showOperaciones ? openTrabajarFromPacientes : undefined} />}
-                            {view === 'config' && canViewConfig && <ConfigBlock medicines={medicines} onAddList={addMedsList} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} />}
+                            {view === 'config' && canViewConfig && <ConfigBlock medicines={medicines} onAddList={addMedsList} onDeleteMedicines={deleteMedicines} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} />}
                             {view === 'users' && canViewConfig && <UserManagementBlock users={users} onAddUser={addUser} onUpdateUser={updateUser} onDeleteUser={deleteUser} />}
                             {((view === 'reports' && !canViewReports) || (view === 'calendario' && !showCalendario) || (view === 'despacho' && !showDespacho) || (view === 'operaciones' && !showOperaciones) || (view === 'calidad' && !showCalidad) || (view === 'bitacora' && !showBitacoraTrabajo) || (view === 'pacientes' && !canViewPacientes) || ((view === 'config' || view === 'users') && !canViewConfig)) && (
                                 <div className="flex flex-col items-center justify-center min-h-[40vh] text-slate-500">
