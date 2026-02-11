@@ -1,11 +1,12 @@
 /* Service Worker - IHSS A TU CASA PWA */
-const CACHE_NAME = 'ihss-atucasa-v1';
+const CACHE_NAME = 'ihss-atucasa-v2';
 const urlsToCache = [
   './',
   './index.html',
   './logistica.html',
   './manifest.webmanifest',
-  './supabase-db-adapter.js'
+  './supabase-db-adapter.js',
+  './qr-local.js'
 ];
 
 self.addEventListener('install', (event) => {
