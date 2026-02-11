@@ -307,24 +307,18 @@
         }
         /* Móvil: formularios y contenido adaptados */
         @media (max-width: 767px) {
-            .mobile-form-input, .mobile-modal-scroll input, .mobile-modal-scroll select, .mobile-modal-scroll textarea,
-            .mobile-content-area input, .mobile-content-area select, .mobile-content-area textarea { font-size: 16px !important; min-height: 44px !important; padding: 10px 14px !important; max-width: 100%; box-sizing: border-box; }
-            .mobile-form-grid, .mobile-modal-scroll .grid, .mobile-content-area .grid { grid-template-columns: 1fr !important; gap: 0.75rem !important; }
+            .mobile-form-input, .mobile-modal-scroll input, .mobile-modal-scroll select, .mobile-modal-scroll textarea { font-size: 16px !important; min-height: 44px; padding: 10px 14px !important; }
+            .mobile-form-grid, .mobile-modal-scroll .grid { grid-template-columns: 1fr !important; gap: 0.75rem !important; }
             .mobile-form-label { font-size: 0.7rem !important; margin-bottom: 0.25rem !important; }
             .mobile-modal-full { margin: 0 !important; max-height: 100% !important; height: 100% !important; border-radius: 0 !important; }
             .mobile-modal-container { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) !important; }
             .mobile-modal-scroll { max-height: calc(100dvh - 70px) !important; -webkit-overflow-scrolling: touch; padding-bottom: env(safe-area-inset-bottom) !important; }
             .mobile-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; -ms-overflow-style: none; scrollbar-width: none; }
             .mobile-table-wrap::-webkit-scrollbar { display: none; }
-            .mobile-modal-scroll .grid-cols-2, .mobile-content-area .grid-cols-2 { grid-template-columns: 1fr !important; }
-            .mobile-modal-scroll .grid-cols-4, .mobile-content-area .grid-cols-4 { grid-template-columns: 1fr 1fr !important; }
-            .mobile-modal-scroll button, .mobile-content-area button { min-height: 44px !important; touch-action: manipulation; padding: 10px 14px !important; }
-            form { max-width: 100%; overflow-x: hidden; }
-            .max-w-4xl, .max-w-5xl, .max-w-6xl { max-width: 100% !important; padding-left: 0.5rem; padding-right: 0.5rem; }
-        }
-        /* Orientación landscape en móvil: formularios más compactos */
-        @media (max-width: 767px) and (orientation: landscape) {
-            .mobile-modal-scroll { max-height: calc(100dvh - 50px) !important; }
+            .mobile-modal-scroll .grid-cols-2 { grid-template-columns: 1fr !important; }
+            .mobile-modal-scroll .grid-cols-4 { grid-template-columns: 1fr 1fr !important; }
+            .mobile-modal-scroll button { min-height: 44px; touch-action: manipulation; }
+            .mobile-content-area input, .mobile-content-area select, .mobile-content-area textarea { font-size: 16px !important; min-height: 44px; }
         }
         .glass-panel { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.7); box-shadow: 0 8px 32px 0 rgba(13, 148, 136, 0.08), 0 0 0 1px rgba(255,255,255,0.5) inset; }
         .glass-panel-futuro { background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(240,253,250,0.85) 50%, rgba(220,252,231,0.85) 100%); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(20, 184, 166, 0.15); box-shadow: 0 12px 40px -10px rgba(13, 148, 136, 0.15), 0 0 0 1px rgba(255,255,255,0.6) inset; }
@@ -2812,7 +2806,7 @@
                         <Modal isOpen={true} onClose={closeForm} title={formViewOnly ? (kitData.complemento ? 'Ver complemento — Despacho de medicamentos' : 'Ver kit — Despacho de medicamentos') : (kitData.complemento ? 'Complemento — Despacho de medicamentos — Verificar recetas' : 'Despacho de medicamentos — Verificar recetas')} maxWidth="max-w-4xl">
                             <form onSubmit={(e) => { e.preventDefault(); if (!formViewOnly) handleDespachoSubmit(e); }} className="space-y-5">
                                 <p className="text-[10px] text-slate-400 italic leading-tight">Verifique que las recetas físicas coincidan con el sistema. Marque cada medicamento verificado. Luego envíe a Operaciones.</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 mobile-form-grid">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                     <div>
                                         <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI</label>
                                         <input type="text" value={selectedPatient?.dni || ''} disabled className="w-full p-2.5 border rounded-lg text-sm bg-white text-slate-700 font-bold" />
@@ -3407,7 +3401,7 @@
                                 const pt = (patients || []).find(p => p.id === verKit.patientId || (p.dni && verKit.dni && String(p.dni).trim() === String(verKit.dni).trim()));
                                 return (
                                     <div className="space-y-4">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl mobile-form-grid">
+                                        <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl">
                                             <div><span className="text-[10px] font-bold text-slate-400 block">DNI</span><span className="font-mono">{verKit.dni || pt?.dni || '—'}</span></div>
                                             <div><span className="text-[10px] font-bold text-slate-400 block">Nombre</span><span>{verKit.nombre || pt?.nombre || '—'}</span></div>
                                             <div><span className="text-[10px] font-bold text-slate-400 block">Modo</span><span>{verKit.deliveryMode === 'ruta' ? 'Ruta' : verKit.deliveryMode === 'ventanilla' ? 'Ventanilla' : '—'}</span></div>
@@ -3522,7 +3516,7 @@
                                 })()
                             ) : (
                                 <form onSubmit={handleTrabajarSubmit} className="space-y-5">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-xl border border-slate-100 mobile-form-grid">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-xl border border-slate-100">
                                         <div>
                                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI del Paciente</label>
                                             <input type="text" value={trabajarKit.dni || ''} disabled className="w-full p-2.5 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 font-bold" />
@@ -4467,7 +4461,7 @@
                                 const pt = (patients || []).find(p => p.id === verKit.patientId || (p.dni && verKit.dni && String(p.dni).trim() === String(verKit.dni).trim()));
                                 return (
                                     <div className="space-y-4">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl mobile-form-grid">
+                                        <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl">
                                             <div><span className="text-[10px] font-bold text-slate-400 block">DNI</span><span className="font-mono">{verKit.dni || pt?.dni || '—'}</span></div>
                                             <div><span className="text-[10px] font-bold text-slate-400 block">Nombre</span><span>{verKit.nombre || pt?.nombre || '—'}</span></div>
                                             <div><span className="text-[10px] font-bold text-slate-400 block">Modo</span><span>{verKit.deliveryMode === 'ruta' ? 'Ruta' : verKit.deliveryMode === 'ventanilla' ? 'Ventanilla' : '—'}</span></div>
@@ -4522,7 +4516,7 @@
                                         const horaRevision = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                                         return (
                                             <>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-xl border border-slate-100 mobile-form-grid">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white rounded-xl border border-slate-100">
                                                     <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI</label><input type="text" value={trabajarKit.dni || pt?.dni || '—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-700" /></div>
                                                     <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nombre</label><input type="text" value={(pt?.nombre || trabajarKit.nombre || '—')} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-700" /></div>
                                                     <div><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Usuario impresión (Rev. y asignación)</label><input type="text" value={trabajarKit.digitador || '—'} disabled className="w-full p-2.5 border rounded-lg text-sm bg-slate-50 text-slate-600" /></div>
@@ -5981,7 +5975,7 @@
                     {showVerModal && verKit && (
                         <Modal isOpen={true} onClose={cerrarVer} title="Detalle del Kit" maxWidth="max-w-3xl">
                             <div className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl mobile-form-grid">
+                                <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl">
                                     <div><span className="text-xs text-slate-500">DNI:</span><div className="font-bold">{verKit.dni || '—'}</div></div>
                                     <div><span className="text-xs text-slate-500">Nombre:</span><div className="font-bold">{verKit.nombre || '—'}</div></div>
                                     <div><span className="text-xs text-slate-500">Tipo:</span><div className="font-bold">{verKit.deliveryMode === 'ruta' ? 'Ruta' : 'Ventanilla'}</div></div>
@@ -6029,7 +6023,7 @@
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl mobile-form-grid">
+                                    <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl">
                                         <div><span className="text-xs text-slate-500">DNI:</span><div className="font-bold">{trabajarKit.dni || '—'}</div></div>
                                         <div><span className="text-xs text-slate-500">Nombre:</span><div className="font-bold">{trabajarKit.nombre || '—'}</div></div>
                                         <div><span className="text-xs text-slate-500">Tipo:</span><div className="font-bold">{trabajarKit.deliveryMode === 'ruta' ? 'Ruta' : 'Ventanilla'}</div></div>
@@ -9539,7 +9533,7 @@ html +
                                     {isRevAsigFormView ? (
                                     <div className="space-y-5">
                                         <KitHelpNote text="Flujo: Usted crea el kit → Contact Center confirma datos → Despacho verifica recetas → Operaciones arma → Logística envía → Calidad revisa → Delivery entrega." />
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 mobile-form-grid">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI</label>
                                                 <input type="text" value={selectedPatient?.dni || ''} disabled className="w-full p-2.5 border rounded-lg text-sm bg-white text-slate-700 font-bold" />
@@ -9654,7 +9648,7 @@ html +
                                     ) : isCCFormView ? (
                                     <div className="space-y-5">
                                         <KitHelpNote text="Confirme los datos con el paciente por teléfono. Al guardar, el kit pasa a Despacho de medicamentos." />
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 mobile-form-grid">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI</label>
                                                 <input type="text" value={selectedPatient?.dni || ''} disabled className="w-full p-2.5 border rounded-lg text-sm bg-white text-slate-700 font-bold" />
@@ -9790,7 +9784,7 @@ html +
                                     ) : isDespachoFormView ? (
                                     <div className="space-y-5">
                                         <KitHelpNote text="Verifique que las recetas físicas coincidan con el sistema. Marque cada medicamento verificado. Al guardar, el kit pasa a Operaciones." />
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 mobile-form-grid">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">DNI</label>
                                                 <input type="text" value={selectedPatient?.dni || ''} disabled className="w-full p-2.5 border rounded-lg text-sm bg-white text-slate-700 font-bold" />
@@ -13887,12 +13881,7 @@ Responde en formato JSON con esta estructura:
                 loadUsers();
                 loadKits();
                 loadPatients();
-                // Plantilla de ruta solo para impresión: cargar en idle
-                if (typeof requestIdleCallback === 'function') {
-                    requestIdleCallback(() => loadRutaTemplateCurrent(), { timeout: 5000 });
-                } else {
-                    setTimeout(() => loadRutaTemplateCurrent(), 2000);
-                }
+                loadRutaTemplateCurrent();
                 
                 // Escuchar cambios en tiempo real solo si Firebase está inicializado
                 if (firebaseInitialized && db) {
