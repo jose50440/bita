@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#14b8a6">
+    <meta name="theme-color" content="#194490">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="IHSS A TU CASA">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="icon" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s">
-    <link rel="apple-touch-icon" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s">
+    <link rel="icon" href="./icons/ihss-logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="./icons/ihss-logo.png">
     <title>Logística - IHSS A TU CASA</title>
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
     <link rel="preconnect" href="https://unpkg.com">
@@ -32,17 +32,17 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'], display: ['Poppins', 'sans-serif'] },
                     colors: {
-                        turquoise: { 50:'#f0fdfa', 100:'#ccfbf1', 200:'#99f6e4', 300:'#5eead4', 400:'#2dd4bf', 500:'#14b8a6', 600:'#0d9488', 700:'#0f766e', 800:'#115e59', 900:'#134e4a' },
-                        clinical: { 50:'#f0fdf4', 100:'#dcfce7', 400:'#4ade80', 500:'#22c55e', 600:'#16a34a', 700:'#15803d' }
+                        turquoise: { 50:'#e8eef9', 100:'#c5d4f0', 200:'#9fb8e6', 300:'#6894d9', 400:'#3570c5', 500:'#194490', 600:'#163b7d', 700:'#12326a', 800:'#0e2857', 900:'#0a1e44' },
+                        clinical: { 50:'#e8f5e9', 100:'#c8e6c9', 200:'#a5d6a7', 300:'#81c784', 400:'#66bb6a', 500:'#43a047', 600:'#388e3c', 700:'#2e7d32', 800:'#1b5e20', 900:'#145214' }
                     },
-                    boxShadow: { soft: '0 4px 20px -2px rgba(20, 184, 166, 0.15)', glow: '0 0 15px rgba(45, 212, 191, 0.3)' }
+                    boxShadow: { soft: '0 4px 20px -2px rgba(25, 68, 144, 0.15)', glow: '0 0 15px rgba(67, 160, 71, 0.3)' }
                 }
             }
         }
     </script>
     <style>
         html, body { overflow-x: hidden; -webkit-overflow-scrolling: touch; }
-        body { font-family: 'Inter', sans-serif; background-color: #f0fdfa; }
+        body { font-family: 'Inter', sans-serif; background-color: #e8eef9; }
         h1, h2, h3, h4, .brand-font { font-family: 'Poppins', sans-serif; }
         @media (max-width: 767px) {
             .mobile-header-height { height: 56px; min-height: 56px; }
@@ -63,9 +63,19 @@
             .mobile-header-height { height: 44px; min-height: 44px; }
             .mobile-content-pt { padding-top: calc(44px + env(safe-area-inset-top, 0px)) !important; }
         }
-        .glass-panel-futuro { background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(240,253,250,0.85) 50%, rgba(220,252,231,0.85) 100%); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(20, 184, 166, 0.15); box-shadow: 0 12px 40px -10px rgba(13, 148, 136, 0.15), 0 0 0 1px rgba(255,255,255,0.6) inset; }
+        .glass-panel-futuro { background: #fff; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 12px 40px -10px rgba(0,0,0,0.08); }
         .futuro-orb { position: absolute; border-radius: 9999px; pointer-events: none; }
-        .futuro-glow { box-shadow: 0 0 20px rgba(13, 148, 136, 0.2), 0 0 40px rgba(34, 197, 94, 0.08); }
+        .futuro-glow { box-shadow: 0 0 20px rgba(25, 68, 144, 0.2), 0 0 40px rgba(67, 160, 71, 0.08); }
+        .app-layout[data-theme="nueva"] { background: linear-gradient(135deg, #e8eef9 0%, #c5d4f0 50%, #e8f5e9 100%) !important; }
+        .app-layout[data-theme="nueva"] .app-sidebar, .app-layout[data-theme="nueva"] .app-mobile-menu { background: linear-gradient(180deg, #0a1e44 0%, #163b7d 50%, #194490 100%) !important; }
+        .app-layout[data-theme="nueva"] .main-col { background: linear-gradient(135deg, #e8eef9 0%, #fff 30%, #e8f5e9 100%) !important; }
+        .app-layout[data-theme="nueva"] .glass-panel-futuro { background: #fff !important; }
+        .app-layout[data-theme="nueva"] .glass-panel-futuro .text-slate-700, .app-layout[data-theme="nueva"] .glass-panel-futuro .text-slate-400 { color: #0f172a !important; }
+        .badge-welcome { background-color: rgba(255,255,255,0.2); }
+        .app-layout[data-theme="nueva"] .dashboard-welcome-banner, .app-layout[data-theme="nueva"] .dashboard-welcome-banner h1, .app-layout[data-theme="nueva"] .dashboard-welcome-banner p, .app-layout[data-theme="nueva"] .dashboard-welcome-banner .badge-welcome { color: #0f172a !important; }
+        .app-layout[data-theme="nueva"] .dashboard-welcome-banner { background: linear-gradient(135deg, #e3eaf6 0%, #c5d4f0 50%, #c8e6c9 100%) !important; border-color: rgba(25,68,144,0.3) !important; }
+        .app-layout[data-theme="nueva"] .dashboard-welcome-banner .badge-welcome { background-color: rgba(255,255,255,0.9) !important; color: #194490 !important; }
+        .app-layout[data-theme="nueva"] .app-sidebar .border-turquoise-800, .app-layout[data-theme="nueva"] .app-mobile-menu .border-turquoise-800 { border-color: rgba(255,255,255,0.2) !important; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -82,10 +92,10 @@
 </head>
 <body class="text-slate-600 h-screen overflow-hidden selection:bg-turquoise-200 selection:text-turquoise-900">
     <div id="root" class="h-full">
-        <div style="display:flex;align-items:center;justify-content:center;height:100%;background:#f0fdfa;font-family:system-ui,sans-serif">
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;background:#e8eef9;font-family:system-ui,sans-serif">
             <div style="text-align:center">
-                <div style="width:40px;height:40px;border:3px solid #14b8a6;border-top-color:transparent;border-radius:50%;animation:swSpin .7s linear infinite;margin:0 auto 12px"></div>
-                <p style="color:#0d9488;font-weight:600;font-size:14px">Cargando Logística...</p>
+                <div style="width:40px;height:40px;border:3px solid #194490;border-top-color:transparent;border-radius:50%;animation:swSpin .7s linear infinite;margin:0 auto 12px"></div>
+                <p style="color:#194490;font-weight:600;font-size:14px">Cargando Logística...</p>
             </div>
         </div>
     </div>
@@ -143,6 +153,7 @@
             LayoutDashboard: (p) => <Icon {...p} path={<><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></>} />,
             Folder: (p) => <Icon {...p} path={<><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></>} />,
             RefreshCw: (p) => <Icon {...p} path={<><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></>} />,
+            Cloud: (p) => <Icon {...p} path={<><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></>} />,
             List: (p) => <Icon {...p} path={<><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></>} />,
             Activity: (p) => <Icon {...p} path={<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>} />,
             Calendar: (p) => <Icon {...p} path={<><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></>} />,
@@ -217,7 +228,22 @@
 
         const DashboardBlock = ({ setView, stats, userName, role, kits, currentUser, permissions }) => {
             const [time, setTime] = useState(new Date());
+            const [weather, setWeather] = useState({ temp: null, humidity: null, desc: '', code: 0, isDay: 1, loading: true, error: null });
+            const codes = { 0:'Despejado',1:'Mayormente despejado',2:'Parcialmente nublado',3:'Nublado',45:'Neblina',48:'Neblina helada',51:'Llovizna ligera',53:'Llovizna',55:'Llovizna densa',61:'Lluvia ligera',63:'Lluvia',65:'Lluvia fuerte',71:'Nieve ligera',73:'Nieve',75:'Nieve fuerte',77:'Granizo',80:'Chubascos ligeros',81:'Chubascos',82:'Chubascos fuertes',85:'Nevadas ligeras',86:'Nevadas fuertes',95:'Tormenta',96:'Tormenta con granizo',99:'Tormenta fuerte' };
+            const fetchWeather = React.useCallback(async (showLoading = false) => {
+                if (showLoading) setWeather(w=> ({ ...w, loading: true }));
+                const apiUrl = 'https://api.open-meteo.com/v1/forecast?latitude=15.5062&longitude=-88.0248&current=temperature_2m,relative_humidity_2m,weather_code,is_day&timezone=America/Tegucigalpa';
+                const tryFetch = async (url) => { const res = await fetch(url, { mode: 'cors' }); if (!res.ok) throw new Error('HTTP'); return res.json(); };
+                const proxies = [apiUrl, 'https://corsproxy.io/?' + encodeURIComponent(apiUrl), 'https://api.allorigins.win/raw?url=' + encodeURIComponent(apiUrl)];
+                try {
+                    let data = null;
+                    for (const url of proxies) { try { data = await tryFetch(url); break; } catch (_) { continue; } }
+                    if (data && data.current) setWeather({ temp: Math.round(data.current.temperature_2m), humidity: data.current.relative_humidity_2m, desc: codes[data.current.weather_code] || '—', code: data.current.weather_code || 0, isDay: data.current.is_day ?? 1, loading: false, error: null });
+                    else setWeather(w=> ({ ...w, loading: false, error: true }));
+                } catch (e) { setWeather(w=> ({ ...w, loading: false, error: true })); }
+            }, []);
             useEffect(() => { const t = setInterval(()=>setTime(new Date()),1000); return ()=>clearInterval(t); }, []);
+            useEffect(() => { fetchWeather(); const iv = setInterval(() => fetchWeather(), 300000); return () => clearInterval(iv); }, [fetchWeather]);
             const userDept = (currentUser?.departamento || '').toLowerCase();
             const userRoles = currentUser?.rolesDepartamento || [];
             const { canViewReports, canViewConfig } = permissions || {};
@@ -239,34 +265,54 @@
             });
             const userStats = { workToday: kitsLogisticaHoy.length, label: 'Kits en Logística Hoy' };
             return (
-                <div className="w-full min-w-0 max-w-6xl mx-auto space-y-6 md:space-y-8 animate-in px-0">
-                    <div className="bg-gradient-to-r from-turquoise-600 via-teal-600 to-clinical-600 rounded-2xl md:rounded-3xl p-5 md:p-8 text-white shadow-lg relative overflow-hidden border border-turquoise-500/20" style={{ boxShadow: '0 12px 40px -10px rgba(13, 148, 136, 0.4), 0 0 0 1px rgba(255,255,255,0.2) inset' }}>
-                        <div className="absolute inset-0 pointer-events-none"><div className="futuro-orb top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl -mr-24 -mt-24" /></div>
-                        <div className="relative z-10">
-                            <h1 className="text-3xl font-bold brand-font mb-2">¡Hola, {userName}!</h1>
-                            <p className="opacity-90 text-sm font-medium uppercase tracking-wider">Logística — Asignación de rutas</p>
-                            {(userDept || role || (userRoles && userRoles.length > 0)) && (
-                                <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                                    {userDept && <span className="bg-white/20 px-3 py-1 rounded-full font-semibold">Departamento: {userDept}</span>}
-                                    {userRoles && userRoles.length > 0 ? (
-                                        <span className="bg-white/20 px-3 py-1 rounded-full font-semibold">
-                                            {userRoles.length === 1 ? 'Cargo: ' : 'Cargos: '}
-                                            {userRoles.map(r => (r && r.charAt(0).toUpperCase() + r.slice(1)) || r).join(', ')}
-                                        </span>
-                                    ) : (
-                                        <span className="bg-white/20 px-3 py-1 rounded-full font-semibold">Rol: {role === 'superadmin' ? 'Super Admin' : role === 'supervisor' ? 'Supervisor' : role === 'admin' ? 'Administrador' : role}</span>
-                                    )}
-                                </div>
-                            )}
+                <div className="w-full min-w-0 max-w-6xl mx-auto space-y-2 animate-in px-0 -mt-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2 items-center">
+                        <div className="dashboard-welcome-banner bg-gradient-to-r from-turquoise-600 via-turquoise-500 to-clinical-600 rounded-2xl md:rounded-3xl px-4 py-3 md:px-5 md:py-4 text-white shadow-lg relative overflow-hidden border border-turquoise-500/20" style={{ boxShadow: '0 12px 40px -10px rgba(25, 68, 144, 0.4), 0 0 0 1px rgba(255,255,255,0.2) inset' }}>
+                            <div className="absolute inset-0 pointer-events-none"><div className="futuro-orb top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl -mr-24 -mt-24" /></div>
+                            <div className="relative z-10">
+                                <h1 className="text-2xl md:text-3xl font-bold brand-font mb-1">¡Hola, {userName}!</h1>
+                                <p className="opacity-90 text-xs font-medium uppercase tracking-wider">Logística — Asignación de rutas</p>
+                                {(userDept || role || (userRoles && userRoles.length > 0)) && (
+                                    <div className="mt-2 flex flex-wrap gap-2 text-sm">
+                                        {userDept && <span className="badge-welcome px-3 py-1 rounded-full font-semibold">Departamento: {userDept}</span>}
+                                        {userRoles && userRoles.length > 0 ? (
+                                            <span className="badge-welcome px-3 py-1 rounded-full font-semibold">
+                                                {userRoles.length === 1 ? 'Cargo: ' : 'Cargos: '}
+                                                {userRoles.map(r => (r && r.charAt(0).toUpperCase() + r.slice(1)) || r).join(', ')}
+                                            </span>
+                                        ) : (
+                                            <span className="badge-welcome px-3 py-1 rounded-full font-semibold">Rol: {role === 'superadmin' ? 'Super Admin' : role === 'supervisor' ? 'Supervisor' : role === 'admin' ? 'Administrador' : role}</span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-right"></div>
                         </div>
-                        <div className="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-right"></div>
+                        <div className="flex justify-center items-center p-0 m-0 -my-0.5">
+                            <img src="./gifdashboard.gif" alt="" className="h-[calc(12rem+10mm)] md:h-[calc(15rem+10mm)] lg:h-[calc(18rem+10mm)] w-auto object-contain rounded-xl block" />
+                        </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="glass-panel-futuro p-6 rounded-3xl flex flex-col justify-center items-center text-center futuro-glow">
                             <div className="text-5xl font-mono font-bold text-slate-700 tracking-widest mb-2">{time.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
                             <div className="text-sm text-slate-400 font-medium uppercase">{time.toLocaleDateString([], {weekday:'long', day:'numeric', month:'long'})}</div>
                         </div>
-                        <div className="md:col-span-2">
+                        <div className="glass-panel-futuro p-6 rounded-3xl flex flex-col justify-center items-center text-center futuro-glow">
+                            <div className="flex items-center gap-2 mb-2 text-slate-500">
+                                <Icons.Cloud size={28}/>
+                                <span className="text-xs font-bold uppercase">San Pedro Sula, Honduras</span>
+                            </div>
+                            {weather.loading && <div className="text-slate-400 text-sm">Cargando...</div>}
+                            {weather.error && <div className="text-slate-400 text-sm">Sin conexión · <button type="button" onClick={() => fetchWeather(true)} className="underline hover:text-turquoise-600">Reintentar</button></div>}
+                            {!weather.loading && !weather.error && weather.temp != null && (
+                                <>
+                                    <div className="text-4xl font-mono font-bold text-slate-700">{weather.temp}°C</div>
+                                    <div className="text-xs text-slate-400 mt-1">{weather.desc}</div>
+                                    {weather.humidity != null && <div className="text-xs text-slate-400">{weather.humidity}% humedad</div>}
+                                </>
+                            )}
+                        </div>
+                        <div>
                             <div className="glass-panel-futuro p-6 rounded-3xl flex items-center gap-4 futuro-glow">
                                 <div className="p-4 bg-turquoise-50 text-turquoise-600 rounded-2xl"><Icons.Box size={32}/></div>
                                 <div>
@@ -1146,16 +1192,18 @@
             );
 
             return (
-                <div className="app-layout flex h-full w-full min-h-0 overflow-hidden relative">
+                <div className="app-layout flex h-full w-full min-h-0 overflow-hidden relative" data-theme="nueva">
                     <div className="absolute inset-0 pointer-events-none overflow-hidden">
                         <div className="futuro-orb top-0 right-0 w-[400px] h-[400px] bg-turquoise-200/20 blur-3xl -translate-y-1/2 translate-x-1/2" />
                         <div className="futuro-orb bottom-0 left-0 w-[300px] h-[300px] bg-clinical-200/15 blur-3xl translate-y-1/2 -translate-x-1/2" />
                     </div>
                     {mobileMenuOpen && (
-                        <div className="fixed inset-0 z-[100] bg-gradient-to-br from-turquoise-900 via-teal-900 to-turquoise-900/98 backdrop-blur-md flex flex-col md:hidden animate-in" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                        <div className="app-mobile-menu fixed inset-0 z-[100] bg-gradient-to-br from-turquoise-900 via-teal-900 to-turquoise-900/98 backdrop-blur-md flex flex-col md:hidden animate-in" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
                             <div className="p-4 flex justify-between items-center border-b border-turquoise-800 shrink-0">
                                 <div className="font-bold text-white text-xl flex items-center gap-2 brand-font">
-                                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" alt="IHSS Logo" className="w-6 h-6 object-contain" onError={e=>{e.target.style.display='none'}} />
+                                    <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center overflow-hidden shrink-0">
+                                        <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-6 h-6 rounded-lg bg-gradient-to-br from-turquoise-400 to-blue-500 flex items-center justify-center';e.target.parentElement.innerHTML='<span class="text-white font-bold text-xs">IHSS</span>'}} } />
+                                    </div>
                                     IHSS A TU CASA
                                 </div>
                                 <button onClick={()=>setMobileMenuOpen(false)} className="text-white p-3 min-w-[44px] min-h-[44px] flex items-center justify-center bg-turquoise-800 rounded-full btn-hover-effect touch-manipulation" aria-label="Cerrar menú">
@@ -1176,19 +1224,19 @@
                             </div>
                         </div>
                     )}
-                    <aside className={`${sidebarCollapsed ? 'w-24' : 'w-72'} bg-gradient-to-b from-turquoise-900 via-turquoise-800 to-teal-900 text-turquoise-100 flex-col shadow-2xl z-20 hidden md:flex relative transition-all duration-300 ease-in-out border-r border-turquoise-700/50`} style={{ boxShadow: '4px 0 24px rgba(13, 148, 136, 0.08)' }}>
+                    <aside className={`app-sidebar ${sidebarCollapsed ? 'w-24' : 'w-72'} bg-gradient-to-b from-turquoise-900 via-turquoise-800 to-teal-900 text-turquoise-100 flex-col shadow-2xl z-20 hidden md:flex relative transition-all duration-300 ease-in-out border-r border-turquoise-700/50`} style={{ boxShadow: '4px 0 24px rgba(13, 148, 136, 0.08)' }}>
                         <div className={`p-6 pb-2 relative z-10 flex ${sidebarCollapsed ? 'justify-center' : 'justify-between'} items-center`}>
                             {!sidebarCollapsed && (
                                 <div className="flex items-center gap-3 text-white">
                                     <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden bg-white flex items-center justify-center">
-                                        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none'}} />
+                                        <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-10 h-10 rounded-xl shadow-lg bg-gradient-to-br from-turquoise-500 to-blue-600 flex items-center justify-center';e.target.parentElement.innerHTML='<span class="text-white font-bold text-sm">IHSS</span>'}} } />
                                     </div>
                                     <span className="font-bold text-2xl brand-font animate-in">IHSS</span>
                                 </div>
                             )}
                             {sidebarCollapsed && (
                                 <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden bg-white flex items-center justify-center mb-2">
-                                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none'}} />
+                                    <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-10 h-10 rounded-xl shadow-lg bg-gradient-to-br from-turquoise-500 to-blue-600 flex items-center justify-center mb-2';e.target.parentElement.innerHTML='<span class="text-white font-bold text-sm">IHSS</span>'}} } />
                                 </div>
                             )}
                             <button onClick={()=>setSidebarCollapsed(!sidebarCollapsed)} className="text-turquoise-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-turquoise-800 absolute right-4 top-6 btn-hover-effect" style={sidebarCollapsed ? { right: 'auto', top: 'auto', marginTop: '10px', position: 'static' } : {}}>
@@ -1226,7 +1274,7 @@
                                 <Icons.Menu size={24}/>
                             </button>
                             <div className="font-bold text-slate-800 flex items-center gap-2 brand-font text-base truncate flex-1 justify-center">
-                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYufSdSImxYEfwI_evtM1JJJUn3n4ETVT5GA&s" alt="IHSS Logo" className="w-5 h-5 object-contain shrink-0" onError={e=>{e.target.style.display='none'}} />
+                                <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-5 h-5 object-contain shrink-0" onError={e=>{e.target.style.display='none'}} />
                                 <span className="truncate">IHSS A TU CASA — Logística</span>
                             </div>
                             <div className="w-10 shrink-0" aria-hidden="true"></div>
@@ -1261,7 +1309,7 @@
                 </div>
             );
             if (!ready) return (
-                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-turquoise-100 via-teal-50 to-clinical-50">
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-turquoise-100 via-slate-50 to-clinical-50">
                     <div className="text-center">
                         <div className="w-16 h-16 border-4 border-turquoise-500 border-t-solid border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                         <p className="text-slate-600 font-bold">Conectando a la base de datos...</p>
